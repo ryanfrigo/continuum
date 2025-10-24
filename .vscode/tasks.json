@@ -1,0 +1,22 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "InjectionIII: Open App Store",
+            "type": "shell",
+            "command": "open macappstore://apps.apple.com/app/id1380446739"
+        },
+        {
+            "label": "InjectionIII: Open Project",
+            "type": "shell",
+            "command": "open -a InjectionIII ${workspaceFolder}/continuum.xcodeproj/project.xcworkspace"
+        },
+        {
+            "label": "Simulator: Relaunch App",
+            "type": "shell",
+            "command": "xcrun simctl terminate C60A4FE1-9C31-43C4-B5CD-F19CBF9BB9A1 orion-labs.continuum; xcrun simctl launch --console-pty C60A4FE1-9C31-43C4-B5CD-F19CBF9BB9A1 orion-labs.continuum"
+        }
+    ]
+}
+
+
