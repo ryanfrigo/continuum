@@ -7,12 +7,20 @@ final class Habit {
     var name: String
     var createdAt: Date
     var completedDates: [Date]
+    var order: Int?  // Optional to support migration from older versions
 
-    init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = []) {
+    init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.completedDates = completedDates.map { Habit.startOfDay($0) }
+        self.order = order
+    }
+    
+    // Computed property to always return a non-nil order value
+    var orderValue: Int {
+        get { order ?? 0 }
+        set { order = newValue }
     }
 
     // MARK: - Helpers
@@ -49,6 +57,38 @@ final class Habit {
             cursor = Habit.startOfDay(prev)
         }
         return count
+    }
+
+    /// Returns the start date of the current streak, or nil if no streak
+    func streakStartDate(asOf date: Date = Date()) -> Date? {
+        let set = completedSet
+        var cursor = Habit.startOfDay(date)
+        var streakStart: Date? = nil
+
+        while set.contains(cursor) {
+            streakStart = cursor
+            guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = Habit.startOfDay(prev)
+        }
+        return streakStart
+    }
+
+    /// Returns the habit health as a percentage of the last 66 days completed (0.0 to 1.0)
+    func habitHealth(asOf date: Date = Date()) -> Double {
+        let daysBack = 66
+        let set = completedSet
+        let start = Habit.startOfDay(date)
+        var completedCount = 0
+
+        for offset in 0..<daysBack {
+            if let d = Calendar.current.date(byAdding: .day, value: -offset, to: start) {
+                if set.contains(Habit.startOfDay(d)) {
+                    completedCount += 1
+                }
+            }
+        }
+
+        return Double(completedCount) / Double(daysBack)
     }
 
     func historyCompletionFlags(daysBack: Int = 56, asOf date: Date = Date()) -> [Bool] {

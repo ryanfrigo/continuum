@@ -23,6 +23,10 @@ struct HabitCardView: View {
     // Animation states
     @State private var wasCompletedToday = false
     @State private var lastRefreshDate = Date()
+    @State private var checkmarkScale: CGFloat = 0
+    @State private var showCheckmark = false
+    @State private var cardScale: CGFloat = 1.0
+    @State private var gridSquareAnimationProgress: [Bool] = Array(repeating: false, count: 66)
 
     private func shouldShowStreak() -> Bool {
         // Don't show "0 DAY STREAK" until the day has fully passed without completion
@@ -39,7 +43,7 @@ struct HabitCardView: View {
     
     private func getStreakText() -> String {
         let hasAnyCompletion = !habit.completedDates.isEmpty
-        
+
         // If there's any completion history, always show the streak count
         if hasAnyCompletion {
             let streak = getDisplayStreak()
@@ -48,6 +52,19 @@ struct HabitCardView: View {
             // Only show "Start today" if there's no completion history at all
             return "Start today"
         }
+    }
+
+    private func getStreakStartText() -> String? {
+        guard let startDate = habit.streakStartDate() else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "Since \(formatter.string(from: startDate))"
+    }
+
+    private func getHealthText() -> String {
+        let health = habit.habitHealth()
+        let percentage = Int(health * 100)
+        return "\(percentage)%"
     }
     
     private func getDisplayStreak() -> Int {
@@ -63,71 +80,120 @@ struct HabitCardView: View {
         }
     }
 
-    private func streakColor(for streak: Int) -> Color {
+    /// Returns color based on habit health (% of last 66 days completed)
+    /// 0% = Orange, 100% = Deep Green/Blue
+    private func healthColor(for health: Double) -> Color {
         // Palette tuned to harmonize with iOS orange
-        // Phase 1: Orange (38°) → Balanced Green (130°)
-        // Phase 2: Balanced Green (130°) → Dark Blue (220°) with brightness falloff
+        // Phase 1 (0-66%): Orange (38°) → Balanced Green (130°)
+        // Phase 2 (66-100%): Balanced Green (130°) → Deep Teal/Blue (180°)
         let hueOrange: Double = 38.0 / 360.0
         let hueGreen: Double = 130.0 / 360.0
-        let hueBlueDark: Double = 220.0 / 360.0
+        let hueTeal: Double = 180.0 / 360.0
 
-        // Keep saturation close to orange; reduce brightness slightly toward dark blue
+        // Keep saturation close to orange; adjust brightness
         let satStart: Double = 0.94
         let briStart: Double = 0.98
         let satGreen: Double = 0.85
         let briGreen: Double = 0.95
-        let satBlue: Double = 0.90
-        let briBlue: Double = 0.60 // dark target
+        let satTeal: Double = 0.80
+        let briTeal: Double = 0.85
 
-        if streak <= habitFormationDays {
-            let t = max(0, min(1, Double(streak) / Double(habitFormationDays)))
+        let clampedHealth = max(0, min(1, health))
+
+        if clampedHealth <= 0.66 {
+            // Phase 1: Orange to Green (0% to 66%)
+            let t = clampedHealth / 0.66
             let hue = hueOrange + (hueGreen - hueOrange) * t
             let sat = satStart + (satGreen - satStart) * t
             let bri = briStart + (briGreen - briStart) * t
             return Color(hue: hue, saturation: sat, brightness: bri)
         } else {
-            let capped = min(streak, 1000)
-            let t = max(0, min(1, Double(capped - habitFormationDays) / Double(1000 - habitFormationDays)))
-            let hue = hueGreen + (hueBlueDark - hueGreen) * t
-            let sat = satGreen + (satBlue - satGreen) * t
-            let bri = briGreen + (briBlue - briGreen) * t
+            // Phase 2: Green to Teal (66% to 100%)
+            let t = (clampedHealth - 0.66) / 0.34
+            let hue = hueGreen + (hueTeal - hueGreen) * t
+            let sat = satGreen + (satTeal - satGreen) * t
+            let bri = briGreen + (briTeal - briGreen) * t
             return Color(hue: hue, saturation: sat, brightness: bri)
         }
     }
     
     private func triggerCompletionAnimation() {
-        // Animation removed - card size remains constant
         wasCompletedToday = habit.isCompletedToday
+
+        // Show checkmark overlay
+        showCheckmark = true
+        checkmarkScale = 0
+
+        // Animate card press
+        withAnimation(.easeInOut(duration: 0.1)) {
+            cardScale = 0.95
+        }
+
+        // Bounce back
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.1)) {
+            cardScale = 1.0
+        }
+
+        // Animate checkmark appearance with spring
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            checkmarkScale = 1.0
+        }
+
+        // Hide checkmark after delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                checkmarkScale = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                showCheckmark = false
+            }
+        }
     }
 
     var body: some View {
         let displayStreak: Int = getDisplayStreak()
         let isCompletedToday = habit.isCompletedToday
+        let habitHealthValue = habit.habitHealth()
         let _ = lastRefreshDate // Force refresh when this changes
-        
-        // Border color: orange until today is completed, then based on streak
-        let borderColor: Color = {
-            if isCompletedToday {
-                return streakColor(for: displayStreak)
-            } else {
-                return .orange // Orange until today is completed
-            }
-        }()
+
+        // Border color: based on habit health (% of last 66 days)
+        let borderColor: Color = healthColor(for: habitHealthValue)
 
         ZStack {
-            // Card content - no scale effect applied here
-            VStack(alignment: .leading, spacing: 8) {
-                // Header
-                Text(habit.name)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
+            // Card content
+            VStack(alignment: .leading, spacing: 6) {
+                // Header with name and health %
+                HStack {
+                    Text(habit.name)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
 
-                Text(getStreakText())
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.gray)
-                    .padding(.bottom, 0)
-                    .animation(nil, value: getStreakText())
+                    Spacer()
+
+                    // Health percentage badge
+                    Text(getHealthText())
+                        .font(.caption2.monospaced().weight(.semibold))
+                        .foregroundStyle(borderColor)
+                }
+
+                // Streak info row
+                HStack(spacing: 8) {
+                    Text(getStreakText())
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.gray)
+                        .animation(nil, value: getStreakText())
+
+                    if let startText = getStreakStartText(), habit.currentStreak() > 0 {
+                        Text("·")
+                            .foregroundStyle(.gray.opacity(0.5))
+                        Text(startText)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.gray.opacity(0.7))
+                    }
+
+                    Spacer()
+                }
 
                 // History grid (66 days → 6 rows × 11 columns)
                 let flags: [Bool] = habit.historyCompletionFlags(daysBack: habitFormationDays)
@@ -180,6 +246,21 @@ struct HabitCardView: View {
             )
             .clipped()
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .scaleEffect(cardScale)
+
+            // Checkmark overlay for completion animation
+            if showCheckmark {
+                ZStack {
+                    Circle()
+                        .fill(borderColor.opacity(0.2))
+                        .frame(width: 60, height: 60)
+
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(borderColor)
+                }
+                .scaleEffect(checkmarkScale)
+            }
         }
         .animation(nil, value: habit.completedDates)
         .onAppear {
@@ -195,6 +276,10 @@ struct HabitCardView: View {
             let wasCompleted = habit.isCompletedToday
             habit.toggleCompletion()
             
+            // Sync widget data after completion change
+            let habitData = HabitData(from: habit)
+            HabitDataManager.shared.saveHabitData(habitData)
+            HabitDataManager.shared.updateWidgetTimeline()
             
             // Add haptic feedback
             #if os(iOS)
@@ -230,73 +315,15 @@ struct HabitCardView: View {
             }
         }
         .sheet(isPresented: $showingSetStreak) {
-            NavigationStack {
-                VStack(spacing: 30) {
-                    Text("Change Streak")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-
-                    // Large display of current value
-                    Text("\(selectedStreak)")
-                        .font(.system(size: 72, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.orange)
-                        .animation(.easeInOut(duration: 0.2), value: selectedStreak)
-
-                    // Stepper controls
-                    HStack(spacing: 40) {
-                        // Decrease button
-                        Button(action: {
-                            if selectedStreak > 0 {
-                                selectedStreak -= 1
-                                // Haptic feedback
-                                #if os(iOS)
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
-                                #endif
-                            }
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 44))
-                                .foregroundStyle(selectedStreak > 0 ? .orange : .gray)
-                        }
-                        .disabled(selectedStreak <= 0)
-
-                        // Increase button
-                        Button(action: {
-                            if selectedStreak < 10000 {
-                                selectedStreak += 1
-                                // Haptic feedback
-                                #if os(iOS)
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
-                                #endif
-                            }
-                        }) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 44))
-                                .foregroundStyle(selectedStreak < 10000 ? .orange : .gray)
-                        }
-                        .disabled(selectedStreak >= 10000)
-                    }
-
-
-                    Spacer()
-                }
-                .padding()
-                .background(Color.black.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showingSetStreak = false }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            onAction?(.setStreak(selectedStreak))
-                            showingSetStreak = false
-                        }
-                    }
-                }
+            HabitHistoryEditView(habit: habit) {
+                showingSetStreak = false
+            } onSave: {
+                // Sync widget data after history changes
+                let habitData = HabitData(from: habit)
+                HabitDataManager.shared.saveHabitData(habitData)
+                HabitDataManager.shared.updateWidgetTimeline()
+                showingSetStreak = false
             }
-            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $showingRename) {
             NavigationStack {
