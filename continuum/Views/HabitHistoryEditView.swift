@@ -16,33 +16,36 @@ struct HabitHistoryEditView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 50))
-                            .foregroundStyle(.orange)
-                            .scaleEffect(showContent ? 1 : 0.5)
-                            .opacity(showContent ? 1 : 0)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        // Header
+                        VStack(spacing: 8) {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 50))
+                                .foregroundStyle(.orange)
+                                .scaleEffect(showContent ? 1 : 0.5)
+                                .opacity(showContent ? 1 : 0)
 
-                        Text("Edit History")
-                            .font(.title2.weight(.bold))
-                            .foregroundStyle(.white)
-                            .opacity(showContent ? 1 : 0)
+                            Text("EDIT HISTORY")
+                                .font(.title3.weight(.bold).monospaced())
+                                .foregroundStyle(.white)
+                                .tracking(2)
+                                .opacity(showContent ? 1 : 0)
 
-                        Text("Tap or drag to select multiple days")
-                            .font(.subheadline)
-                            .foregroundStyle(.gray)
-                            .opacity(showContent ? 1 : 0)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 20)
+                            Text("TAP OR DRAG TO SELECT DAYS")
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.gray)
+                                .tracking(1)
+                                .opacity(showContent ? 1 : 0)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 20)
 
-                    // Calendar grid grouped by month
-                    let groupedDays = groupDaysByMonth()
+                        // Calendar grid grouped by month (oldest first, scroll up for past)
+                        let groupedDays = groupDaysByMonth()
 
-                    ForEach(groupedDays, id: \.month) { monthData in
+                        ForEach(groupedDays, id: \.month) { monthData in
                         VStack(alignment: .leading, spacing: 12) {
                             // Month header
                             Text(monthData.monthName)
@@ -94,19 +97,36 @@ struct HabitHistoryEditView: View {
                         )
                         .opacity(showContent ? 1 : 0)
                         .offset(y: showContent ? 0 : 20)
+                        .id(monthData.month)
                     }
+
+                    // Anchor for scrolling to bottom
+                    Color.clear
+                        .frame(height: 1)
+                        .id("bottom")
                 }
                 .padding()
+                .onAppear {
+                    // Scroll to bottom (current month) after layout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
+                    }
+                }
+            }
             }
             .background(Color.black.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onCancel() }
-                        .foregroundStyle(.orange)
+                    Button("CANCEL") { onCancel() }
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.gray)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { onSave() }
+                    Button("SAVE") { onSave() }
+                        .font(.caption.monospaced())
                         .foregroundStyle(.orange)
                         .fontWeight(.semibold)
                 }
@@ -142,7 +162,8 @@ struct HabitHistoryEditView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
 
-        return grouped.keys.sorted().reversed().map { monthStart in
+        // Sorted chronologically - oldest first, current month at bottom
+        return grouped.keys.sorted().map { monthStart in
             let monthDays = grouped[monthStart]!.sorted()
             let firstDay = monthDays.first!
             let weekday = calendar.component(.weekday, from: firstDay)

@@ -30,13 +30,14 @@ struct HabitCardView: View {
     @State private var cardScale: CGFloat = 1.0
     @State private var gridSquareAnimationProgress: [Bool] = Array(repeating: false, count: 66)
 
-    // Ripple animation states
-    @State private var ripple1Scale: CGFloat = 0.5
+    // Ripple animation states - full screen expansion
+    @State private var ripple1Scale: CGFloat = 0
     @State private var ripple1Opacity: Double = 0
-    @State private var ripple2Scale: CGFloat = 0.5
+    @State private var ripple2Scale: CGFloat = 0
     @State private var ripple2Opacity: Double = 0
-    @State private var ripple3Scale: CGFloat = 0.5
-    @State private var ripple3Opacity: Double = 0
+    @State private var showRippleOverlay = false
+    @State private var centerCheckScale: CGFloat = 0
+    @State private var centerCheckOpacity: Double = 0
 
     private func shouldShowStreak() -> Bool {
         // Don't show "0 DAY STREAK" until the day has fully passed without completion
@@ -130,69 +131,68 @@ struct HabitCardView: View {
     private func triggerCompletionAnimation() {
         wasCompletedToday = habit.isCompletedToday
 
+        // Play electronic beep and haptic
+        SoundManager.shared.playCompletionBeep()
+        SoundManager.shared.triggerCompletionHaptic()
+
         // Reset all animation states
         showCheckmark = true
+        showRippleOverlay = true
         checkmarkScale = 0
         checkmarkOpacity = 0
-        ripple1Scale = 0.5
+        centerCheckScale = 0
+        centerCheckOpacity = 0
+        ripple1Scale = 0
         ripple1Opacity = 0
-        ripple2Scale = 0.5
+        ripple2Scale = 0
         ripple2Opacity = 0
-        ripple3Scale = 0.5
-        ripple3Opacity = 0
 
-        // Animate card press
-        withAnimation(.easeInOut(duration: 0.15)) {
-            cardScale = 0.95
+        // Animate card press - sharp and precise
+        withAnimation(.easeInOut(duration: 0.08)) {
+            cardScale = 0.92
         }
 
-        // Bounce back
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.15)) {
+        // Bounce back with slight overshoot
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.08)) {
             cardScale = 1.0
         }
 
-        // Animate checkmark appearance - slower and smoother
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-            checkmarkScale = 1.0
-            checkmarkOpacity = 1.0
+        // Center check mark - quick and sharp
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            centerCheckScale = 1.0
+            centerCheckOpacity = 1.0
         }
 
-        // Ripple 1 - starts immediately
-        withAnimation(.easeOut(duration: 1.2)) {
-            ripple1Scale = 2.5
-            ripple1Opacity = 0.6
+        // Ripple 1 - expands to full screen
+        withAnimation(.easeOut(duration: 0.8)) {
+            ripple1Scale = 15.0  // Large enough to cover screen
+            ripple1Opacity = 0.4
         }
-        withAnimation(.easeOut(duration: 1.2).delay(0.3)) {
+        withAnimation(.easeOut(duration: 0.6).delay(0.4)) {
             ripple1Opacity = 0
         }
 
-        // Ripple 2 - starts slightly delayed
-        withAnimation(.easeOut(duration: 1.2).delay(0.2)) {
-            ripple2Scale = 2.5
-            ripple2Opacity = 0.5
+        // Ripple 2 - slightly delayed, also full screen
+        withAnimation(.easeOut(duration: 0.8).delay(0.1)) {
+            ripple2Scale = 15.0
+            ripple2Opacity = 0.25
         }
-        withAnimation(.easeOut(duration: 1.2).delay(0.5)) {
+        withAnimation(.easeOut(duration: 0.6).delay(0.5)) {
             ripple2Opacity = 0
         }
 
-        // Ripple 3 - starts more delayed
-        withAnimation(.easeOut(duration: 1.2).delay(0.4)) {
-            ripple3Scale = 2.5
-            ripple3Opacity = 0.4
-        }
-        withAnimation(.easeOut(duration: 1.2).delay(0.7)) {
-            ripple3Opacity = 0
+        // Fade out center check
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                centerCheckScale = 1.2
+                centerCheckOpacity = 0
+            }
         }
 
-        // Fade out checkmark slowly
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            withAnimation(.easeOut(duration: 0.5)) {
-                checkmarkScale = 1.1
-                checkmarkOpacity = 0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                showCheckmark = false
-            }
+        // Clean up
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            showCheckmark = false
+            showRippleOverlay = false
         }
     }
 
@@ -273,48 +273,36 @@ struct HabitCardView: View {
     private func checkmarkOverlay() -> some View {
         if showCheckmark {
             ZStack {
-                // Ripple 1 (outermost, starts first)
+                // Center diamond with glow
+                Diamond()
+                    .fill(borderColor)
+                    .frame(width: 16, height: 16)
+                    .shadow(color: borderColor, radius: 10)
+                    .scaleEffect(centerCheckScale)
+                    .opacity(centerCheckOpacity)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fullScreenRipple() -> some View {
+        if showRippleOverlay {
+            ZStack {
+                // Ripple 1 - outer
                 Circle()
-                    .stroke(borderColor, lineWidth: 2)
-                    .frame(width: 60, height: 60)
+                    .stroke(borderColor.opacity(0.6), lineWidth: 1)
+                    .frame(width: 50, height: 50)
                     .scaleEffect(ripple1Scale)
                     .opacity(ripple1Opacity)
 
-                // Ripple 2 (middle)
+                // Ripple 2 - inner
                 Circle()
-                    .stroke(borderColor, lineWidth: 1.5)
-                    .frame(width: 60, height: 60)
+                    .stroke(borderColor.opacity(0.4), lineWidth: 0.5)
+                    .frame(width: 50, height: 50)
                     .scaleEffect(ripple2Scale)
                     .opacity(ripple2Opacity)
-
-                // Ripple 3 (innermost, starts last)
-                Circle()
-                    .stroke(borderColor, lineWidth: 1)
-                    .frame(width: 60, height: 60)
-                    .scaleEffect(ripple3Scale)
-                    .opacity(ripple3Opacity)
-
-                // Center glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [borderColor.opacity(0.3), borderColor.opacity(0)],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 35
-                        )
-                    )
-                    .frame(width: 70, height: 70)
-                    .scaleEffect(checkmarkScale)
-                    .opacity(checkmarkOpacity)
-
-                // Checkmark icon
-                Image(systemName: "checkmark")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(borderColor)
-                    .scaleEffect(checkmarkScale)
-                    .opacity(checkmarkOpacity)
             }
+            .allowsHitTesting(false)
         }
     }
 
@@ -322,6 +310,7 @@ struct HabitCardView: View {
         let _ = lastRefreshDate // Force refresh when this changes
 
         ZStack {
+            // Card content
             VStack(alignment: .leading, spacing: 6) {
                 headerView()
                 streakInfoRow()
@@ -337,12 +326,16 @@ struct HabitCardView: View {
                     .stroke(borderColor, lineWidth: borderWidth)
                     .animation(nil, value: borderColor)
             )
-            .clipped()
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
             .scaleEffect(cardScale)
 
+            // Center checkmark (inside card bounds)
             checkmarkOverlay()
+
+            // Full screen ripple (can overflow)
+            fullScreenRipple()
         }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius).inset(by: -500)) // Allow ripple overflow
         .animation(nil, value: habit.completedDates)
         .onAppear {
             // Ensure the view shows current day/streak status immediately when it appears
@@ -362,21 +355,12 @@ struct HabitCardView: View {
             HabitDataManager.shared.saveHabitData(habitData)
             HabitDataManager.shared.updateWidgetTimeline()
 
-            // Add haptic feedback
-            #if os(iOS)
-            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-            impactFeedback.impactOccurred()
-            #endif
-
             // Only trigger completion animation if we just completed the habit
             if !wasCompleted && habit.isCompletedToday {
-                // Add stronger haptic feedback for completion
-                #if os(iOS)
-                let completionFeedback = UIImpactFeedbackGenerator(style: .medium)
-                completionFeedback.impactOccurred()
-                #endif
-
                 triggerCompletionAnimation()
+            } else {
+                // Subtle feedback for uncompleting
+                SoundManager.shared.triggerSelectionHaptic()
             }
 
             // Notify parent about the completion change

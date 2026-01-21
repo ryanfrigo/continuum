@@ -8,16 +8,17 @@ struct AddHabitSheet: View {
 
     @State private var showContent = false
     @State private var selectedSuggestion: String? = nil
+    @State private var cursorBlink = false
 
     private let suggestions = [
-        ("🏃", "Exercise"),
-        ("📚", "Read"),
-        ("🧘", "Meditate"),
-        ("💧", "Drink Water"),
-        ("😴", "Sleep 8hrs"),
-        ("📝", "Journal"),
-        ("🎯", "Learn"),
-        ("🥗", "Eat Healthy")
+        "Exercise",
+        "Read",
+        "Meditate",
+        "Hydrate",
+        "Sleep Protocol",
+        "Journal",
+        "Learn",
+        "Nutrition"
     ]
 
     var body: some View {
@@ -25,76 +26,99 @@ struct AddHabitSheet: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
+                // Subtle grid background
+                GridPattern()
+                    .opacity(0.03)
+                    .ignoresSafeArea()
+
                 VStack(spacing: 32) {
                     // Header
-                    VStack(spacing: 8) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 50))
-                            .foregroundStyle(.orange)
-                            .scaleEffect(showContent ? 1 : 0.5)
-                            .opacity(showContent ? 1 : 0)
+                    VStack(spacing: 12) {
+                        // Geometric icon
+                        ZStack {
+                            Circle()
+                                .stroke(.orange.opacity(0.3), lineWidth: 1)
+                                .frame(width: 70, height: 70)
 
-                        Text("New Habit")
-                            .font(.title2.weight(.bold))
+                            Image(systemName: "plus")
+                                .font(.system(size: 28, weight: .light))
+                                .foregroundStyle(.orange)
+                        }
+                        .scaleEffect(showContent ? 1 : 0.5)
+                        .opacity(showContent ? 1 : 0)
+
+                        Text("NEW PROTOCOL")
+                            .font(.title3.weight(.bold).monospaced())
                             .foregroundStyle(.white)
+                            .tracking(4)
                             .opacity(showContent ? 1 : 0)
 
-                        Text("What do you want to build?")
-                            .font(.subheadline)
+                        Text("DEFINE HABIT PARAMETERS")
+                            .font(.caption2.monospaced())
                             .foregroundStyle(.gray)
+                            .tracking(2)
                             .opacity(showContent ? 1 : 0)
                     }
                     .padding(.top, 20)
 
                     // Text field
                     VStack(alignment: .leading, spacing: 8) {
-                        TextField("Enter habit name", text: $newHabitName)
-                            .font(.title3.weight(.medium))
-                            .foregroundStyle(.white)
-                            .tint(.orange)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color(red: 0.1, green: 0.1, blue: 0.11))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isNameFocused ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1)
-                            )
-                            .submitLabel(.done)
-                            .onSubmit { attemptSave() }
-                            .focused($isNameFocused)
-                            .opacity(showContent ? 1 : 0)
-                            .offset(y: showContent ? 0 : 20)
+                        Text("PROTOCOL NAME")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.gray)
+                            .tracking(1)
+
+                        HStack {
+                            TextField("", text: $newHabitName, prompt: Text("Enter identifier").foregroundStyle(.gray.opacity(0.5)))
+                                .font(.body.monospaced())
+                                .foregroundStyle(.white)
+                                .tint(.orange)
+                                .submitLabel(.done)
+                                .onSubmit { attemptSave() }
+                                .focused($isNameFocused)
+
+                            // Cursor indicator
+                            Rectangle()
+                                .fill(.orange)
+                                .frame(width: 2, height: 20)
+                                .opacity(isNameFocused && cursorBlink ? 1 : 0)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(red: 0.06, green: 0.06, blue: 0.07))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isNameFocused ? Color.orange : Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                        .opacity(showContent ? 1 : 0)
+                        .offset(y: showContent ? 0 : 20)
                     }
                     .padding(.horizontal, 24)
 
                     // Suggestions
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("SUGGESTIONS")
-                            .font(.caption.weight(.semibold))
+                        Text("QUICK SELECT")
+                            .font(.caption2.monospaced())
                             .foregroundStyle(.gray)
+                            .tracking(1)
                             .padding(.horizontal, 24)
 
                         LazyVGrid(columns: [
                             GridItem(.flexible()),
                             GridItem(.flexible())
-                        ], spacing: 12) {
-                            ForEach(suggestions, id: \.1) { emoji, name in
+                        ], spacing: 10) {
+                            ForEach(suggestions, id: \.self) { name in
                                 SuggestionChip(
-                                    emoji: emoji,
                                     name: name,
                                     isSelected: selectedSuggestion == name
                                 ) {
+                                    SoundManager.shared.triggerSelectionHaptic()
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         selectedSuggestion = name
                                         newHabitName = name
                                     }
-                                    // Haptic
-                                    #if os(iOS)
-                                    let impact = UIImpactFeedbackGenerator(style: .light)
-                                    impact.impactOccurred()
-                                    #endif
                                 }
                             }
                         }
@@ -109,15 +133,20 @@ struct AddHabitSheet: View {
                     Button {
                         attemptSave()
                     } label: {
-                        Text("Create Habit")
-                            .font(.headline.weight(.semibold))
-                            .foregroundStyle(canSave ? .black : .gray)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(canSave ? Color.orange : Color.gray.opacity(0.3))
-                            )
+                        HStack(spacing: 8) {
+                            Text("REGISTER")
+                                .font(.subheadline.monospaced().weight(.bold))
+                                .tracking(2)
+                            Image(systemName: "arrow.right")
+                                .font(.caption.weight(.bold))
+                        }
+                        .foregroundStyle(canSave ? .black : .gray)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(canSave ? Color.orange : Color.gray.opacity(0.2))
+                        )
                     }
                     .disabled(!canSave)
                     .padding(.horizontal, 24)
@@ -127,9 +156,10 @@ struct AddHabitSheet: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("CANCEL") {
                         onCancel()
                     }
+                    .font(.caption.monospaced())
                     .foregroundStyle(.gray)
                 }
             }
@@ -139,14 +169,16 @@ struct AddHabitSheet: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showContent = true
             }
-            // Delay focus to allow animation
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 isNameFocused = true
             }
+            // Cursor blink
+            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                cursorBlink = true
+            }
         }
         .onChange(of: newHabitName) { _, newValue in
-            // Clear suggestion if user types something different
-            if !suggestions.contains(where: { $0.1 == newValue }) {
+            if !suggestions.contains(newValue) {
                 selectedSuggestion = nil
             }
         }
@@ -160,42 +192,35 @@ struct AddHabitSheet: View {
         let trimmed = newHabitName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        // Haptic
-        #if os(iOS)
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
-        #endif
+        SoundManager.shared.playCompletionBeep()
+        SoundManager.shared.triggerCompletionHaptic()
 
         onSave(trimmed)
     }
 }
 
 struct SuggestionChip: View {
-    let emoji: String
     let name: String
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 8) {
-                Text(emoji)
-                    .font(.title3)
-                Text(name)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(isSelected ? .black : .white)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? Color.orange : Color(red: 0.1, green: 0.1, blue: 0.11))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1)
-            )
+            Text(name.uppercased())
+                .font(.caption.monospaced())
+                .tracking(1)
+                .foregroundStyle(isSelected ? .black : .white.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isSelected ? Color.orange : Color(red: 0.08, green: 0.08, blue: 0.09))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? Color.orange : Color.gray.opacity(0.2), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
     }

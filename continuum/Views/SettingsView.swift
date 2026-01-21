@@ -77,13 +77,15 @@ struct SettingsView: View {
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
 
                     HStack {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "diamond.fill")
                             .foregroundStyle(.orange)
-                        Text("Version")
+                        Text("VERSION")
+                            .font(.subheadline.monospaced())
                             .foregroundStyle(.white)
                         Spacer()
-                        Text("1.0.0")
-                            .foregroundStyle(.gray)
+                        Text("3.0")
+                            .font(.subheadline.monospaced())
+                            .foregroundStyle(.orange)
                     }
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                 } header: {
@@ -288,109 +290,184 @@ struct HabitNotificationRow: View {
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var ringRotation: Double = 0
+    @State private var glowPulse: Double = 0.3
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 30) {
-                    // App Icon
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(
-                            LinearGradient(
-                                colors: [.orange, .orange.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 100, height: 100)
-                        .overlay(
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                // Subtle grid background
+                GridPattern()
+                    .opacity(0.03)
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 32) {
+                        // Geometric Logo
+                        ZStack {
+                            // Outer rotating ring
+                            Circle()
+                                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                                .frame(width: 140, height: 140)
+
+                            // Dashed rotating ring
+                            Circle()
+                                .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 8]))
+                                .frame(width: 120, height: 120)
+                                .rotationEffect(.degrees(ringRotation))
+
+                            // Inner ring with glow
+                            Circle()
+                                .stroke(Color.orange, lineWidth: 2)
+                                .frame(width: 90, height: 90)
+                                .shadow(color: .orange.opacity(glowPulse), radius: 15)
+
+                            // Center icon
                             Image(systemName: "infinity")
-                                .font(.system(size: 40, weight: .bold))
-                                .foregroundStyle(.black)
-                        )
-                        .shadow(color: .orange.opacity(0.3), radius: 20)
+                                .font(.system(size: 36, weight: .light))
+                                .foregroundStyle(.orange)
 
-                    VStack(spacing: 8) {
-                        Text("Continuum")
-                            .font(.title.weight(.bold))
-                            .foregroundStyle(.white)
+                            // Corner brackets
+                            ForEach(0..<4, id: \.self) { i in
+                                CornerBracket()
+                                    .stroke(Color.orange.opacity(0.6), lineWidth: 1)
+                                    .frame(width: 16, height: 16)
+                                    .rotationEffect(.degrees(Double(i) * 90))
+                                    .offset(
+                                        x: (i == 0 || i == 3) ? -60 : 60,
+                                        y: (i == 0 || i == 1) ? -60 : 60
+                                    )
+                            }
+                        }
+                        .padding(.top, 30)
 
-                        Text("Build better habits, one day at a time")
-                            .font(.subheadline)
-                            .foregroundStyle(.gray)
+                        VStack(spacing: 12) {
+                            Text("CONTINUUM")
+                                .font(.title2.weight(.black).monospaced())
+                                .foregroundStyle(.white)
+                                .tracking(6)
+
+                            Text("HABIT FORMATION SYSTEM")
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.orange)
+                                .tracking(2)
+
+                            Rectangle()
+                                .fill(Color.orange.opacity(0.3))
+                                .frame(width: 60, height: 1)
+                                .padding(.vertical, 4)
+
+                            Text("VERSION 3.0")
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.gray)
+                                .tracking(2)
+                        }
+
+                        // Info Cards
+                        VStack(spacing: 16) {
+                            AboutCard(
+                                icon: "waveform.path.ecg",
+                                code: "SYS.PROTOCOL.066",
+                                title: "66 DAY PROTOCOL",
+                                description: "Neural pathway research indicates 66 days to encode permanent behavioral patterns. System monitors progression toward permanence."
+                            )
+
+                            AboutCard(
+                                icon: "chart.line.uptrend.xyaxis",
+                                code: "SYS.INTEGRITY.IDX",
+                                title: "INTEGRITY INDEX",
+                                description: "Real-time calculation of your 66-day completion percentage. Optimal performance achieved at maximum integrity."
+                            )
+
+                            AboutCard(
+                                icon: "diamond.fill",
+                                code: "SYS.MILESTONE.TRK",
+                                title: "MILESTONE EVENTS",
+                                description: "System triggers at 7, 21, 66, and 100 day thresholds. Each milestone signifies deeper neural encoding."
+                            )
+                        }
+                        .padding(.horizontal)
+
+                        Spacer(minLength: 40)
+
+                        VStack(spacing: 4) {
+                            Text("DEVELOPED BY")
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.gray.opacity(0.5))
+                                .tracking(2)
+                            Text("ORION LABS")
+                                .font(.caption.monospaced().weight(.semibold))
+                                .foregroundStyle(.gray)
+                                .tracking(3)
+                        }
+                        .padding(.bottom, 20)
                     }
-
-                    // Info Cards
-                    VStack(spacing: 16) {
-                        AboutCard(
-                            icon: "flame.fill",
-                            title: "66 Day Science",
-                            description: "Research shows it takes an average of 66 days to form a new habit. Continuum visualizes your progress toward this goal."
-                        )
-
-                        AboutCard(
-                            icon: "chart.line.uptrend.xyaxis",
-                            title: "Health Score",
-                            description: "Your habit health shows what percentage of the last 66 days you've completed. Watch it grow as you stay consistent."
-                        )
-
-                        AboutCard(
-                            icon: "sparkles",
-                            title: "Milestones",
-                            description: "Celebrate your achievements at 7, 21, 66, and 100 day streaks. Each milestone brings you closer to lasting change."
-                        )
-                    }
-                    .padding(.horizontal)
-
-                    Spacer(minLength: 40)
-
-                    Text("Made with ♥ by Orion Labs")
-                        .font(.caption)
-                        .foregroundStyle(.gray)
                 }
-                .padding(.top, 40)
             }
-            .background(Color.black.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("DONE") {
                         dismiss()
                     }
+                    .font(.caption.monospaced())
                     .foregroundStyle(.orange)
                 }
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+                ringRotation = 360
+            }
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                glowPulse = 0.8
+            }
+        }
     }
 }
 
 struct AboutCard: View {
     let icon: String
+    let code: String
     let title: String
     let description: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(.orange)
-                .frame(width: 30)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(.orange)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundStyle(.gray)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+
+                Text(code)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.orange.opacity(0.6))
             }
+
+            Text(title)
+                .font(.subheadline.weight(.bold).monospaced())
+                .foregroundStyle(.white)
+                .tracking(1)
+
+            Text(description)
+                .font(.caption)
+                .foregroundStyle(.gray)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.1, green: 0.1, blue: 0.11))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(red: 0.06, green: 0.06, blue: 0.07))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.gray.opacity(0.15), lineWidth: 1)
         )
     }
 }

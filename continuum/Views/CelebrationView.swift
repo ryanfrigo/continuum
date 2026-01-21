@@ -10,192 +10,202 @@ enum StreakMilestone: Int, CaseIterable {
 
     var title: String {
         switch self {
-        case .week: return "1 Week!"
-        case .threeWeeks: return "3 Weeks!"
-        case .habitFormed: return "Habit Formed!"
-        case .hundred: return "100 Days!"
-        case .year: return "1 Year!"
+        case .week: return "7 DAYS"
+        case .threeWeeks: return "21 DAYS"
+        case .habitFormed: return "66 DAYS"
+        case .hundred: return "100 DAYS"
+        case .year: return "365 DAYS"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .week: return "You're building momentum"
-        case .threeWeeks: return "The habit is taking root"
-        case .habitFormed: return "Science says it's official"
-        case .hundred: return "Triple digits! Incredible"
-        case .year: return "A full year of dedication"
+        case .week: return "MOMENTUM INITIATED"
+        case .threeWeeks: return "NEURAL PATHWAY FORMING"
+        case .habitFormed: return "HABIT ENCODED"
+        case .hundred: return "CENTURY PROTOCOL COMPLETE"
+        case .year: return "ANNUAL CYCLE ACHIEVED"
         }
     }
 
-    var emoji: String {
+    var systemCode: String {
         switch self {
-        case .week: return "🔥"
-        case .threeWeeks: return "🌱"
-        case .habitFormed: return "🎯"
-        case .hundred: return "💯"
-        case .year: return "🏆"
+        case .week: return "SYS.STREAK.007"
+        case .threeWeeks: return "SYS.STREAK.021"
+        case .habitFormed: return "SYS.STREAK.066"
+        case .hundred: return "SYS.STREAK.100"
+        case .year: return "SYS.STREAK.365"
         }
     }
 
     static func milestone(for streak: Int) -> StreakMilestone? {
-        // Return milestone only if streak exactly matches
         return StreakMilestone(rawValue: streak)
     }
 }
 
-// MARK: - Confetti Particle
-struct ConfettiParticle: Identifiable {
-    let id = UUID()
-    var x: CGFloat
-    var y: CGFloat
-    let color: Color
-    let size: CGFloat
-    let rotation: Double
-    let rotationSpeed: Double
-    var velocity: CGFloat
-    let horizontalDrift: CGFloat
-}
-
-// MARK: - Confetti View
-struct ConfettiView: View {
-    @State private var particles: [ConfettiParticle] = []
-    @State private var isAnimating = false
-
-    let colors: [Color] = [.orange, .yellow, .green, .cyan, .pink, .purple, .red]
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                ForEach(particles) { particle in
-                    Rectangle()
-                        .fill(particle.color)
-                        .frame(width: particle.size, height: particle.size * 1.5)
-                        .rotationEffect(.degrees(particle.rotation))
-                        .position(x: particle.x, y: particle.y)
-                }
-            }
-            .onAppear {
-                createParticles(in: geo.size)
-                animateParticles(in: geo.size)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func createParticles(in size: CGSize) {
-        particles = (0..<80).map { _ in
-            ConfettiParticle(
-                x: CGFloat.random(in: 0...size.width),
-                y: -20,
-                color: colors.randomElement()!,
-                size: CGFloat.random(in: 6...12),
-                rotation: Double.random(in: 0...360),
-                rotationSpeed: Double.random(in: -180...180),
-                velocity: CGFloat.random(in: 3...8),
-                horizontalDrift: CGFloat.random(in: -2...2)
-            )
-        }
-    }
-
-    private func animateParticles(in size: CGSize) {
-        Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { timer in
-            withAnimation(.linear(duration: 0.016)) {
-                for i in particles.indices {
-                    particles[i].y += particles[i].velocity
-                    particles[i].x += particles[i].horizontalDrift
-                    particles[i].velocity += 0.15 // gravity
-                }
-            }
-
-            // Stop when all particles have fallen
-            if particles.allSatisfy({ $0.y > size.height + 50 }) {
-                timer.invalidate()
-            }
-        }
-    }
-}
-
-// MARK: - Celebration Overlay
+// MARK: - Futuristic Celebration Overlay
 struct CelebrationOverlay: View {
     let milestone: StreakMilestone
     let habitName: String
     let onDismiss: () -> Void
 
-    @State private var showContent = false
-    @State private var emojiScale: CGFloat = 0
+    @State private var ringScale: CGFloat = 0.3
+    @State private var ringOpacity: Double = 0
+    @State private var outerRingScale: CGFloat = 0.5
     @State private var textOpacity: Double = 0
+    @State private var scanLineOffset: CGFloat = -200
+    @State private var glowPulse: Double = 0.5
+    @State private var dataStreamOpacity: Double = 0
 
     var body: some View {
         ZStack {
-            // Dimmed background
-            Color.black.opacity(0.85)
+            // Dark background with grid
+            Color.black.opacity(0.95)
                 .ignoresSafeArea()
+                .overlay(
+                    GridPattern()
+                        .opacity(0.1)
+                )
                 .onTapGesture {
                     onDismiss()
                 }
 
-            // Confetti
-            ConfettiView()
-                .ignoresSafeArea()
+            // Scanning line effect
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [.clear, .orange.opacity(0.3), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: 100)
+                .offset(y: scanLineOffset)
 
             // Content
-            VStack(spacing: 24) {
-                // Emoji
-                Text(milestone.emoji)
-                    .font(.system(size: 80))
-                    .scaleEffect(emojiScale)
+            VStack(spacing: 32) {
+                // System code
+                Text(milestone.systemCode)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.orange.opacity(0.7))
+                    .opacity(dataStreamOpacity)
+
+                // Geometric rings
+                ZStack {
+                    // Outer pulsing ring
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [.orange.opacity(0.3), .orange.opacity(0.1)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                        .frame(width: 200, height: 200)
+                        .scaleEffect(outerRingScale)
+                        .opacity(ringOpacity * 0.5)
+
+                    // Middle ring
+                    Circle()
+                        .stroke(.orange.opacity(0.5), lineWidth: 2)
+                        .frame(width: 150, height: 150)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+
+                    // Inner ring with glow
+                    Circle()
+                        .stroke(.orange, lineWidth: 3)
+                        .frame(width: 100, height: 100)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+                        .shadow(color: .orange.opacity(glowPulse), radius: 20)
+
+                    // Center diamond
+                    Diamond()
+                        .fill(.orange)
+                        .frame(width: 20, height: 20)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+                        .shadow(color: .orange, radius: 10)
+
+                    // Corner accents
+                    ForEach(0..<4) { i in
+                        CornerAccent()
+                            .stroke(.orange.opacity(0.6), lineWidth: 1)
+                            .frame(width: 30, height: 30)
+                            .offset(x: i % 2 == 0 ? -55 : 55, y: i < 2 ? -55 : 55)
+                            .opacity(ringOpacity)
+                    }
+                }
 
                 // Title
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     Text(milestone.title)
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.orange, .yellow],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .font(.system(size: 42, weight: .black, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .tracking(8)
 
                     Text(milestone.subtitle)
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.orange)
+                        .tracking(4)
 
-                    Text(habitName)
-                        .font(.headline)
+                    Rectangle()
+                        .fill(.orange.opacity(0.5))
+                        .frame(width: 100, height: 1)
+                        .padding(.vertical, 8)
+
+                    Text(habitName.uppercased())
+                        .font(.subheadline.monospaced())
                         .foregroundStyle(.gray)
-                        .padding(.top, 8)
+                        .tracking(2)
                 }
                 .opacity(textOpacity)
 
                 // Dismiss hint
-                Text("Tap anywhere to continue")
-                    .font(.caption)
-                    .foregroundStyle(.gray.opacity(0.6))
+                Text("[ TAP TO CONTINUE ]")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.gray.opacity(0.5))
                     .padding(.top, 40)
                     .opacity(textOpacity)
             }
         }
         .onAppear {
-            // Haptic feedback
-            #if os(iOS)
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            #endif
+            // Trigger sound and haptics
+            SoundManager.shared.playCelebrationSound()
+            SoundManager.shared.triggerCelebrationHaptic()
 
-            // Animate in
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
-                emojiScale = 1.0
+            // Animate rings
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                ringScale = 1.0
+                ringOpacity = 1.0
             }
-            withAnimation(.easeOut(duration: 0.5).delay(0.2)) {
+
+            withAnimation(.easeOut(duration: 0.8).delay(0.1)) {
+                outerRingScale = 1.2
+            }
+
+            // Text fade in
+            withAnimation(.easeOut(duration: 0.4).delay(0.3)) {
                 textOpacity = 1.0
+                dataStreamOpacity = 1.0
+            }
+
+            // Scan line animation
+            withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                scanLineOffset = 400
+            }
+
+            // Glow pulse
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                glowPulse = 1.0
             }
         }
     }
 }
 
-// MARK: - Health Milestone Celebration
+// MARK: - Health Milestone Overlay
 struct HealthMilestoneOverlay: View {
     let percentage: Int
     let habitName: String
@@ -203,45 +213,54 @@ struct HealthMilestoneOverlay: View {
 
     @State private var ringProgress: CGFloat = 0
     @State private var textOpacity: Double = 0
+    @State private var glowIntensity: Double = 0.3
 
     private var milestoneText: String {
         switch percentage {
-        case 25: return "Quarter Way!"
-        case 50: return "Halfway There!"
-        case 75: return "Almost There!"
-        case 100: return "Perfect Health!"
-        default: return "\(percentage)%"
+        case 25: return "25% INTEGRITY"
+        case 50: return "50% INTEGRITY"
+        case 75: return "75% INTEGRITY"
+        case 100: return "MAXIMUM INTEGRITY"
+        default: return "\(percentage)% INTEGRITY"
         }
     }
 
     private var subtitle: String {
         switch percentage {
-        case 25: return "You're building consistency"
-        case 50: return "Solid foundation established"
-        case 75: return "Excellence in progress"
-        case 100: return "66 days of perfection"
-        default: return "Keep going!"
+        case 25: return "FOUNDATION ESTABLISHED"
+        case 50: return "HALF PROTOCOL COMPLETE"
+        case 75: return "APPROACHING OPTIMAL"
+        case 100: return "PEAK PERFORMANCE ACHIEVED"
+        default: return "PROGRESS LOGGED"
         }
     }
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85)
+            Color.black.opacity(0.95)
                 .ignoresSafeArea()
+                .overlay(
+                    GridPattern()
+                        .opacity(0.1)
+                )
                 .onTapGesture {
                     onDismiss()
                 }
 
-            ConfettiView()
-                .ignoresSafeArea()
+            VStack(spacing: 32) {
+                Text("SYS.HEALTH.\(String(format: "%03d", percentage))")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.green.opacity(0.7))
+                    .opacity(textOpacity)
 
-            VStack(spacing: 24) {
                 // Animated ring
                 ZStack {
+                    // Background ring
                     Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 12)
-                        .frame(width: 120, height: 120)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 8)
+                        .frame(width: 140, height: 140)
 
+                    // Progress ring
                     Circle()
                         .trim(from: 0, to: ringProgress)
                         .stroke(
@@ -250,56 +269,111 @@ struct HealthMilestoneOverlay: View {
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
-                            style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
                         )
-                        .frame(width: 120, height: 120)
+                        .frame(width: 140, height: 140)
                         .rotationEffect(.degrees(-90))
+                        .shadow(color: .green.opacity(glowIntensity), radius: 15)
 
-                    Text("\(percentage)%")
-                        .font(.title.weight(.bold).monospacedDigit())
-                        .foregroundStyle(.white)
+                    // Percentage text
+                    VStack(spacing: 2) {
+                        Text("\(percentage)")
+                            .font(.system(size: 36, weight: .black, design: .monospaced))
+                            .foregroundStyle(.white)
+                        Text("%")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.gray)
+                    }
                 }
 
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     Text(milestoneText)
-                        .font(.largeTitle.weight(.bold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.green, .cyan],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .font(.title2.weight(.bold).monospaced())
+                        .foregroundStyle(.white)
+                        .tracking(2)
 
                     Text(subtitle)
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.green)
+                        .tracking(2)
 
-                    Text(habitName)
-                        .font(.headline)
+                    Rectangle()
+                        .fill(.green.opacity(0.5))
+                        .frame(width: 80, height: 1)
+                        .padding(.vertical, 8)
+
+                    Text(habitName.uppercased())
+                        .font(.subheadline.monospaced())
                         .foregroundStyle(.gray)
-                        .padding(.top, 8)
+                        .tracking(2)
                 }
                 .opacity(textOpacity)
 
-                Text("Tap anywhere to continue")
-                    .font(.caption)
-                    .foregroundStyle(.gray.opacity(0.6))
+                Text("[ TAP TO CONTINUE ]")
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.gray.opacity(0.5))
                     .padding(.top, 40)
                     .opacity(textOpacity)
             }
         }
         .onAppear {
-            #if os(iOS)
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.success)
-            #endif
+            SoundManager.shared.playCelebrationSound()
+            SoundManager.shared.triggerCelebrationHaptic()
 
-            withAnimation(.easeOut(duration: 1.0)) {
+            withAnimation(.easeOut(duration: 1.2)) {
                 ringProgress = CGFloat(percentage) / 100.0
             }
-            withAnimation(.easeOut(duration: 0.5).delay(0.3)) {
+            withAnimation(.easeOut(duration: 0.4).delay(0.3)) {
                 textOpacity = 1.0
+            }
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                glowIntensity = 0.8
+            }
+        }
+    }
+}
+
+// MARK: - Supporting Shapes
+
+struct Diamond: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct CornerAccent: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY + 10))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX + 10, y: rect.minY))
+        return path
+    }
+}
+
+struct GridPattern: View {
+    var body: some View {
+        Canvas { context, size in
+            let gridSize: CGFloat = 30
+
+            for x in stride(from: 0, to: size.width, by: gridSize) {
+                var path = Path()
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+                context.stroke(path, with: .color(.orange.opacity(0.1)), lineWidth: 0.5)
+            }
+
+            for y in stride(from: 0, to: size.height, by: gridSize) {
+                var path = Path()
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+                context.stroke(path, with: .color(.orange.opacity(0.1)), lineWidth: 0.5)
             }
         }
     }
@@ -308,7 +382,7 @@ struct HealthMilestoneOverlay: View {
 #Preview("Streak Celebration") {
     CelebrationOverlay(
         milestone: .habitFormed,
-        habitName: "Morning Meditation",
+        habitName: "Morning Protocol",
         onDismiss: {}
     )
 }
