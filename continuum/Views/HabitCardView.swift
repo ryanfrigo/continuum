@@ -25,9 +25,18 @@ struct HabitCardView: View {
     @State private var wasCompletedToday = false
     @State private var lastRefreshDate = Date()
     @State private var checkmarkScale: CGFloat = 0
+    @State private var checkmarkOpacity: Double = 0
     @State private var showCheckmark = false
     @State private var cardScale: CGFloat = 1.0
     @State private var gridSquareAnimationProgress: [Bool] = Array(repeating: false, count: 66)
+
+    // Ripple animation states
+    @State private var ripple1Scale: CGFloat = 0.5
+    @State private var ripple1Opacity: Double = 0
+    @State private var ripple2Scale: CGFloat = 0.5
+    @State private var ripple2Opacity: Double = 0
+    @State private var ripple3Scale: CGFloat = 0.5
+    @State private var ripple3Opacity: Double = 0
 
     private func shouldShowStreak() -> Bool {
         // Don't show "0 DAY STREAK" until the day has fully passed without completion
@@ -121,31 +130,67 @@ struct HabitCardView: View {
     private func triggerCompletionAnimation() {
         wasCompletedToday = habit.isCompletedToday
 
-        // Show checkmark overlay
+        // Reset all animation states
         showCheckmark = true
         checkmarkScale = 0
+        checkmarkOpacity = 0
+        ripple1Scale = 0.5
+        ripple1Opacity = 0
+        ripple2Scale = 0.5
+        ripple2Opacity = 0
+        ripple3Scale = 0.5
+        ripple3Opacity = 0
 
         // Animate card press
-        withAnimation(.easeInOut(duration: 0.1)) {
+        withAnimation(.easeInOut(duration: 0.15)) {
             cardScale = 0.95
         }
 
         // Bounce back
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.1)) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.15)) {
             cardScale = 1.0
         }
 
-        // Animate checkmark appearance with spring
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+        // Animate checkmark appearance - slower and smoother
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
             checkmarkScale = 1.0
+            checkmarkOpacity = 1.0
         }
 
-        // Hide checkmark after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeOut(duration: 0.2)) {
-                checkmarkScale = 0
+        // Ripple 1 - starts immediately
+        withAnimation(.easeOut(duration: 1.2)) {
+            ripple1Scale = 2.5
+            ripple1Opacity = 0.6
+        }
+        withAnimation(.easeOut(duration: 1.2).delay(0.3)) {
+            ripple1Opacity = 0
+        }
+
+        // Ripple 2 - starts slightly delayed
+        withAnimation(.easeOut(duration: 1.2).delay(0.2)) {
+            ripple2Scale = 2.5
+            ripple2Opacity = 0.5
+        }
+        withAnimation(.easeOut(duration: 1.2).delay(0.5)) {
+            ripple2Opacity = 0
+        }
+
+        // Ripple 3 - starts more delayed
+        withAnimation(.easeOut(duration: 1.2).delay(0.4)) {
+            ripple3Scale = 2.5
+            ripple3Opacity = 0.4
+        }
+        withAnimation(.easeOut(duration: 1.2).delay(0.7)) {
+            ripple3Opacity = 0
+        }
+
+        // Fade out checkmark slowly
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.easeOut(duration: 0.5)) {
+                checkmarkScale = 1.1
+                checkmarkOpacity = 0
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 showCheckmark = false
             }
         }
@@ -228,14 +273,48 @@ struct HabitCardView: View {
     private func checkmarkOverlay() -> some View {
         if showCheckmark {
             ZStack {
+                // Ripple 1 (outermost, starts first)
                 Circle()
-                    .fill(borderColor.opacity(0.2))
+                    .stroke(borderColor, lineWidth: 2)
                     .frame(width: 60, height: 60)
+                    .scaleEffect(ripple1Scale)
+                    .opacity(ripple1Opacity)
+
+                // Ripple 2 (middle)
+                Circle()
+                    .stroke(borderColor, lineWidth: 1.5)
+                    .frame(width: 60, height: 60)
+                    .scaleEffect(ripple2Scale)
+                    .opacity(ripple2Opacity)
+
+                // Ripple 3 (innermost, starts last)
+                Circle()
+                    .stroke(borderColor, lineWidth: 1)
+                    .frame(width: 60, height: 60)
+                    .scaleEffect(ripple3Scale)
+                    .opacity(ripple3Opacity)
+
+                // Center glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [borderColor.opacity(0.3), borderColor.opacity(0)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 35
+                        )
+                    )
+                    .frame(width: 70, height: 70)
+                    .scaleEffect(checkmarkScale)
+                    .opacity(checkmarkOpacity)
+
+                // Checkmark icon
                 Image(systemName: "checkmark")
                     .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(borderColor)
+                    .scaleEffect(checkmarkScale)
+                    .opacity(checkmarkOpacity)
             }
-            .scaleEffect(checkmarkScale)
         }
     }
 
