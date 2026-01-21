@@ -4,7 +4,7 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\Habit.order, comparator: .lexical)]) private var habits: [Habit]
+    @Query private var habits: [Habit]
 
     @State private var isEditMode = false
     @State private var showingResetConfirmation = false
