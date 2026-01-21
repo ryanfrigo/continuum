@@ -5,6 +5,7 @@ struct HabitCardView: View {
     @Bindable var habit: Habit
     var refreshTrigger: Bool = false
     var onAction: ((HabitAction) -> Void)? = nil
+    var onCompletion: ((Bool) -> Void)? = nil  // Called when habit is toggled, passes whether it was completed
 
     // Visual constants
     private let cornerRadius: CGFloat = 14
@@ -150,89 +151,102 @@ struct HabitCardView: View {
         }
     }
 
+    private var borderColor: Color {
+        healthColor(for: habit.habitHealth())
+    }
+
+    private var paddedFlags: [Bool] {
+        var result = habit.historyCompletionFlags(daysBack: habitFormationDays)
+        while result.count < habitFormationDays {
+            result.append(false)
+        }
+        return Array(result.prefix(habitFormationDays))
+    }
+
+    @ViewBuilder
+    private func headerView() -> some View {
+        HStack(alignment: .top) {
+            Text(habit.name)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Text(getHealthText())
+                .font(.caption2.monospaced().weight(.semibold))
+                .foregroundStyle(borderColor)
+        }
+    }
+
+    @ViewBuilder
+    private func streakInfoRow() -> some View {
+        HStack(spacing: 8) {
+            Text(getStreakText())
+                .font(.caption.monospaced())
+                .foregroundStyle(.gray)
+                .animation(nil, value: getStreakText())
+            if let startText = getStreakStartText(), habit.currentStreak() > 0 {
+                Text("·")
+                    .foregroundStyle(.gray.opacity(0.5))
+                Text(startText)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.gray.opacity(0.7))
+            }
+            Spacer()
+        }
+    }
+
+    @ViewBuilder
+    private func historyGrid() -> some View {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            let availableWidth = totalWidth - CGFloat(columnsCount - 1) * dotSpacing
+            let dotSize = floor(availableWidth / CGFloat(columnsCount))
+            let columns = Array(repeating: GridItem(.fixed(dotSize), spacing: dotSpacing), count: columnsCount)
+            let rowsCount = 6
+            let gridHeight = dotSize * CGFloat(rowsCount) + dotSpacing * CGFloat(rowsCount - 1)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: dotSpacing) {
+                ForEach(0..<habitFormationDays, id: \.self) { idx in
+                    let filled = paddedFlags[idx]
+                    Rectangle()
+                        .fill(filled ? borderColor : Color.gray.opacity(0.3))
+                        .frame(width: dotSize, height: dotSize)
+                        .clipShape(RoundedRectangle(cornerRadius: 1))
+                        .animation(nil, value: filled)
+                        .animation(nil, value: borderColor)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: gridHeight)
+        }
+        .frame(height: 80)
+    }
+
+    @ViewBuilder
+    private func checkmarkOverlay() -> some View {
+        if showCheckmark {
+            ZStack {
+                Circle()
+                    .fill(borderColor.opacity(0.2))
+                    .frame(width: 60, height: 60)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(borderColor)
+            }
+            .scaleEffect(checkmarkScale)
+        }
+    }
+
     var body: some View {
-        let displayStreak: Int = getDisplayStreak()
-        let isCompletedToday = habit.isCompletedToday
-        let habitHealthValue = habit.habitHealth()
         let _ = lastRefreshDate // Force refresh when this changes
 
-        // Border color: based on habit health (% of last 66 days)
-        let borderColor: Color = healthColor(for: habitHealthValue)
-
         ZStack {
-            // Card content
             VStack(alignment: .leading, spacing: 6) {
-                // Header with name and health %
-                HStack {
-                    Text(habit.name)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    // Health percentage badge
-                    Text(getHealthText())
-                        .font(.caption2.monospaced().weight(.semibold))
-                        .foregroundStyle(borderColor)
-                }
-
-                // Streak info row
-                HStack(spacing: 8) {
-                    Text(getStreakText())
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.gray)
-                        .animation(nil, value: getStreakText())
-
-                    if let startText = getStreakStartText(), habit.currentStreak() > 0 {
-                        Text("·")
-                            .foregroundStyle(.gray.opacity(0.5))
-                        Text(startText)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.gray.opacity(0.7))
-                    }
-
-                    Spacer()
-                }
-
-                // History grid (66 days → 6 rows × 11 columns)
-                let flags: [Bool] = habit.historyCompletionFlags(daysBack: habitFormationDays)
-                
-                // Ensure we always have exactly 66 items
-                let paddedFlags: [Bool] = {
-                    var result = flags
-                    while result.count < habitFormationDays {
-                        result.append(false)
-                    }
-                    return Array(result.prefix(habitFormationDays))
-                }()
-                
-                GeometryReader { geo in
-                    let totalWidth: CGFloat = geo.size.width
-                    let availableWidth = totalWidth - CGFloat(columnsCount - 1) * dotSpacing
-                    let dotSize: CGFloat = floor(availableWidth / CGFloat(columnsCount))
-                    let columns: [GridItem] = Array(repeating: GridItem(.fixed(dotSize), spacing: dotSpacing), count: columnsCount)
-                    // Always 6 rows for 66 days (6 × 11 = 66)
-                    let rowsCount: Int = 6
-                    let rows: CGFloat = CGFloat(rowsCount)
-                    let gridHeight: CGFloat = dotSize * rows + dotSpacing * (rows - 1)
-
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: dotSpacing) {
-                        // Always show exactly 66 squares
-                        ForEach(0..<habitFormationDays, id: \.self) { idx in
-                            let filled: Bool = paddedFlags[idx]
-                            Rectangle()
-                                .fill(filled ? borderColor : Color.gray.opacity(0.3))
-                                .frame(width: dotSize, height: dotSize)
-                                .clipShape(RoundedRectangle(cornerRadius: 1))
-                                .animation(nil, value: filled)
-                                .animation(nil, value: borderColor)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: gridHeight)
-                }
-                .frame(height: 80) // Fixed height to ensure 6 rows are always visible
+                headerView()
+                streakInfoRow()
+                historyGrid()
             }
             .padding(12)
             .background(
@@ -248,19 +262,7 @@ struct HabitCardView: View {
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
             .scaleEffect(cardScale)
 
-            // Checkmark overlay for completion animation
-            if showCheckmark {
-                ZStack {
-                    Circle()
-                        .fill(borderColor.opacity(0.2))
-                        .frame(width: 60, height: 60)
-
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(borderColor)
-                }
-                .scaleEffect(checkmarkScale)
-            }
+            checkmarkOverlay()
         }
         .animation(nil, value: habit.completedDates)
         .onAppear {
@@ -272,21 +274,21 @@ struct HabitCardView: View {
             // This ensures the display updates without requiring user interaction
             lastRefreshDate = Date()
         }
-        .onTapGesture { 
+        .onTapGesture {
             let wasCompleted = habit.isCompletedToday
             habit.toggleCompletion()
-            
+
             // Sync widget data after completion change
             let habitData = HabitData(from: habit)
             HabitDataManager.shared.saveHabitData(habitData)
             HabitDataManager.shared.updateWidgetTimeline()
-            
+
             // Add haptic feedback
             #if os(iOS)
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
             #endif
-            
+
             // Only trigger completion animation if we just completed the habit
             if !wasCompleted && habit.isCompletedToday {
                 // Add stronger haptic feedback for completion
@@ -294,9 +296,12 @@ struct HabitCardView: View {
                 let completionFeedback = UIImpactFeedbackGenerator(style: .medium)
                 completionFeedback.impactOccurred()
                 #endif
-                
+
                 triggerCompletionAnimation()
             }
+
+            // Notify parent about the completion change
+            onCompletion?(habit.isCompletedToday)
         }
         .contextMenu {
             Button("Reset", role: .destructive) { onAction?(.reset) }
