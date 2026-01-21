@@ -9,10 +9,31 @@ struct SettingsView: View {
     @State private var isEditMode = false
     @State private var showingResetConfirmation = false
     @State private var showingAbout = false
+    @State private var notificationPermissionGranted = false
+    @State private var showingPermissionAlert = false
 
     var body: some View {
         NavigationStack {
             List {
+                // Notifications Section
+                Section {
+                    ForEach(sortedHabits) { habit in
+                        HabitNotificationRow(
+                            habit: habit,
+                            notificationPermissionGranted: notificationPermissionGranted,
+                            onRequestPermission: { requestNotificationPermission() },
+                            onSave: { saveAndSchedule(habit) }
+                        )
+                        .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                    }
+                } header: {
+                    Text("Daily Reminders")
+                        .foregroundStyle(.gray)
+                } footer: {
+                    Text("Set a daily reminder time for each habit. You'll receive a notification if you haven't completed it yet.")
+                        .foregroundStyle(.gray.opacity(0.7))
+                }
+
                 // Reorder Habits Section
                 Section {
                     ForEach(sortedHabits) { habit in
@@ -100,6 +121,9 @@ struct SettingsView: View {
                     .foregroundStyle(.orange)
                 }
             }
+            .onAppear {
+                checkNotificationPermission()
+            }
         }
         .preferredColorScheme(.dark)
         .confirmationDialog("Delete All Habits?", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
@@ -112,6 +136,16 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingAbout) {
             AboutView()
+        }
+        .alert("Notifications Disabled", isPresented: $showingPermissionAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Please enable notifications in Settings to receive habit reminders.")
         }
     }
 
@@ -131,13 +165,126 @@ struct SettingsView: View {
     }
 
     private func deleteAllHabits() {
+        NotificationManager.shared.removeAllNotifications()
         for habit in habits {
             modelContext.delete(habit)
         }
         try? modelContext.save()
         dismiss()
     }
+
+    private func checkNotificationPermission() {
+        Task {
+            let status = await NotificationManager.shared.checkPermissionStatus()
+            await MainActor.run {
+                notificationPermissionGranted = (status == .authorized)
+            }
+        }
+    }
+
+    private func requestNotificationPermission() {
+        Task {
+            let granted = await NotificationManager.shared.requestPermission()
+            await MainActor.run {
+                notificationPermissionGranted = granted
+                if !granted {
+                    showingPermissionAlert = true
+                }
+            }
+        }
+    }
+
+    private func saveAndSchedule(_ habit: Habit) {
+        try? modelContext.save()
+        NotificationManager.shared.scheduleNotification(for: habit)
+    }
 }
+
+// MARK: - Habit Notification Row
+
+struct HabitNotificationRow: View {
+    @Bindable var habit: Habit
+    let notificationPermissionGranted: Bool
+    let onRequestPermission: () -> Void
+    let onSave: () -> Void
+
+    @State private var showTimePicker = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Habit name and toggle
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(habit.name)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+
+                    if habit.reminderEnabled {
+                        Text(formattedTime)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { habit.reminderEnabled },
+                    set: { newValue in
+                        if newValue && !notificationPermissionGranted {
+                            onRequestPermission()
+                        } else {
+                            habit.reminderEnabled = newValue
+                            onSave()
+                        }
+                    }
+                ))
+                .tint(.orange)
+                .labelsHidden()
+            }
+
+            // Time picker (shown when enabled)
+            if habit.reminderEnabled {
+                HStack {
+                    Image(systemName: "bell.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+
+                    Text("Remind at")
+                        .font(.subheadline)
+                        .foregroundStyle(.gray)
+
+                    Spacer()
+
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: { habit.reminderTime },
+                            set: { newValue in
+                                habit.reminderTime = newValue
+                                onSave()
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .tint(.orange)
+                    .colorScheme(.dark)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var formattedTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: habit.reminderTime)
+    }
+}
+
+// MARK: - About View
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss

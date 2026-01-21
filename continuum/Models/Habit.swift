@@ -8,13 +8,34 @@ final class Habit {
     var createdAt: Date
     var completedDates: [Date]
     var order: Int?  // Optional to support migration from older versions
+    var reminderEnabled: Bool
+    var reminderHour: Int  // 0-23
+    var reminderMinute: Int  // 0-59
 
-    init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil) {
+    init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.completedDates = completedDates.map { Habit.startOfDay($0) }
         self.order = order
+        self.reminderEnabled = reminderEnabled
+        self.reminderHour = reminderHour
+        self.reminderMinute = reminderMinute
+    }
+
+    /// Returns the reminder time as a Date (for DatePicker binding)
+    var reminderTime: Date {
+        get {
+            var components = DateComponents()
+            components.hour = reminderHour
+            components.minute = reminderMinute
+            return Calendar.current.date(from: components) ?? Date()
+        }
+        set {
+            let components = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+            reminderHour = components.hour ?? 9
+            reminderMinute = components.minute ?? 0
+        }
     }
     
     // Computed property to always return a non-nil order value
