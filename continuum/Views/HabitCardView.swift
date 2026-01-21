@@ -410,42 +410,14 @@ struct HabitCardView: View {
             }
         }
         .sheet(isPresented: $showingRename) {
-            NavigationStack {
-                VStack(spacing: 20) {
-                    Text("Change Habit Name")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-
-                    TextField("Habit name", text: $newHabitName)
-                        .textFieldStyle(.roundedBorder)
-                        .tint(.orange)
-                        .onSubmit {
-                            if !newHabitName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                onAction?(.rename(newHabitName.trimmingCharacters(in: .whitespacesAndNewlines)))
-                                showingRename = false
-                            }
-                        }
-
-                    Spacer()
-                }
-                .padding()
-                .background(Color.black.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showingRename = false }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            if !newHabitName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                onAction?(.rename(newHabitName.trimmingCharacters(in: .whitespacesAndNewlines)))
-                                showingRename = false
-                            }
-                        }
-                        .disabled(newHabitName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                }
+            RenameHabitSheet(habitName: $newHabitName) { newName in
+                onAction?(.rename(newName))
+                showingRename = false
+            } onCancel: {
+                showingRename = false
             }
-            .preferredColorScheme(.dark)
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .confirmationDialog("Delete Habit", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
