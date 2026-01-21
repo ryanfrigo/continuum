@@ -58,13 +58,18 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if !hasHabits && onboardingCompleted {
-                    // Empty state - no habits yet
-                    emptyStateView
-                } else if hasHabits {
+                // Always show black background
+                Color.black.ignoresSafeArea()
+
+                if hasHabits {
                     // Normal habit grid view
                     habitGridView
+                } else if onboardingCompleted {
+                    // Empty state - no habits yet (only show after onboarding)
+                    emptyStateView
                 }
+                // When !onboardingCompleted && !hasHabits, just show black background
+                // The fullScreenCover onboarding will be displayed on top
 
                 // Celebration overlays
                 if let milestone = celebrationMilestone {
