@@ -8,9 +8,9 @@ final class Habit {
     var createdAt: Date
     var completedDates: [Date]
     var order: Int?  // Optional to support migration from older versions
-    var reminderEnabled: Bool
-    var reminderHour: Int  // 0-23
-    var reminderMinute: Int  // 0-59
+    var reminderEnabled: Bool = false
+    var reminderHour: Int = 9  // 0-23, default 9am
+    var reminderMinute: Int = 0  // 0-59
 
     init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
