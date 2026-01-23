@@ -20,11 +20,6 @@ struct ContentView: View {
     @State private var refreshTrigger = false
     @State private var showingSettings = false
     @State private var showingOnboarding = false
-    @State private var hasCompletedOnboarding = false
-
-    // Drag and drop state
-    @State private var draggingHabit: Habit?
-    @State private var dragOffset: CGSize = .zero
 
     // Celebration state
     @State private var celebrationMilestone: StreakMilestone? = nil
@@ -37,13 +32,15 @@ struct ContentView: View {
     @State private var previousHealth: [UUID: Int] = [:]
 
     @AppStorage("hasCompletedOnboarding") private var onboardingCompleted = false
-    @AppStorage("hasCreatedDefaultHabits") private var defaultHabitsCreated = false
 
-#if canImport(Inject)
+    #if canImport(Inject)
     @ObserveInjection var inject
-#endif
+    #endif
 
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14)
+    ]
 
     private var sortedHabits: [Habit] {
         habits.sorted { ($0.order ?? 0) < ($1.order ?? 0) }
@@ -53,51 +50,64 @@ struct ContentView: View {
         !habits.isEmpty
     }
 
-    init() {}
+    // Calculate overall health for ambient background
+    private var overallHealth: Double {
+        guard !habits.isEmpty else { return 0 }
+        let total = habits.reduce(0.0) { $0 + $1.habitHealth() }
+        return total / Double(habits.count)
+    }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                // Always show black background
-                Color.black.ignoresSafeArea()
+        ZStack {
+            // Ambient living background
+            AmbientBackgroundView(healthPercentage: overallHealth)
 
-                if hasHabits {
-                    // Normal habit grid view
-                    habitGridView
-                } else if onboardingCompleted {
-                    // Empty state - no habits yet (only show after onboarding)
-                    emptyStateView
-                }
-                // When !onboardingCompleted && !hasHabits, just show black background
-                // The fullScreenCover onboarding will be displayed on top
+            // Floating particles
+            FloatingParticlesView(
+                particleCount: 25,
+                baseColor: Color(hue: 0.08 + overallHealth * 0.4, saturation: 0.7, brightness: 0.9)
+            )
+            .opacity(0.6)
 
-                // Celebration overlays
-                if let milestone = celebrationMilestone {
-                    CelebrationOverlay(
-                        milestone: milestone,
-                        habitName: celebrationHabitName,
-                        onDismiss: {
-                            withAnimation {
-                                celebrationMilestone = nil
+            // Main content
+            NavigationStack {
+                ZStack {
+                    Color.clear // Transparent to show ambient background
+
+                    if hasHabits {
+                        habitGridView
+                    } else if onboardingCompleted {
+                        emptyStateView
+                    }
+
+                    // Celebration overlays
+                    if let milestone = celebrationMilestone {
+                        CelebrationOverlay(
+                            milestone: milestone,
+                            habitName: celebrationHabitName,
+                            onDismiss: {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    celebrationMilestone = nil
+                                }
                             }
-                        }
-                    )
-                    .transition(.opacity)
-                    .zIndex(100)
-                }
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .zIndex(100)
+                    }
 
-                if let percentage = healthMilestonePercentage {
-                    HealthMilestoneOverlay(
-                        percentage: percentage,
-                        habitName: healthMilestoneHabitName,
-                        onDismiss: {
-                            withAnimation {
-                                healthMilestonePercentage = nil
+                    if let percentage = healthMilestonePercentage {
+                        HealthMilestoneOverlay(
+                            percentage: percentage,
+                            habitName: healthMilestoneHabitName,
+                            onDismiss: {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    healthMilestonePercentage = nil
+                                }
                             }
-                        }
-                    )
-                    .transition(.opacity)
-                    .zIndex(100)
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .zIndex(100)
+                    }
                 }
             }
         }
@@ -110,33 +120,22 @@ struct ContentView: View {
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-            .interactiveDismissDisabled(false)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
-            OnboardingView(isPresented: $showingOnboarding) {
+            OnboardingView(isPresented: $showingOnboarding) { selectedHabits in
                 onboardingCompleted = true
-                // Create default habits after onboarding
-                if !defaultHabitsCreated {
-                    createDefaultHabits()
-                    defaultHabitsCreated = true
-                }
+                createSelectedHabits(selectedHabits)
             }
         }
         .onAppear {
-            // Show onboarding on first launch
             if !onboardingCompleted {
                 showingOnboarding = true
             }
-
-            // Initialize order for any habits that don't have one
             initializeHabitOrders()
-
-            // Initialize tracking
             initializeMilestoneTracking()
-
             refreshTrigger.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -144,142 +143,231 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Views
+    // MARK: - Empty State
 
     private var emptyStateView: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 40) {
-                Spacer()
+        VStack(spacing: 32) {
+            Spacer()
 
-                VStack(spacing: 16) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.orange)
+            // Animated icon
+            ZStack {
+                // Outer rings
+                Circle()
+                    .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                    .frame(width: 120, height: 120)
 
-                    Text("No Habits Yet")
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(.white)
+                Circle()
+                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                    .frame(width: 90, height: 90)
 
-                    Text("Start building your first habit today")
-                        .font(.subheadline)
-                        .foregroundStyle(.gray)
-                }
-
-                Button {
-                    newHabitName = ""
-                    showingAdd = true
-                } label: {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Create Your First Habit")
-                    }
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(.orange)
-                    )
-                }
-
-                Spacer()
+                // Center icon
+                Image(systemName: "plus")
+                    .font(.system(size: 36, weight: .light))
+                    .foregroundStyle(.orange)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .background(Color.black.ignoresSafeArea())
+
+            VStack(spacing: 12) {
+                Text("No habits yet")
+                    .font(.system(size: 24, weight: .semibold, design: .default))
+                    .foregroundStyle(.white)
+
+                Text("Create your first habit to begin\nbuilding better routines")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+
+            Button {
+                newHabitName = ""
+                showingAdd = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Create Habit")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(Color.orange)
+                )
+            }
+
+            Spacer()
         }
     }
 
+    // MARK: - Habit Grid
+
     private var habitGridView: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(sortedHabits) { habit in
-                    HabitCardView(habit: habit, refreshTrigger: refreshTrigger) { action in
-                        switch action {
-                        case .reset:
-                            habit.resetProgress()
-                        case .setStreak(let n):
-                            habit.setCurrentStreak(n)
-                        case .rename(let newName):
-                            habit.name = newName
-                        case .delete:
-                            modelContext.delete(habit)
-                            try? modelContext.save()
-                        }
-                    } onCompletion: { completed in
-                        checkForMilestones(habit: habit, wasJustCompleted: completed)
-                    }
-                    .draggable(habit.id.uuidString) {
-                        // Drag preview
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.orange.opacity(0.3))
-                            .frame(width: 150, height: 150)
-                            .overlay(
-                                Text(habit.name)
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                            )
-                    }
-                    .dropDestination(for: String.self) { items, location in
-                        guard let droppedId = items.first,
-                              let droppedUUID = UUID(uuidString: droppedId),
-                              let sourceHabit = habits.first(where: { $0.id == droppedUUID }),
-                              sourceHabit.id != habit.id else {
-                            return false
-                        }
+            VStack(spacing: 0) {
+                // Header section
+                headerSection
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
 
-                        reorderHabit(from: sourceHabit, to: habit)
-                        return true
+                // Habits grid
+                LazyVGrid(columns: columns, spacing: 14) {
+                    ForEach(sortedHabits) { habit in
+                        HabitCardView(
+                            habit: habit,
+                            refreshTrigger: refreshTrigger
+                        ) { action in
+                            handleHabitAction(action, for: habit)
+                        } onCompletion: { completed in
+                            checkForMilestones(habit: habit, wasJustCompleted: completed)
+                        }
+                        .draggable(habit.id.uuidString) {
+                            dragPreview(for: habit)
+                        }
+                        .dropDestination(for: String.self) { items, _ in
+                            handleDrop(items: items, onto: habit)
+                        }
                     }
                 }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 100) // Extra padding for tab bar safety
             }
-            .padding(12)
         }
-        .background(Color.black.ignoresSafeArea())
+        .scrollIndicators(.hidden)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
+                    SoundManager.shared.triggerSelectionHaptic()
                     showingSettings = true
                 } label: {
                     Image(systemName: "gearshape.fill")
-                        .foregroundStyle(.gray)
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.white.opacity(0.6))
                 }
-                .accessibilityLabel("Settings")
             }
 
             ToolbarItem(placement: .principal) {
                 Text("Continuum")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.3))
             }
 
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    SoundManager.shared.triggerSelectionHaptic()
                     newHabitName = ""
                     showingAdd = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 24))
                         .foregroundStyle(.orange)
+                        .shadow(color: .orange.opacity(0.3), radius: 8)
                 }
-                .accessibilityLabel("Add Habit")
             }
         }
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.clear, for: .navigationBar)
+    }
+
+    // MARK: - Header Section
+
+    private var headerSection: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(greeting)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(.white)
+
+                Text(dateString)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.5))
+            }
+
+            Spacer()
+
+            // Overall health indicator
+            if !habits.isEmpty {
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(Int(overallHealth * 100))%")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(healthColor(for: overallHealth))
+
+                    Text("health")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                }
+            }
+        }
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Good night"
+        }
+    }
+
+    private var dateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: Date())
+    }
+
+    private func healthColor(for health: Double) -> Color {
+        let hue = 0.08 + health * 0.4 // Orange to cyan
+        return Color(hue: hue, saturation: 0.8, brightness: 0.95)
+    }
+
+    // MARK: - Drag and Drop
+
+    private func dragPreview(for habit: Habit) -> some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(Color.white.opacity(0.1))
+            .frame(width: 140, height: 100)
+            .overlay(
+                Text(habit.name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+            )
+    }
+
+    private func handleDrop(items: [String], onto destination: Habit) -> Bool {
+        guard let droppedId = items.first,
+              let droppedUUID = UUID(uuidString: droppedId),
+              let sourceHabit = habits.first(where: { $0.id == droppedUUID }),
+              sourceHabit.id != destination.id else {
+            return false
+        }
+        reorderHabit(from: sourceHabit, to: destination)
+        return true
     }
 
     // MARK: - Actions
+
+    private func handleHabitAction(_ action: HabitAction, for habit: Habit) {
+        switch action {
+        case .reset:
+            habit.resetProgress()
+        case .setStreak(let n):
+            habit.setCurrentStreak(n)
+        case .rename(let newName):
+            habit.name = newName
+        case .delete:
+            modelContext.delete(habit)
+            try? modelContext.save()
+        }
+    }
 
     private func addHabit(name: String) {
         let habit = Habit(name: name)
         habit.order = (habits.map { $0.order ?? 0 }.max() ?? -1) + 1
         modelContext.insert(habit)
         try? modelContext.save()
-
-        // Sync to widget
         syncHabitToWidget(habit)
-
-        // Initialize tracking for new habit
         previousStreaks[habit.id] = 0
         previousHealth[habit.id] = 0
     }
@@ -288,36 +376,30 @@ struct ContentView: View {
         let previousStreak = previousStreaks[habit.id] ?? 0
         let previousHealthValue = previousHealth[habit.id] ?? 0
 
-        // Only check for milestones if the habit was just completed (not uncompleted)
         guard wasJustCompleted else {
-            // Still update tracking even when uncompleting
             previousStreaks[habit.id] = habit.currentStreak()
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
             return
         }
 
-        // Check for streak milestone
         let newStreak = habit.currentStreak()
         if let milestone = StreakMilestone.milestone(for: newStreak), newStreak > previousStreak {
-            // Small delay to let the completion animation play first
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 celebrationHabitName = habit.name
-                withAnimation {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     celebrationMilestone = milestone
                 }
             }
         }
 
-        // Check for health milestone
         let newHealth = Int(habit.habitHealth() * 100)
         let healthMilestones = [25, 50, 75, 100]
         for milestone in healthMilestones {
             if newHealth >= milestone && previousHealthValue < milestone {
-                // Stagger health celebration after streak celebration
                 let delay = celebrationMilestone != nil ? 2.0 : 1.0
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     healthMilestoneHabitName = habit.name
-                    withAnimation {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         healthMilestonePercentage = milestone
                     }
                 }
@@ -325,7 +407,6 @@ struct ContentView: View {
             }
         }
 
-        // Update tracking
         previousStreaks[habit.id] = newStreak
         previousHealth[habit.id] = newHealth
     }
@@ -340,18 +421,12 @@ struct ContentView: View {
         ordered.remove(at: sourceIndex)
         ordered.insert(source, at: destIndex)
 
-        // Update order values
         for (index, habit) in ordered.enumerated() {
             habit.order = index
         }
 
         try? modelContext.save()
-
-        // Haptic feedback
-        #if os(iOS)
-        let impact = UIImpactFeedbackGenerator(style: .light)
-        impact.impactOccurred()
-        #endif
+        SoundManager.shared.triggerSelectionHaptic()
     }
 
     private func initializeHabitOrders() {
@@ -362,9 +437,7 @@ struct ContentView: View {
                 needsSave = true
             }
         }
-        if needsSave {
-            try? modelContext.save()
-        }
+        if needsSave { try? modelContext.save() }
     }
 
     private func initializeMilestoneTracking() {
@@ -374,33 +447,26 @@ struct ContentView: View {
         }
     }
 
-    private func createDefaultHabits() {
-        let defaultHabits = [
-            ("Exercise", 0),
-            ("Read", 1),
-            ("Meditate", 2)
-        ]
-
-        for (name, order) in defaultHabits {
-            let habit = Habit(name: name, order: order)
+    private func createSelectedHabits(_ habitNames: [String]) {
+        guard !habitNames.isEmpty else { return }
+        for (index, name) in habitNames.enumerated() {
+            let habit = Habit(name: name, order: index)
             modelContext.insert(habit)
             syncHabitToWidget(habit)
+            previousStreaks[habit.id] = 0
+            previousHealth[habit.id] = 0
         }
-
         try? modelContext.save()
     }
 
     private func syncHabitToWidget(_ habit: Habit) {
         let habitData = HabitData(from: habit)
         HabitDataManager.shared.saveHabitData(habitData)
-
-        // Update all habit IDs list
         var allIds = HabitDataManager.shared.getAllHabitIds()
         if !allIds.contains(habit.id) {
             allIds.append(habit.id)
             HabitDataManager.shared.saveAllHabitIds(allIds)
         }
-
         HabitDataManager.shared.updateWidgetTimeline()
     }
 }
