@@ -159,13 +159,12 @@ struct HabitCardView: View {
 
     private var streakSection: some View {
         HStack(spacing: 6) {
-            // Streak indicator dot
-            if displayStreak > 0 {
-                Circle()
-                    .fill(themeColor)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: themeColor, radius: 3)
-            }
+            // Streak indicator dot - always reserve space
+            Circle()
+                .fill(themeColor)
+                .frame(width: 6, height: 6)
+                .shadow(color: themeColor, radius: 3)
+                .opacity(displayStreak > 0 ? 1 : 0)
 
             // Streak text
             if !habit.completedDates.isEmpty {
@@ -184,53 +183,58 @@ struct HabitCardView: View {
 
             Spacer()
 
-            // Today indicator
-            if habit.isCompletedToday {
-                HStack(spacing: 3) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
-                    Text("TODAY")
-                        .font(.system(size: 8, weight: .bold, design: .rounded))
-                }
-                .foregroundStyle(themeColor)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(themeColor.opacity(0.15))
-                )
-                .fixedSize()
+            // Today indicator - always present to maintain consistent size
+            HStack(spacing: 3) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                Text("TODAY")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
             }
+            .foregroundStyle(themeColor)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(themeColor.opacity(0.15))
+            )
+            .fixedSize()
+            .opacity(habit.isCompletedToday ? 1 : 0)
         }
     }
 
     private var historyGridSection: some View {
-        GeometryReader { geo in
-            let spacing: CGFloat = 3
-            let availableWidth = geo.size.width - CGFloat(columnsCount - 1) * spacing
-            let dotSize = floor(availableWidth / CGFloat(columnsCount))
-            let columns = Array(repeating: GridItem(.fixed(dotSize), spacing: spacing), count: columnsCount)
+        // Grid is 11 columns × 6 rows with 3pt spacing
+        // Aspect ratio: (11*d + 10*3) / (6*d + 5*3) ≈ 1.85 for typical dot sizes
+        let gridAspectRatio: CGFloat = 1.85
 
-            LazyVGrid(columns: columns, spacing: spacing) {
-                ForEach(0..<habitFormationDays, id: \.self) { idx in
-                    let filled = paddedFlags[idx]
-                    let isToday = idx == 0
+        return Color.clear
+            .aspectRatio(gridAspectRatio, contentMode: .fit)
+            .overlay {
+                GeometryReader { geo in
+                    let spacing: CGFloat = 3
+                    let availableWidth = geo.size.width
+                    let dotSize = floor((availableWidth - CGFloat(columnsCount - 1) * spacing) / CGFloat(columnsCount))
+                    let columns = Array(repeating: GridItem(.fixed(dotSize), spacing: spacing), count: columnsCount)
 
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(dotColor(filled: filled, isToday: isToday))
-                        .frame(width: dotSize, height: dotSize)
-                        .overlay {
-                            if isToday && !filled {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .stroke(themeColor.opacity(0.5), lineWidth: 1)
-                            }
+                    LazyVGrid(columns: columns, spacing: spacing) {
+                        ForEach(0..<habitFormationDays, id: \.self) { idx in
+                            let filled = paddedFlags[idx]
+                            let isToday = idx == 0
+
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(dotColor(filled: filled, isToday: isToday))
+                                .frame(width: dotSize, height: dotSize)
+                                .overlay {
+                                    if isToday && !filled {
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .stroke(themeColor.opacity(0.5), lineWidth: 1)
+                                    }
+                                }
+                                .brightness(filled && gridFlashProgress > 0 ? gridFlashProgress * 0.3 : 0)
                         }
-                        .brightness(filled && gridFlashProgress > 0 ? gridFlashProgress * 0.3 : 0)
+                    }
                 }
             }
-            .padding(.bottom, 4)
-        }
-        .frame(height: 72)
     }
 
     private func dotColor(filled: Bool, isToday: Bool) -> Color {
