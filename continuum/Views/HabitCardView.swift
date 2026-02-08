@@ -167,7 +167,7 @@ struct HabitCardView: View {
                 .opacity(displayStreak > 0 ? 1 : 0)
 
             // Streak text
-            if !habit.completedDates.isEmpty {
+            if !habit.completedDatesArray.isEmpty {
                 Text("\(displayStreak)")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)

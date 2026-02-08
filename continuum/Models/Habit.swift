@@ -6,7 +6,7 @@ final class Habit {
     @Attribute(.unique) var id: UUID
     var name: String
     var createdAt: Date
-    var completedDates: [Date]
+    var completedDates: [Date]?  // Optional to support migration from older versions
     var order: Int?  // Optional to support migration from older versions
     var reminderEnabled: Bool = false
     var reminderHour: Int = 9  // 0-23, default 9am
@@ -21,6 +21,12 @@ final class Habit {
         self.reminderEnabled = reminderEnabled
         self.reminderHour = reminderHour
         self.reminderMinute = reminderMinute
+    }
+
+    // Computed property to always return a non-nil completedDates array
+    var completedDatesArray: [Date] {
+        get { completedDates ?? [] }
+        set { completedDates = newValue }
     }
 
     /// Returns the reminder time as a Date (for DatePicker binding)
@@ -51,7 +57,7 @@ final class Habit {
     }
 
     private var completedSet: Set<Date> {
-        Set(completedDates.map { Habit.startOfDay($0) })
+        Set(completedDatesArray.map { Habit.startOfDay($0) })
     }
 
     var isCompletedToday: Bool {
@@ -61,11 +67,13 @@ final class Habit {
 
     func toggleCompletion(for date: Date = Date()) {
         let day = Habit.startOfDay(date)
-        if let idx = completedDates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: day) }) {
-            completedDates.remove(at: idx)
+        var dates = completedDatesArray
+        if let idx = dates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: day) }) {
+            dates.remove(at: idx)
         } else {
-            completedDates.append(day)
+            dates.append(day)
         }
+        completedDatesArray = dates
     }
 
     func currentStreak(asOf date: Date = Date()) -> Int {
@@ -125,7 +133,7 @@ final class Habit {
 
     /// Remove all completion history.
     func resetProgress() {
-        completedDates.removeAll(keepingCapacity: true)
+        completedDatesArray = []
     }
 
     /// Mark the most recent `count` days (including today) as completed.
@@ -133,14 +141,16 @@ final class Habit {
     func addRecentDays(_ count: Int, asOf date: Date = Date()) {
         guard count > 0 else { return }
         let base = Habit.startOfDay(date)
+        var dates = completedDatesArray
         for delta in 0..<count {
             if let d = Calendar.current.date(byAdding: .day, value: -delta, to: base) {
                 let day = Habit.startOfDay(d)
                 if !completedSet.contains(day) {
-                    completedDates.append(day)
+                    dates.append(day)
                 }
             }
         }
+        completedDatesArray = dates
     }
 
     /// Force the current streak (ending today) to be exactly `target` days long.
@@ -149,6 +159,7 @@ final class Habit {
     func setCurrentStreak(_ target: Int, asOf date: Date = Date()) {
         let clamped = max(0, min(1000, target))
         let today = Habit.startOfDay(date)
+        var dates = completedDatesArray
 
         // Ensure the last `clamped` days (including today) are completed
         if clamped > 0 {
@@ -156,24 +167,26 @@ final class Habit {
                 if let d = Calendar.current.date(byAdding: .day, value: -delta, to: today) {
                     let day = Habit.startOfDay(d)
                     if !completedSet.contains(day) {
-                        completedDates.append(day)
+                        dates.append(day)
                     }
                 }
             }
         } else {
             // clamped == 0: make sure today is not completed
-            if let idx = completedDates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
-                completedDates.remove(at: idx)
+            if let idx = dates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: today) }) {
+                dates.remove(at: idx)
             }
         }
 
         // Break any longer chain by ensuring the day just before the earliest streak day is not completed
         if let breakDay = Calendar.current.date(byAdding: .day, value: -clamped, to: today) {
             let bd = Habit.startOfDay(breakDay)
-            if let idx = completedDates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: bd) }) {
-                completedDates.remove(at: idx)
+            if let idx = dates.firstIndex(where: { Calendar.current.isDate($0, inSameDayAs: bd) }) {
+                dates.remove(at: idx)
             }
         }
+
+        completedDatesArray = dates
     }
 }
 

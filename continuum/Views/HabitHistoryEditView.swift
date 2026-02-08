@@ -134,7 +134,7 @@ struct HabitHistoryEditView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
-            selectedDates = Set(habit.completedDates.map { calendar.startOfDay(for: $0) })
+            selectedDates = Set(habit.completedDatesArray.map { calendar.startOfDay(for: $0) })
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showContent = true
             }
@@ -277,13 +277,17 @@ struct HabitHistoryEditView: View {
                 // Selecting
                 if !selectedDates.contains(current) {
                     selectedDates.insert(current)
-                    habit.completedDates.append(current)
+                    var dates = habit.completedDatesArray
+                    dates.append(current)
+                    habit.completedDatesArray = dates
                 }
             } else {
                 // Deselecting
                 if selectedDates.contains(current) {
                     selectedDates.remove(current)
-                    habit.completedDates.removeAll { calendar.isDate($0, inSameDayAs: current) }
+                    var dates = habit.completedDatesArray
+                    dates.removeAll { calendar.isDate($0, inSameDayAs: current) }
+                    habit.completedDatesArray = dates
                 }
             }
             current = calendar.date(byAdding: .day, value: 1, to: current)!

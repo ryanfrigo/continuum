@@ -126,7 +126,7 @@ struct HabitData: Codable {
         self.id = habit.id
         self.name = habit.name
         self.createdAt = habit.createdAt
-        self.completedDates = habit.completedDates
+        self.completedDates = habit.completedDatesArray
     }
     #endif
     
