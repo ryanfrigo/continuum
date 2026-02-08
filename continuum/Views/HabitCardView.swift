@@ -303,17 +303,59 @@ struct HabitCardView: View {
     private func handleTap() {
         let wasCompleted = habit.isCompletedToday
 
-        // Trigger animation IMMEDIATELY before any data operations
+        // INSTANT visual feedback - set states synchronously FIRST
         if !wasCompleted {
-            triggerCompletionAnimation()
+            // Visual animation state - INSTANT
+            showCompletionEffect = true
+            rippleScale = 0
+            rippleOpacity = 0.7
+            centerIconScale = 0
+            centerIconOpacity = 0
+            gridFlashProgress = 0
+
+            // Start animations immediately
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                cardScale = 0.97
+            }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                cardScale = 1.0
+            }
+            withAnimation(.easeOut(duration: 0.15)) {
+                gridFlashProgress = 1.0
+            }
+            withAnimation(.easeOut(duration: 0.5)) {
+                gridFlashProgress = 0
+            }
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                centerIconScale = 1.0
+                centerIconOpacity = 1.0
+            }
+            withAnimation(.easeOut(duration: 0.7)) {
+                rippleScale = 10.0
+                rippleOpacity = 0
+            }
+            withAnimation(.easeOut(duration: 0.2).delay(0.4)) {
+                centerIconScale = 1.15
+                centerIconOpacity = 0
+            }
+
+            // Sound/haptic feedback - can be slightly delayed, non-blocking
+            Task {
+                SoundManager.shared.playCompletionBeep()
+                SoundManager.shared.triggerCompletionHaptic()
+            }
+
+            // Cleanup
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                showCompletionEffect = false
+            }
         } else {
             SoundManager.shared.triggerSelectionHaptic()
         }
 
-        // Now update data (this happens in the background)
+        // Update data asynchronously
         habit.toggleCompletion()
 
-        // Sync widget asynchronously to avoid blocking UI
         Task.detached(priority: .background) {
             let habitData = HabitData(from: habit)
             HabitDataManager.shared.saveHabitData(habitData)
@@ -321,60 +363,6 @@ struct HabitCardView: View {
         }
 
         onCompletion?(habit.isCompletedToday)
-    }
-
-    private func triggerCompletionAnimation() {
-        // Immediate sound and haptic - zero latency
-        SoundManager.shared.playCompletionBeep()
-        SoundManager.shared.triggerCompletionHaptic()
-
-        // Reset states
-        showCompletionEffect = true
-        rippleScale = 0
-        rippleOpacity = 0
-        centerIconScale = 0
-        centerIconOpacity = 0
-        gridFlashProgress = 0
-
-        // Smooth card press with natural bounce
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            cardScale = 0.97
-        }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            cardScale = 1.0
-        }
-
-        // Smooth grid flash
-        withAnimation(.easeOut(duration: 0.15)) {
-            gridFlashProgress = 1.0
-        }
-        withAnimation(.easeOut(duration: 0.5)) {
-            gridFlashProgress = 0
-        }
-
-        // Smooth center icon appearance
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-            centerIconScale = 1.0
-            centerIconOpacity = 1.0
-        }
-
-        // Single smooth ripple that dissolves elegantly
-        rippleOpacity = 0.7
-        withAnimation(.easeOut(duration: 0.7)) {
-            rippleScale = 10.0
-            rippleOpacity = 0
-        }
-
-        // Smooth center icon fade
-        withAnimation(.easeOut(duration: 0.2).delay(0.4)) {
-            centerIconScale = 1.15
-            centerIconOpacity = 0
-        }
-
-        // Cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            showCompletionEffect = false
-        }
     }
 
     // MARK: - Context Menu
