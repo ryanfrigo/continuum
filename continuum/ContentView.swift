@@ -206,11 +206,11 @@ struct ContentView: View {
     private var habitGridView: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Header section - tighter spacing
+                // Header section - minimal spacing
                 headerSection
                     .padding(.horizontal, 20)
-                    .padding(.top, 4)
-                    .padding(.bottom, 12)
+                    .padding(.top, 2)
+                    .padding(.bottom, 8)
 
                 // Habits grid
                 LazyVGrid(columns: columns, spacing: 14) {
@@ -275,9 +275,9 @@ struct ContentView: View {
 
     private var headerSection: some View {
         HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(greeting)
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text(dateString)
@@ -289,9 +289,9 @@ struct ContentView: View {
 
             // Overall health indicator
             if !habits.isEmpty {
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 3) {
                     Text("\(Int(overallHealth * 100))%")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundStyle(healthColor(for: overallHealth))
 
                     Text("health")

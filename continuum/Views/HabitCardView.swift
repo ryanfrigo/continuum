@@ -80,21 +80,23 @@ struct HabitCardView: View {
     var body: some View {
         let _ = lastRefreshDate
 
-        ZStack {
-            // Main card
-            cardContent
-                .scaleEffect(cardScale)
+        Button(action: handleTap) {
+            ZStack {
+                // Main card
+                cardContent
+                    .scaleEffect(cardScale)
 
-            // Completion effects overlay
-            if showCompletionEffect {
-                completionEffectsOverlay
+                // Completion effects overlay
+                if showCompletionEffect {
+                    completionEffectsOverlay
+                }
             }
         }
+        .buttonStyle(InstantButtonStyle())
         .onAppear {
             lastRefreshDate = Date()
         }
         .onChange(of: refreshTrigger) { lastRefreshDate = Date() }
-        .onTapGesture { handleTap() }
         .contextMenu { contextMenuContent }
         .sheet(isPresented: $showingSetStreak) { historyEditSheet }
         .sheet(isPresented: $showingRename) { renameSheet }
@@ -265,11 +267,11 @@ struct HabitCardView: View {
     private var completionEffectsOverlay: some View {
         GeometryReader { geo in
             ZStack {
-                // Single expanding ripple - immediate and clean
+                // Single expanding ripple - smooth and elegant
                 Circle()
                     .stroke(
-                        Color.orange.opacity(0.8),
-                        lineWidth: 2
+                        Color.orange.opacity(0.6),
+                        lineWidth: 1
                     )
                     .frame(width: 30, height: 30)
                     .scaleEffect(rippleScale)
@@ -331,43 +333,43 @@ struct HabitCardView: View {
         centerIconOpacity = 0
         gridFlashProgress = 0
 
-        // Ultra-fast card press
-        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
-            cardScale = 0.96
+        // Smooth card press with natural bounce
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            cardScale = 0.97
         }
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
             cardScale = 1.0
         }
 
-        // Instant grid flash
-        withAnimation(.linear(duration: 0.08)) {
+        // Smooth grid flash
+        withAnimation(.easeOut(duration: 0.15)) {
             gridFlashProgress = 1.0
         }
-        withAnimation(.easeOut(duration: 0.3)) {
+        withAnimation(.easeOut(duration: 0.5)) {
             gridFlashProgress = 0
         }
 
-        // Instant center icon pop - no spring, just appear
-        withAnimation(.linear(duration: 0.05)) {
+        // Smooth center icon appearance
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
             centerIconScale = 1.0
             centerIconOpacity = 1.0
         }
 
-        // Single ripple - immediate expansion, smaller size
-        rippleOpacity = 0.8
-        withAnimation(.easeOut(duration: 0.4)) {
-            rippleScale = 8.0
+        // Single smooth ripple that dissolves elegantly
+        rippleOpacity = 0.7
+        withAnimation(.easeOut(duration: 0.7)) {
+            rippleScale = 10.0
             rippleOpacity = 0
         }
 
-        // Fade out center icon quickly (removed delay!)
-        withAnimation(.easeOut(duration: 0.15).delay(0.25)) {
-            centerIconScale = 1.1
+        // Smooth center icon fade
+        withAnimation(.easeOut(duration: 0.2).delay(0.4)) {
+            centerIconScale = 1.15
             centerIconOpacity = 0
         }
 
-        // Quick cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Cleanup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             showCompletionEffect = false
         }
     }
@@ -435,5 +437,13 @@ enum HabitAction {
             HabitCardView(habit: Habit(name: "Meditate"), refreshTrigger: false)
         }
         .padding()
+    }
+}
+
+// MARK: - Instant Button Style
+struct InstantButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
     }
 }
