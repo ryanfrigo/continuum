@@ -112,7 +112,10 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showingAdd) {
-            AddHabitSheet(newHabitName: $newHabitName) { name in
+            AddHabitSheet(
+                newHabitName: $newHabitName,
+                healthColor: healthColor(for: overallHealth)
+            ) { name in
                 addHabit(name: name)
                 showingAdd = false
             } onCancel: {

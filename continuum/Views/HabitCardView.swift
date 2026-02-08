@@ -270,20 +270,20 @@ struct HabitCardView: View {
     private var completionEffectsOverlay: some View {
         GeometryReader { geo in
             ZStack {
-                // Single expanding ripple - smooth and elegant
+                // Single expanding ripple - smooth and elegant, uses habit's color
                 Circle()
                     .stroke(
-                        Color.orange.opacity(0.6),
+                        themeColor.opacity(0.6),
                         lineWidth: 1
                     )
                     .frame(width: 30, height: 30)
                     .scaleEffect(rippleScale)
                     .opacity(rippleOpacity)
 
-                // Center checkmark icon
+                // Center checkmark icon - uses habit's color
                 ZStack {
                     Circle()
-                        .fill(Color.orange)
+                        .fill(themeColor)
                         .frame(width: 32, height: 32)
 
                     Image(systemName: "checkmark")

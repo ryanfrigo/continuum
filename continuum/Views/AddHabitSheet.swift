@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddHabitSheet: View {
     @Binding var newHabitName: String
+    var healthColor: Color = .orange
     var onSave: (String) -> Void
     var onCancel: () -> Void
     @FocusState private var isNameFocused: Bool
@@ -33,16 +34,16 @@ struct AddHabitSheet: View {
                         VStack(spacing: 16) {
                             ZStack {
                                 Circle()
-                                    .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                                    .stroke(healthColor.opacity(0.2), lineWidth: 1)
                                     .frame(width: 80, height: 80)
 
                                 Circle()
-                                    .fill(Color.orange.opacity(0.1))
+                                    .fill(healthColor.opacity(0.1))
                                     .frame(width: 64, height: 64)
 
                                 Image(systemName: "plus")
                                     .font(.system(size: 28, weight: .medium))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(healthColor)
                             }
                             .scaleEffect(showContent ? 1 : 0.5)
                             .opacity(showContent ? 1 : 0)
@@ -69,7 +70,7 @@ struct AddHabitSheet: View {
                             TextField("", text: $newHabitName, prompt: Text("Enter a name").foregroundStyle(Color.white.opacity(0.3)))
                                 .font(.system(size: 17))
                                 .foregroundStyle(.white)
-                                .tint(.orange)
+                                .tint(healthColor)
                                 .submitLabel(.done)
                                 .onSubmit { attemptSave() }
                                 .focused($isNameFocused)
@@ -80,7 +81,7 @@ struct AddHabitSheet: View {
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(isNameFocused ? Color.orange.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                        .stroke(isNameFocused ? healthColor.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
                                 )
                         }
                         .padding(.horizontal, 24)
@@ -98,7 +99,8 @@ struct AddHabitSheet: View {
                                 ForEach(suggestions, id: \.self) { name in
                                     SuggestionChip(
                                         name: name,
-                                        isSelected: selectedSuggestion == name
+                                        isSelected: selectedSuggestion == name,
+                                        healthColor: healthColor
                                     ) {
                                         SoundManager.shared.triggerSelectionHaptic()
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -130,7 +132,7 @@ struct AddHabitSheet: View {
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .fill(canSave ? Color.orange : Color.white.opacity(0.08))
+                                    .fill(canSave ? healthColor : Color.white.opacity(0.08))
                             )
                         }
                         .disabled(!canSave)
@@ -186,6 +188,7 @@ struct AddHabitSheet: View {
 struct SuggestionChip: View {
     let name: String
     let isSelected: Bool
+    var healthColor: Color = .orange
     let onTap: () -> Void
 
     var body: some View {
@@ -198,11 +201,11 @@ struct SuggestionChip: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(isSelected ? Color.orange : Color.white.opacity(0.05))
+                        .fill(isSelected ? healthColor : Color.white.opacity(0.05))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(isSelected ? Color.orange : Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(isSelected ? healthColor : Color.white.opacity(0.08), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
