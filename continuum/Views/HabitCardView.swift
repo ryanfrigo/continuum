@@ -208,6 +208,8 @@ struct HabitCardView: View {
         // Grid is 11 columns × 6 rows with 3pt spacing
         // Aspect ratio: (11*d + 10*3) / (6*d + 5*3) ≈ 1.85 for typical dot sizes
         let gridAspectRatio: CGFloat = 1.85
+        let flags = paddedFlags // Cache computed property
+        let color = themeColor // Cache computed property
 
         return Color.clear
             .aspectRatio(gridAspectRatio, contentMode: .fit)
@@ -220,28 +222,29 @@ struct HabitCardView: View {
 
                     LazyVGrid(columns: columns, spacing: spacing) {
                         ForEach(0..<habitFormationDays, id: \.self) { idx in
-                            let filled = paddedFlags[idx]
+                            let filled = flags[idx]
                             let isToday = idx == 0
 
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(dotColor(filled: filled, isToday: isToday))
+                                .fill(dotColor(filled: filled, isToday: isToday, healthColor: color))
                                 .frame(width: dotSize, height: dotSize)
                                 .overlay {
                                     if isToday && !filled {
                                         RoundedRectangle(cornerRadius: 2)
-                                            .stroke(themeColor.opacity(0.5), lineWidth: 1)
+                                            .stroke(color.opacity(0.5), lineWidth: 1)
                                     }
                                 }
-                                .brightness(filled && gridFlashProgress > 0 ? gridFlashProgress * 0.3 : 0)
                         }
                     }
+                    .drawingGroup() // Render as single layer for better performance
+                    .brightness(gridFlashProgress * 0.3) // Apply brightness to entire grid, not individual dots
                 }
             }
     }
 
-    private func dotColor(filled: Bool, isToday: Bool) -> Color {
+    private func dotColor(filled: Bool, isToday: Bool, healthColor: Color) -> Color {
         if filled {
-            return themeColor
+            return healthColor
         } else if isToday {
             return Color.white.opacity(0.12)
         } else {

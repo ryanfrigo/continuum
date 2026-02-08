@@ -206,10 +206,9 @@ struct ContentView: View {
     private var habitGridView: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Header section - minimal spacing
+                // Header section - no top spacing
                 headerSection
                     .padding(.horizontal, 20)
-                    .padding(.top, 2)
                     .padding(.bottom, 8)
 
                 // Habits grid
@@ -261,13 +260,15 @@ struct ContentView: View {
                     newHabitName = ""
                     showingAdd = true
                 } label: {
+                    let buttonColor = healthColor(for: overallHealth)
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundStyle(.orange)
-                        .shadow(color: .orange.opacity(0.3), radius: 8)
+                        .foregroundStyle(buttonColor)
+                        .shadow(color: buttonColor.opacity(0.3), radius: 8)
                 }
             }
         }
+        .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.clear, for: .navigationBar)
     }
 
