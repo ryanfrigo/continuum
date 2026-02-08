@@ -206,11 +206,11 @@ struct ContentView: View {
     private var habitGridView: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Header section
+                // Header section - tighter spacing
                 headerSection
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
 
                 // Habits grid
                 LazyVGrid(columns: columns, spacing: 14) {
@@ -235,6 +235,7 @@ struct ContentView: View {
                 .padding(.bottom, 100) // Extra padding for tab bar safety
             }
         }
+        .scrollDisabled(habits.count <= 6) // Disable scrolling when 6 or fewer habits (fits on screen)
         .scrollIndicators(.hidden)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -274,13 +275,13 @@ struct ContentView: View {
 
     private var headerSection: some View {
         HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(greeting)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(.white)
 
                 Text(dateString)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.5))
             }
 
@@ -288,13 +289,13 @@ struct ContentView: View {
 
             // Overall health indicator
             if !habits.isEmpty {
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Text("\(Int(overallHealth * 100))%")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundStyle(healthColor(for: overallHealth))
 
                     Text("health")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.4))
                 }
             }

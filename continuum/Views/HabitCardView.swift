@@ -24,8 +24,8 @@ struct HabitCardView: View {
 
     // Completion animation states
     @State private var showCompletionEffect = false
-    @State private var rippleScales: [CGFloat] = [0, 0, 0, 0, 0]
-    @State private var rippleOpacities: [Double] = [0, 0, 0, 0, 0]
+    @State private var rippleScale: CGFloat = 0
+    @State private var rippleOpacity: Double = 0
     @State private var centerIconScale: CGFloat = 0
     @State private var centerIconOpacity: Double = 0
     @State private var gridFlashProgress: Double = 0
@@ -110,7 +110,7 @@ struct HabitCardView: View {
     // MARK: - Card Content
 
     private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             // Header with name and health
             headerSection
 
@@ -120,7 +120,7 @@ struct HabitCardView: View {
             // 66-day grid
             historyGridSection
         }
-        .padding(16)
+        .padding(18)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
@@ -140,18 +140,18 @@ struct HabitCardView: View {
             ZStack {
                 // Mini progress ring
                 Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 2.5)
-                    .frame(width: 36, height: 36)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 3)
+                    .frame(width: 40, height: 40)
 
                 Circle()
                     .trim(from: 0, to: health)
-                    .stroke(themeColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .frame(width: 36, height: 36)
+                    .stroke(themeColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 40, height: 40)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: themeColor.opacity(0.5), radius: 4)
+                    .shadow(color: themeColor.opacity(0.6), radius: 5)
 
                 Text("\(healthPercentage)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(themeColor)
             }
         }
@@ -241,9 +241,9 @@ struct HabitCardView: View {
         if filled {
             return themeColor
         } else if isToday {
-            return Color.white.opacity(0.08)
+            return Color.white.opacity(0.12)
         } else {
-            return Color.white.opacity(0.06)
+            return Color.white.opacity(0.08)
         }
     }
 
@@ -265,17 +265,15 @@ struct HabitCardView: View {
     private var completionEffectsOverlay: some View {
         GeometryReader { geo in
             ZStack {
-                // Water-like expanding ripples - 5 rings that spread across the entire card
-                ForEach(0..<5, id: \.self) { index in
-                    Circle()
-                        .stroke(
-                            Color.orange.opacity(0.7 - Double(index) * 0.12),
-                            lineWidth: max(1.5 - CGFloat(index) * 0.2, 0.5)
-                        )
-                        .frame(width: 20, height: 20)
-                        .scaleEffect(rippleScales[index])
-                        .opacity(rippleOpacities[index])
-                }
+                // Single expanding ripple - immediate and clean
+                Circle()
+                    .stroke(
+                        Color.orange.opacity(0.8),
+                        lineWidth: 2
+                    )
+                    .frame(width: 30, height: 30)
+                    .scaleEffect(rippleScale)
+                    .opacity(rippleOpacity)
 
                 // Center checkmark icon
                 ZStack {
@@ -316,67 +314,55 @@ struct HabitCardView: View {
     }
 
     private func triggerCompletionAnimation() {
+        // Immediate sound and haptic - zero latency
         SoundManager.shared.playCompletionBeep()
         SoundManager.shared.triggerCompletionHaptic()
 
+        // Reset states
         showCompletionEffect = true
-        rippleScales = [0, 0, 0, 0, 0]
-        rippleOpacities = [0, 0, 0, 0, 0]
+        rippleScale = 0
+        rippleOpacity = 0
         centerIconScale = 0
         centerIconOpacity = 0
+        gridFlashProgress = 0
 
-        // Card press
-        withAnimation(.easeInOut(duration: 0.08)) {
+        // Instant card press (no delay)
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
             cardScale = 0.96
         }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.65).delay(0.08)) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             cardScale = 1.0
         }
 
-        // Grid flash
-        withAnimation(.easeOut(duration: 0.15)) {
+        // Instant grid flash (no delay)
+        withAnimation(.easeOut(duration: 0.12)) {
             gridFlashProgress = 1.0
         }
-        withAnimation(.easeOut(duration: 0.5).delay(0.15)) {
+        withAnimation(.easeOut(duration: 0.4)) {
             gridFlashProgress = 0
         }
 
-        // Center icon - pop in
-        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+        // Instant center icon pop (no delay)
+        withAnimation(.spring(response: 0.18, dampingFraction: 0.6)) {
             centerIconScale = 1.0
             centerIconOpacity = 1.0
         }
 
-        // Water-like ripples - 5 staggered rings expanding outward
-        for i in 0..<5 {
-            let delay = Double(i) * 0.06
-
-            // Set initial opacity
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                rippleOpacities[i] = 0.8 - Double(i) * 0.1
-            }
-
-            // Expand ripple far out (like water spreading)
-            withAnimation(.easeOut(duration: 1.0).delay(delay)) {
-                rippleScales[i] = 25.0  // Much larger scale for water effect
-            }
-
-            // Fade out as it expands
-            withAnimation(.easeOut(duration: 0.8).delay(delay + 0.2)) {
-                rippleOpacities[i] = 0
-            }
+        // Single ripple - immediate expansion, smaller size
+        rippleOpacity = 0.8
+        withAnimation(.easeOut(duration: 0.5)) {
+            rippleScale = 8.0  // Smaller ripple (was 25.0)
+            rippleOpacity = 0
         }
 
-        // Fade out center icon
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.easeOut(duration: 0.2)) {
-                centerIconScale = 1.2
-                centerIconOpacity = 0
-            }
+        // Fade out center icon quickly
+        withAnimation(.easeOut(duration: 0.15).delay(0.3)) {
+            centerIconScale = 1.1
+            centerIconOpacity = 0
         }
 
-        // Cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+        // Quick cleanup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             showCompletionEffect = false
         }
     }
