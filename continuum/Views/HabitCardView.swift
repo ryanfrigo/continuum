@@ -297,17 +297,22 @@ struct HabitCardView: View {
 
     private func handleTap() {
         let wasCompleted = habit.isCompletedToday
-        habit.toggleCompletion()
 
-        // Sync widget
-        let habitData = HabitData(from: habit)
-        HabitDataManager.shared.saveHabitData(habitData)
-        HabitDataManager.shared.updateWidgetTimeline()
-
-        if !wasCompleted && habit.isCompletedToday {
+        // Trigger animation IMMEDIATELY before any data operations
+        if !wasCompleted {
             triggerCompletionAnimation()
         } else {
             SoundManager.shared.triggerSelectionHaptic()
+        }
+
+        // Now update data (this happens in the background)
+        habit.toggleCompletion()
+
+        // Sync widget asynchronously to avoid blocking UI
+        Task.detached(priority: .background) {
+            let habitData = HabitData(from: habit)
+            HabitDataManager.shared.saveHabitData(habitData)
+            HabitDataManager.shared.updateWidgetTimeline()
         }
 
         onCompletion?(habit.isCompletedToday)
@@ -326,43 +331,43 @@ struct HabitCardView: View {
         centerIconOpacity = 0
         gridFlashProgress = 0
 
-        // Instant card press (no delay)
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+        // Ultra-fast card press
+        withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
             cardScale = 0.96
         }
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
             cardScale = 1.0
         }
 
-        // Instant grid flash (no delay)
-        withAnimation(.easeOut(duration: 0.12)) {
+        // Instant grid flash
+        withAnimation(.linear(duration: 0.08)) {
             gridFlashProgress = 1.0
         }
-        withAnimation(.easeOut(duration: 0.4)) {
+        withAnimation(.easeOut(duration: 0.3)) {
             gridFlashProgress = 0
         }
 
-        // Instant center icon pop (no delay)
-        withAnimation(.spring(response: 0.18, dampingFraction: 0.6)) {
+        // Instant center icon pop - no spring, just appear
+        withAnimation(.linear(duration: 0.05)) {
             centerIconScale = 1.0
             centerIconOpacity = 1.0
         }
 
         // Single ripple - immediate expansion, smaller size
         rippleOpacity = 0.8
-        withAnimation(.easeOut(duration: 0.5)) {
-            rippleScale = 8.0  // Smaller ripple (was 25.0)
+        withAnimation(.easeOut(duration: 0.4)) {
+            rippleScale = 8.0
             rippleOpacity = 0
         }
 
-        // Fade out center icon quickly
-        withAnimation(.easeOut(duration: 0.15).delay(0.3)) {
+        // Fade out center icon quickly (removed delay!)
+        withAnimation(.easeOut(duration: 0.15).delay(0.25)) {
             centerIconScale = 1.1
             centerIconOpacity = 0
         }
 
         // Quick cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             showCompletionEffect = false
         }
     }
