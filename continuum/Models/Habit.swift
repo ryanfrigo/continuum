@@ -11,6 +11,9 @@ final class Habit {
     var reminderEnabled: Bool = false
     var reminderHour: Int = 9  // 0-23, default 9am
     var reminderMinute: Int = 0  // 0-59
+    var streakFreezeCount: Int = 0  // Available streak freezes
+    var freezeUsedDates: [Date]?  // Days where a freeze was used
+    var graduatedAt: Date?  // Date when habit hit 66 days (nil if not yet graduated)
 
     init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
@@ -21,6 +24,9 @@ final class Habit {
         self.reminderEnabled = reminderEnabled
         self.reminderHour = reminderHour
         self.reminderMinute = reminderMinute
+        self.streakFreezeCount = 0
+        self.freezeUsedDates = nil
+        self.graduatedAt = nil
     }
 
     // Computed property to always return a non-nil completedDates array
@@ -120,7 +126,7 @@ final class Habit {
         return Double(completedCount) / Double(daysBack)
     }
 
-    func historyCompletionFlags(daysBack: Int = 56, asOf date: Date = Date()) -> [Bool] {
+    func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {
         let set = completedSet
         let start = Habit.startOfDay(date)
         return (0..<daysBack).reversed().map { offset in
@@ -129,11 +135,77 @@ final class Habit {
         }
     }
 
+    // MARK: - Streak Freeze
+
+    var freezeUsedDatesArray: [Date] {
+        get { freezeUsedDates ?? [] }
+        set { freezeUsedDates = newValue }
+    }
+
+    private var freezeUsedSet: Set<Date> {
+        Set(freezeUsedDatesArray.map { Habit.startOfDay($0) })
+    }
+
+    /// Whether a streak freeze was used for yesterday (protecting today's streak)
+    var isFreezeActiveToday: Bool {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Habit.startOfDay(Date())) ?? Date()
+        return freezeUsedSet.contains(Habit.startOfDay(yesterday))
+    }
+
+    /// Use a streak freeze for yesterday (call when user opens app and yesterday was missed)
+    /// Returns true if freeze was successfully applied
+    @discardableResult
+    func useStreakFreeze() -> Bool {
+        guard streakFreezeCount > 0 else { return false }
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Habit.startOfDay(Date())) ?? Date()
+        let yesterdayStart = Habit.startOfDay(yesterday)
+
+        // Don't freeze if yesterday was completed or already frozen
+        guard !completedSet.contains(yesterdayStart),
+              !freezeUsedSet.contains(yesterdayStart) else { return false }
+
+        streakFreezeCount -= 1
+        freezeUsedDatesArray.append(yesterdayStart)
+        return true
+    }
+
+    /// Grant a streak freeze (earned weekly or at milestones)
+    func grantStreakFreeze(count: Int = 1) {
+        streakFreezeCount = min(streakFreezeCount + count, 3) // Max 3 stored
+    }
+
+    /// Current streak counting freeze days as "completed"
+    func currentStreakWithFreezes(asOf date: Date = Date()) -> Int {
+        let completed = completedSet
+        let frozen = freezeUsedSet
+        var count = 0
+        var cursor = Habit.startOfDay(date)
+        while completed.contains(cursor) || frozen.contains(cursor) {
+            count += 1
+            guard let prev = Calendar.current.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = Habit.startOfDay(prev)
+        }
+        return count
+    }
+
+    /// Whether this habit has been "graduated" (completed 66-day streak)
+    var isGraduated: Bool {
+        graduatedAt != nil
+    }
+
+    /// Mark as graduated if streak >= 66 and not already graduated
+    func checkAndMarkGraduation() -> Bool {
+        guard graduatedAt == nil, currentStreak() >= 66 else { return false }
+        graduatedAt = Date()
+        return true
+    }
+
     // MARK: - Mutations
 
     /// Remove all completion history.
     func resetProgress() {
         completedDatesArray = []
+        graduatedAt = nil
     }
 
     /// Mark the most recent `count` days (including today) as completed.

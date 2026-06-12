@@ -22,6 +22,15 @@ struct HabitCardView: View {
     @State private var lastRefreshDate = Date()
     @State private var cardScale: CGFloat = 1.0
 
+    // Completion progress states
+    @State private var isAnimatingCompletion = false
+    @State private var completionProgress: CGFloat = 0
+    @State private var completionTimer: Timer?
+
+    // Hint / undo states
+    @State private var showDoubleTapHint = false
+    @State private var showUndoConfirm = false
+
     // Completion animation states
     @State private var showCompletionEffect = false
     @State private var rippleScale: CGFloat = 0
@@ -77,27 +86,72 @@ struct HabitCardView: View {
 
     // MARK: - Body
 
+    private let completionAnimDuration: Double = 1.5
+
     var body: some View {
         let _ = lastRefreshDate
 
-        Button(action: handleTap) {
-            ZStack {
-                // Main card
-                cardContent
-                    .scaleEffect(cardScale)
+        ZStack {
+            // Main card
+            cardContent
+                .scaleEffect(cardScale)
+                .overlay {
+                    // Completion progress bar overlay
+                    if isAnimatingCompletion {
+                        completionProgressOverlay
+                    }
+                }
 
-                // Completion effects overlay
-                if showCompletionEffect {
-                    completionEffectsOverlay
+            // Completion effects overlay
+            if showCompletionEffect {
+                completionEffectsOverlay
+            }
+
+            // Double-tap hint overlay
+            if showDoubleTapHint {
+                doubleTapHintOverlay
+            }
+
+            // Undo confirmation overlay
+            if showUndoConfirm {
+                undoConfirmOverlay
+            }
+        }
+        // Double-tap to complete
+        .onTapGesture(count: 2) {
+            if !habit.isCompletedToday && !isAnimatingCompletion {
+                startCompletion()
+            }
+        }
+        // Single tap — undo if completed, hint if not
+        .onTapGesture(count: 1) {
+            if habit.isCompletedToday {
+                SoundManager.shared.triggerSelectionHaptic()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    showUndoConfirm = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showUndoConfirm = false
+                    }
+                }
+            } else if !isAnimatingCompletion && !showDoubleTapHint {
+                SoundManager.shared.triggerSelectionHaptic()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                    showDoubleTapHint = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showDoubleTapHint = false
+                    }
                 }
             }
         }
-        .buttonStyle(InstantButtonStyle())
+        .contextMenu { contextMenuContent }
         .onAppear {
             lastRefreshDate = Date()
         }
         .onChange(of: refreshTrigger) { lastRefreshDate = Date() }
-        .contextMenu { contextMenuContent }
         .sheet(isPresented: $showingSetStreak) { historyEditSheet }
         .sheet(isPresented: $showingRename) { renameSheet }
         .confirmationDialog("Delete Habit", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
@@ -112,95 +166,92 @@ struct HabitCardView: View {
     // MARK: - Card Content
 
     private var cardContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             // Header with name and health
             headerSection
 
             // Streak information
             streakSection
 
-            // 66-day grid
+            // 66-day grid — hero visual, gets remaining space
             historyGridSection
         }
-        .padding(18)
+        .padding(12)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 
     private var headerSection: some View {
-        HStack(alignment: .top, spacing: 8) {
-            // Habit name
+        HStack(alignment: .top, spacing: 6) {
+            // Habit name — gets all remaining space
             Text(habit.name)
-                .font(.system(size: 17, weight: .semibold, design: .default))
+                .font(.system(size: 15, weight: .bold, design: .default))
                 .foregroundStyle(.white)
                 .lineLimit(2)
-                .minimumScaleFactor(0.85)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 4)
-
-            // Health percentage with ring
+            // Health ring
             ZStack {
-                // Mini progress ring
                 Circle()
-                    .stroke(Color.white.opacity(0.12), lineWidth: 3)
-                    .frame(width: 40, height: 40)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 2.5)
+                    .frame(width: 32, height: 32)
 
                 Circle()
                     .trim(from: 0, to: health)
-                    .stroke(themeColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 40, height: 40)
+                    .stroke(themeColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: themeColor.opacity(0.6), radius: 5)
+                    .shadow(color: themeColor.opacity(0.5), radius: 4)
 
                 Text("\(healthPercentage)")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(themeColor)
             }
         }
     }
 
     private var streakSection: some View {
-        HStack(spacing: 6) {
-            // Streak indicator dot - always reserve space
-            Circle()
-                .fill(themeColor)
-                .frame(width: 6, height: 6)
-                .shadow(color: themeColor, radius: 3)
-                .opacity(displayStreak > 0 ? 1 : 0)
-
-            // Streak text
+        HStack(spacing: 4) {
             if !habit.completedDatesArray.isEmpty {
-                Text("\(displayStreak)")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                Circle()
+                    .fill(themeColor)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: themeColor, radius: 2)
+                    .opacity(displayStreak > 0 ? 1 : 0)
+
+                Text("\(displayStreak)d")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
-                +
-                Text(" day streak")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.5))
+
+                if habit.isCompletedToday {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 7, weight: .heavy))
+                        .foregroundStyle(themeColor)
+                }
+
+                if habit.isGraduated {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 7))
+                        .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
+                }
             } else {
-                Text("Tap to start")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.4))
+                Text("Double-tap to start")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.35))
             }
 
             Spacer()
 
-            // Today indicator - always present to maintain consistent size
-            HStack(spacing: 3) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 8, weight: .bold))
-                Text("TODAY")
-                    .font(.system(size: 8, weight: .bold, design: .rounded))
+            if habit.streakFreezeCount > 0 && !habit.isCompletedToday {
+                HStack(spacing: 2) {
+                    Image(systemName: "snowflake")
+                        .font(.system(size: 6, weight: .bold))
+                    Text("\(habit.streakFreezeCount)")
+                        .font(.system(size: 7, weight: .bold, design: .rounded))
+                }
+                .foregroundStyle(.cyan.opacity(0.7))
             }
-            .foregroundStyle(themeColor)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-                Capsule()
-                    .fill(themeColor.opacity(0.15))
-            )
-            .fixedSize()
-            .opacity(habit.isCompletedToday ? 1 : 0)
         }
     }
 
@@ -265,99 +316,190 @@ struct HabitCardView: View {
         }
     }
 
-    // MARK: - Completion Effects
+    // MARK: - Completion Progress Overlay
 
-    private var completionEffectsOverlay: some View {
-        GeometryReader { geo in
-            ZStack {
-                // Single expanding ripple - smooth and elegant, uses habit's color
-                Circle()
-                    .stroke(
-                        themeColor.opacity(0.6),
-                        lineWidth: 1
-                    )
-                    .frame(width: 30, height: 30)
-                    .scaleEffect(rippleScale)
-                    .opacity(rippleOpacity)
+    private var completionProgressOverlay: some View {
+        VStack {
+            Spacer()
+            // Bottom progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 3)
 
-                // Center checkmark icon - uses habit's color
-                ZStack {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 2)
                         .fill(themeColor)
-                        .frame(width: 32, height: 32)
-
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(.black)
+                        .frame(width: geo.size.width * completionProgress, height: 3)
+                        .shadow(color: themeColor.opacity(0.6), radius: 4)
                 }
-                .scaleEffect(centerIconScale)
-                .opacity(centerIconOpacity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(height: 3)
         }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .allowsHitTesting(false)
     }
 
-    // MARK: - Actions
+    // MARK: - Completion Effects
 
-    private func handleTap() {
-        let wasCompleted = habit.isCompletedToday
+    private var completionEffectsOverlay: some View {
+        ZStack {
+            // Single clean expanding ripple
+            Circle()
+                .stroke(themeColor.opacity(0.5), lineWidth: 2)
+                .frame(width: 30, height: 30)
+                .scaleEffect(rippleScale)
+                .opacity(rippleOpacity)
 
-        // INSTANT visual feedback - set states synchronously FIRST
-        if !wasCompleted {
-            // Visual animation state - INSTANT
-            showCompletionEffect = true
-            rippleScale = 0
-            rippleOpacity = 0.7
-            centerIconScale = 0
-            centerIconOpacity = 0
-            gridFlashProgress = 0
+            // Center checkmark icon
+            ZStack {
+                Circle()
+                    .fill(themeColor)
+                    .frame(width: 36, height: 36)
+                    .shadow(color: themeColor.opacity(0.5), radius: 10)
 
-            // Start animations immediately
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                cardScale = 0.97
+                Image(systemName: "checkmark")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.black)
             }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                cardScale = 1.0
-            }
-            withAnimation(.easeOut(duration: 0.15)) {
-                gridFlashProgress = 1.0
-            }
-            withAnimation(.easeOut(duration: 0.5)) {
-                gridFlashProgress = 0
-            }
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-                centerIconScale = 1.0
-                centerIconOpacity = 1.0
-            }
-            withAnimation(.easeOut(duration: 0.7)) {
-                rippleScale = 10.0
-                rippleOpacity = 0
-            }
-            withAnimation(.easeOut(duration: 0.2).delay(0.4)) {
-                centerIconScale = 1.15
-                centerIconOpacity = 0
-            }
+            .scaleEffect(centerIconScale)
+            .opacity(centerIconOpacity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
+    }
 
-            // Sound/haptic feedback - can be slightly delayed, non-blocking
-            Task {
-                SoundManager.shared.playCompletionBeep()
-                SoundManager.shared.triggerCompletionHaptic()
-            }
+    // MARK: - Double-Tap Hint Overlay
 
-            // Cleanup
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                showCompletionEffect = false
+    private var doubleTapHintOverlay: some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 5) {
+                Image(systemName: "hand.tap.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Double-tap to complete")
+                    .font(.system(size: 12, weight: .semibold))
             }
-        } else {
-            SoundManager.shared.triggerSelectionHaptic()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(themeColor.opacity(0.5))
+            )
+            .padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(false)
+        .transition(.scale.combined(with: .opacity))
+    }
+
+    // MARK: - Undo Confirmation Overlay
+
+    private var undoConfirmOverlay: some View {
+        VStack {
+            Spacer()
+            Button {
+                // Actually undo
+                SoundManager.shared.triggerSelectionHaptic()
+                habit.toggleCompletion()
+                let habitData = HabitData(from: habit)
+                Task.detached(priority: .background) {
+                    HabitDataManager.shared.saveHabitData(habitData)
+                    HabitDataManager.shared.updateWidgetTimeline()
+                }
+                onCompletion?(false)
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showUndoConfirm = false
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Tap to Undo")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(Color.red.opacity(0.6))
+                )
+            }
+            .padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .transition(.scale.combined(with: .opacity))
+    }
+
+    // MARK: - Double-Tap Completion
+
+    private func startCompletion() {
+        isAnimatingCompletion = true
+        completionProgress = 0
+
+        SoundManager.shared.triggerSelectionHaptic()
+
+        // Gentle card press
+        withAnimation(.easeOut(duration: 0.2)) {
+            cardScale = 0.97
         }
 
-        // Update data asynchronously
+        // Animate progress bar over completionAnimDuration
+        let startTime = Date()
+        completionTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
+            let progress = min(Date().timeIntervalSince(startTime) / completionAnimDuration, 1.0)
+            completionProgress = CGFloat(progress)
+
+            if progress >= 1.0 {
+                finishCompletion()
+            }
+        }
+    }
+
+    private func finishCompletion() {
+        completionTimer?.invalidate()
+        completionTimer = nil
+        isAnimatingCompletion = false
+        completionProgress = 0
+
+        // Completion effects
+        showCompletionEffect = true
+        rippleScale = 0
+        rippleOpacity = 0.6
+        centerIconScale = 0
+        centerIconOpacity = 0
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+            cardScale = 1.05
+            centerIconScale = 1.0
+            centerIconOpacity = 1.0
+            gridFlashProgress = 1.0
+            rippleScale = 8.0
+        }
+
+        SoundManager.shared.playCompletionBeep()
+        SoundManager.shared.triggerCompletionHaptic()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                cardScale = 1.0
+                gridFlashProgress = 0
+                rippleOpacity = 0
+                centerIconOpacity = 0
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            showCompletionEffect = false
+        }
+
+        // Update data
         habit.toggleCompletion()
 
+        let habitData = HabitData(from: habit)
         Task.detached(priority: .background) {
-            let habitData = HabitData(from: habit)
             HabitDataManager.shared.saveHabitData(habitData)
             HabitDataManager.shared.updateWidgetTimeline()
         }
@@ -369,6 +511,12 @@ struct HabitCardView: View {
 
     @ViewBuilder
     private var contextMenuContent: some View {
+        Button {
+            onAction?(.share)
+        } label: {
+            Label("Share Streak", systemImage: "square.and.arrow.up")
+        }
+        Divider()
         Button("Reset Progress", role: .destructive) { onAction?(.reset) }
         Divider()
         Button("Edit Name") {
@@ -416,6 +564,7 @@ enum HabitAction {
     case setStreak(Int)
     case rename(String)
     case delete
+    case share
 }
 
 // MARK: - Preview

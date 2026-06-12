@@ -1,6 +1,6 @@
 import Foundation
 import WidgetKit
-#if canImport(SwiftData)
+#if !WIDGET_EXTENSION
 import SwiftData
 #endif
 
@@ -104,6 +104,20 @@ class HabitDataManager {
             print("Failed to encode habit data: \(error)")
         }
     }
+
+    
+    func removeHabitData(for habitId: UUID) {
+        let userDefaults = UserDefaults(suiteName: Self.appGroupIdentifier)
+        userDefaults?.removeObject(forKey: "habitData_\(habitId.uuidString)")
+    }
+
+    // MARK: - Widget Helper Methods
+
+    func loadAllHabitData() -> [HabitData] {
+        let habitIds = getAllHabitIds()
+        return habitIds.compactMap { getHabitData(for: $0) }
+    }
+
 }
 
 // MARK: - Habit Data Structure for Widget
@@ -121,7 +135,7 @@ struct HabitData: Codable {
         self.completedDates = completedDates
     }
 
-    #if canImport(SwiftData)
+    #if !WIDGET_EXTENSION
     init(from habit: Habit) {
         self.id = habit.id
         self.name = habit.name
@@ -140,7 +154,11 @@ struct HabitData: Codable {
         let today = Self.startOfDay(Date())
         return completedDates.contains { Calendar.current.isDate(Self.startOfDay($0), inSameDayAs: today) }
     }
-    
+
+    var currentStreak: Int {
+        currentStreak(asOf: Date())
+    }
+
     func currentStreak(asOf date: Date = Date()) -> Int {
         let set = Set(completedDates.map { Self.startOfDay($0) })
         var count = 0
@@ -152,8 +170,29 @@ struct HabitData: Codable {
         }
         return count
     }
-    
-    func historyCompletionFlags(daysBack: Int = 49, asOf date: Date = Date()) -> [Bool] {
+
+    var habitHealth: Double {
+        habitHealth(asOf: Date())
+    }
+
+    func habitHealth(asOf date: Date = Date()) -> Double {
+        let daysBack = 66
+        let set = Set(completedDates.map { Self.startOfDay($0) })
+        let start = Self.startOfDay(date)
+        var completedCount = 0
+
+        for offset in 0..<daysBack {
+            if let d = Calendar.current.date(byAdding: .day, value: -offset, to: start) {
+                if set.contains(Self.startOfDay(d)) {
+                    completedCount += 1
+                }
+            }
+        }
+
+        return Double(completedCount) / Double(daysBack)
+    }
+
+    func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {
         let set = Set(completedDates.map { Self.startOfDay($0) })
         let start = Self.startOfDay(date)
         return (0..<daysBack).reversed().map { offset in

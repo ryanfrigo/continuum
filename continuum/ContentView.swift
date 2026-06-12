@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import StoreKit
 #if canImport(Inject)
 import Inject
 #endif
@@ -27,11 +28,28 @@ struct ContentView: View {
     @State private var healthMilestonePercentage: Int? = nil
     @State private var healthMilestoneHabitName: String = ""
 
+    // Graduation state
+    @State private var showGraduation = false
+    @State private var graduationHabitName: String = ""
+    @State private var graduationHabit: Habit? = nil
+
+    // Share state
+    @State private var shareImage: UIImage? = nil
+    @State private var showShareSheet = false
+
+    // Perfect day state
+    @State private var showPerfectDay = false
+
     // Track previous streaks/health to detect milestone crossings
     @State private var previousStreaks: [UUID: Int] = [:]
     @State private var previousHealth: [UUID: Int] = [:]
 
     @AppStorage("hasCompletedOnboarding") private var onboardingCompleted = false
+    @AppStorage("hasCompletedWalkthrough") private var walkthroughCompleted = false
+    @AppStorage("habitsFormedCount") private var habitsFormedCount = 0
+    @AppStorage("reviewRequestedForMilestone") private var reviewRequestedForMilestone = 0
+    @State private var showWalkthrough = false
+    @Environment(\.requestReview) private var requestReview
 
     #if canImport(Inject)
     @ObserveInjection var inject
@@ -48,6 +66,14 @@ struct ContentView: View {
 
     private var hasHabits: Bool {
         !habits.isEmpty
+    }
+
+    private var completedTodayCount: Int {
+        habits.filter { $0.isCompletedToday }.count
+    }
+
+    private var allCompletedToday: Bool {
+        hasHabits && completedTodayCount == habits.count
     }
 
     // Calculate overall health for ambient background
@@ -108,7 +134,57 @@ struct ContentView: View {
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         .zIndex(100)
                     }
+
+                    // Walkthrough overlay
+                    if showWalkthrough {
+                        WalkthroughOverlay {
+                            walkthroughCompleted = true
+                            showWalkthrough = false
+                        }
+                        .transition(.opacity)
+                        .zIndex(99)
+                    }
+
+                    if showPerfectDay {
+                        PerfectDayOverlay(
+                            habitCount: habits.count,
+                            onDismiss: {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    showPerfectDay = false
+                                }
+                            }
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .zIndex(98)
+                    }
+
+                    if showGraduation {
+                        HabitGraduationOverlay(
+                            habitName: graduationHabitName,
+                            onDismiss: {
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    showGraduation = false
+                                }
+                            },
+                            onShare: {
+                                if let habit = graduationHabit {
+                                    shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
+                                    showGraduation = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                        showShareSheet = true
+                                    }
+                                }
+                            }
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .zIndex(101)
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let image = shareImage {
+                ShareSheet(items: [image])
             }
         }
         .sheet(isPresented: $showingAdd) {
@@ -126,11 +202,24 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+                .onDisappear {
+                    if !walkthroughCompleted && !showWalkthrough {
+                        showWalkthrough = true
+                    }
+                }
         }
         .fullScreenCover(isPresented: $showingOnboarding) {
             OnboardingView(isPresented: $showingOnboarding) { selectedHabits in
                 onboardingCompleted = true
                 createSelectedHabits(selectedHabits)
+                // Show walkthrough after onboarding
+                if !walkthroughCompleted {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showWalkthrough = true
+                        }
+                    }
+                }
             }
         }
         .onAppear {
@@ -139,10 +228,19 @@ struct ContentView: View {
             }
             initializeHabitOrders()
             initializeMilestoneTracking()
+            syncAllHabitsToWidget()
+            scheduleStreakAtRiskNotifications()
+            rescheduleAllReminders()
+            autoApplyStreakFreezes()
+            grantWeeklyStreakFreezes()
+            NotificationManager.shared.clearBadge()
             refreshTrigger.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             refreshTrigger.toggle()
+            scheduleStreakAtRiskNotifications()
+            rescheduleAllReminders()
+            NotificationManager.shared.clearBadge()
         }
     }
 
@@ -237,7 +335,7 @@ struct ContentView: View {
                 .padding(.bottom, 100) // Extra padding for tab bar safety
             }
         }
-        .scrollDisabled(habits.count <= 6) // Disable scrolling when 6 or fewer habits (fits on screen)
+        // Always allow scrolling — content height varies with device size and Dynamic Type
         .scrollIndicators(.hidden)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -284,23 +382,42 @@ struct ContentView: View {
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text(dateString)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.5))
+                HStack(spacing: 8) {
+                    Text(dateString)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.5))
+
+                    if habitsFormedCount > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 8))
+                            Text("\(habitsFormedCount) formed")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
+                    }
+                }
             }
 
             Spacer()
 
-            // Overall health indicator
+            // Today's progress + overall health
             if !habits.isEmpty {
-                VStack(alignment: .trailing, spacing: 3) {
+                VStack(alignment: .trailing, spacing: 6) {
+                    // Overall health percentage
                     Text("\(Int(overallHealth * 100))%")
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundStyle(healthColor(for: overallHealth))
 
-                    Text("health")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.4))
+                    // Today's completion count
+                    HStack(spacing: 3) {
+                        Text("\(completedTodayCount)/\(habits.count)")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.5))
+                        Text(allCompletedToday ? "perfect" : "today")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(allCompletedToday ? Color(hue: 0.12, saturation: 0.8, brightness: 0.95).opacity(0.7) : Color.white.opacity(0.35))
+                    }
                 }
             }
         }
@@ -316,15 +433,30 @@ struct ContentView: View {
         }
     }
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, MMMM d"
+        return f
+    }()
+
     private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMMM d"
-        return formatter.string(from: Date())
+        Self.dateFormatter.string(from: Date())
     }
 
     private func healthColor(for health: Double) -> Color {
-        let hue = 0.08 + health * 0.4 // Orange to cyan
-        return Color(hue: hue, saturation: 0.8, brightness: 0.95)
+        let hueOrange: Double = 30.0 / 360.0
+        let hueGreen: Double = 140.0 / 360.0
+        let hueCyan: Double = 175.0 / 360.0
+        let clamped = max(0, min(1, health))
+        if clamped <= 0.5 {
+            let t = clamped / 0.5
+            let hue = hueOrange + (hueGreen - hueOrange) * t
+            return Color(hue: hue, saturation: 0.85, brightness: 0.95)
+        } else {
+            let t = (clamped - 0.5) / 0.5
+            let hue = hueGreen + (hueCyan - hueGreen) * t
+            return Color(hue: hue, saturation: 0.75, brightness: 0.9)
+        }
     }
 
     // MARK: - Drag and Drop
@@ -357,13 +489,26 @@ struct ContentView: View {
         switch action {
         case .reset:
             habit.resetProgress()
+            syncHabitToWidget(habit)
         case .setStreak(let n):
             habit.setCurrentStreak(n)
+            syncHabitToWidget(habit)
         case .rename(let newName):
             habit.name = newName
+            syncHabitToWidget(habit)
         case .delete:
+            NotificationManager.shared.removeAllNotifications(for: habit)
+            // Clean up widget data
+            var allIds = HabitDataManager.shared.getAllHabitIds()
+            allIds.removeAll { $0 == habit.id }
+            HabitDataManager.shared.saveAllHabitIds(allIds)
+            HabitDataManager.shared.removeHabitData(for: habit.id)
+            HabitDataManager.shared.updateWidgetTimeline()
             modelContext.delete(habit)
             try? modelContext.save()
+        case .share:
+            shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
+            showShareSheet = true
         }
     }
 
@@ -381,6 +526,12 @@ struct ContentView: View {
         let previousStreak = previousStreaks[habit.id] ?? 0
         let previousHealthValue = previousHealth[habit.id] ?? 0
 
+        // When a habit is completed, remove its streak-at-risk and today's reminder
+        if wasJustCompleted {
+            NotificationManager.shared.removeStreakAtRiskNotification(for: habit)
+            NotificationManager.shared.removeTodayReminder(for: habit)
+        }
+
         guard wasJustCompleted else {
             previousStreaks[habit.id] = habit.currentStreak()
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
@@ -388,12 +539,45 @@ struct ContentView: View {
         }
 
         let newStreak = habit.currentStreak()
-        if let milestone = StreakMilestone.milestone(for: newStreak), newStreak > previousStreak {
+
+        // Check for habit graduation (66 days) — special overlay
+        if newStreak >= 66 && previousStreak < 66 {
+            if habit.checkAndMarkGraduation() {
+                habitsFormedCount += 1
+                try? modelContext.save()
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                celebrationHabitName = habit.name
+                graduationHabitName = habit.name
+                graduationHabit = habit
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    celebrationMilestone = milestone
+                    showGraduation = true
                 }
+            }
+        } else if let milestone = StreakMilestone.milestone(for: newStreak), newStreak > previousStreak {
+            // Regular milestone celebration (skip 66 since graduation handles it)
+            if milestone != .habitFormed {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    celebrationHabitName = habit.name
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        celebrationMilestone = milestone
+                    }
+                }
+            }
+        }
+
+        // StoreKit review prompt — ask after 21-day milestone
+        if newStreak >= 21 && reviewRequestedForMilestone < 21 {
+            reviewRequestedForMilestone = 21
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                requestReview()
+            }
+        }
+
+        // Grant a streak freeze at milestone achievements
+        if newStreak == 7 || newStreak == 21 || newStreak == 100 {
+            if previousStreak < newStreak {
+                habit.grantStreakFreeze()
+                try? modelContext.save()
             }
         }
 
@@ -401,7 +585,7 @@ struct ContentView: View {
         let healthMilestones = [25, 50, 75, 100]
         for milestone in healthMilestones {
             if newHealth >= milestone && previousHealthValue < milestone {
-                let delay = celebrationMilestone != nil ? 2.0 : 1.0
+                let delay = (celebrationMilestone != nil || showGraduation) ? 2.0 : 1.0
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     healthMilestoneHabitName = habit.name
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -414,6 +598,17 @@ struct ContentView: View {
 
         previousStreaks[habit.id] = newStreak
         previousHealth[habit.id] = newHealth
+
+        // Check for perfect day (all habits complete)
+        if wasJustCompleted && allCompletedToday {
+            let delay: Double = (celebrationMilestone != nil || showGraduation) ? 3.0 : 1.2
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard !showPerfectDay else { return }
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showPerfectDay = true
+                }
+            }
+        }
     }
 
     private func reorderHabit(from source: Habit, to destination: Habit) {
@@ -473,6 +668,78 @@ struct ContentView: View {
             HabitDataManager.shared.saveAllHabitIds(allIds)
         }
         HabitDataManager.shared.updateWidgetTimeline()
+    }
+
+    private func syncAllHabitsToWidget() {
+        // Sync all current habits to widget
+        let allIds = habits.map { $0.id }
+        HabitDataManager.shared.saveAllHabitIds(allIds)
+
+        for habit in habits {
+            let habitData = HabitData(from: habit)
+            HabitDataManager.shared.saveHabitData(habitData)
+        }
+
+        HabitDataManager.shared.updateWidgetTimeline()
+    }
+
+    private func scheduleStreakAtRiskNotifications() {
+        NotificationManager.shared.scheduleAllStreakAtRiskNotifications(habits: habits)
+    }
+
+    private func rescheduleAllReminders() {
+        // Reschedule 7-day-ahead non-repeating reminders, skipping completed days
+        for habit in habits where habit.reminderEnabled {
+            NotificationManager.shared.scheduleNotification(for: habit)
+        }
+    }
+
+    private func autoApplyStreakFreezes() {
+        let today = Calendar.current.startOfDay(for: Date())
+        guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today),
+              let twoDaysAgo = Calendar.current.date(byAdding: .day, value: -2, to: today) else { return }
+
+        let yesterdayStart = Calendar.current.startOfDay(for: yesterday)
+        var didApply = false
+
+        for habit in habits {
+            guard habit.streakFreezeCount > 0 else { continue }
+
+            // Check: yesterday was NOT completed, but 2 days ago WAS (streak just broke)
+            let yesterdayCompleted = habit.completedDatesArray.contains {
+                Calendar.current.isDate($0, inSameDayAs: yesterdayStart)
+            }
+            let alreadyFrozen = habit.freezeUsedDatesArray.contains {
+                Calendar.current.isDate($0, inSameDayAs: yesterdayStart)
+            }
+
+            guard !yesterdayCompleted && !alreadyFrozen else { continue }
+
+            // Was there an active streak before yesterday?
+            let streakBeforeYesterday = habit.currentStreak(asOf: twoDaysAgo)
+            if streakBeforeYesterday >= 3 {
+                habit.useStreakFreeze()
+                didApply = true
+            }
+        }
+
+        if didApply {
+            try? modelContext.save()
+        }
+    }
+
+    private func grantWeeklyStreakFreezes() {
+        let lastGrantKey = "lastStreakFreezeGrantDate"
+        let lastGrant = UserDefaults.standard.object(forKey: lastGrantKey) as? Date ?? .distantPast
+        let daysSinceGrant = Calendar.current.dateComponents([.day], from: lastGrant, to: Date()).day ?? 999
+
+        if daysSinceGrant >= 7 {
+            for habit in habits where habit.currentStreak() >= 7 {
+                habit.grantStreakFreeze()
+            }
+            UserDefaults.standard.set(Date(), forKey: lastGrantKey)
+            try? modelContext.save()
+        }
     }
 }
 

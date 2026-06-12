@@ -15,6 +15,40 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Preferences Section
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { SoundManager.soundEnabled },
+                        set: { SoundManager.soundEnabled = $0 }
+                    )) {
+                        HStack {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .foregroundStyle(.orange)
+                            Text("Sound Effects")
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .tint(.orange)
+                    .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+
+                    Toggle(isOn: Binding(
+                        get: { SoundManager.hapticsEnabled },
+                        set: { SoundManager.hapticsEnabled = $0 }
+                    )) {
+                        HStack {
+                            Image(systemName: "hand.tap.fill")
+                                .foregroundStyle(.orange)
+                            Text("Haptic Feedback")
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .tint(.orange)
+                    .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                } header: {
+                    Text("Preferences")
+                        .foregroundStyle(.gray)
+                }
+
                 // Notifications Section
                 Section {
                     ForEach(sortedHabits) { habit in
@@ -61,6 +95,23 @@ struct SettingsView: View {
                 // App Info Section
                 Section {
                     Button {
+                        UserDefaults.standard.set(false, forKey: "hasCompletedWalkthrough")
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "questionmark.circle")
+                                .foregroundStyle(.orange)
+                            Text("Show Walkthrough")
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.gray)
+                        }
+                    }
+                    .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+
+                    Button {
                         showingAbout = true
                     } label: {
                         HStack {
@@ -83,7 +134,7 @@ struct SettingsView: View {
                             .font(.subheadline.monospaced())
                             .foregroundStyle(.white)
                         Spacer()
-                        Text("3.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0")
                             .font(.subheadline.monospaced())
                             .foregroundStyle(.orange)
                     }
@@ -124,6 +175,9 @@ struct SettingsView: View {
                 }
             }
             .onAppear {
+                checkNotificationPermission()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 checkNotificationPermission()
             }
         }
@@ -172,6 +226,9 @@ struct SettingsView: View {
             modelContext.delete(habit)
         }
         try? modelContext.save()
+        // Clean up widget data
+        HabitDataManager.shared.saveAllHabitIds([])
+        HabitDataManager.shared.updateWidgetTimeline()
         dismiss()
     }
 

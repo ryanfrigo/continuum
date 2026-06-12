@@ -1,15 +1,25 @@
 import AVFoundation
-import UIKit
+import SwiftUI
 
 class SoundManager {
+    @AppStorage("soundEnabled") static var soundEnabled: Bool = true
+    @AppStorage("hapticsEnabled") static var hapticsEnabled: Bool = true
+
     static let shared = SoundManager()
 
     private var audioPlayer: AVAudioPlayer?
-    private var synthesizer: AVAudioEngine?
-    private var playerNode: AVAudioPlayerNode?
+    private let engine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
 
     private init() {
         setupAudioSession()
+        engine.attach(playerNode)
+        // Connect with a default format so the graph is valid before starting
+        let defaultFormat = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
+        if let fmt = defaultFormat {
+            engine.connect(playerNode, to: engine.mainMixerNode, format: fmt)
+        }
+        startEngine()
     }
 
     private func setupAudioSession() {
@@ -25,6 +35,7 @@ class SoundManager {
 
     /// Plays a futuristic electronic confirmation beep
     func playCompletionBeep() {
+        guard SoundManager.soundEnabled else { return }
         // Generate a clean electronic beep using audio synthesis
         generateElectronicBeep(frequency: 880, duration: 0.08) // A5 note
 
@@ -36,11 +47,13 @@ class SoundManager {
 
     /// Plays a subtle UI interaction sound
     func playSubtleClick() {
+        guard SoundManager.soundEnabled else { return }
         generateElectronicBeep(frequency: 1200, duration: 0.03)
     }
 
     /// Plays a celebration sound for milestones
     func playCelebrationSound() {
+        guard SoundManager.soundEnabled else { return }
         // Ascending arpeggio
         let notes: [(frequency: Double, delay: Double)] = [
             (440, 0.0),    // A4
@@ -56,7 +69,26 @@ class SoundManager {
         }
     }
 
+    private func startEngine() {
+        guard !engine.isRunning else { return }
+        do {
+            try engine.start()
+        } catch {
+            // Non-fatal — sounds just won't play
+            print("Audio engine start failed: \(error)")
+        }
+    }
+
+    /// Safe check before any audio operation
+    private var canPlayAudio: Bool {
+        if !engine.isRunning {
+            startEngine()
+        }
+        return engine.isRunning
+    }
+
     private func generateElectronicBeep(frequency: Double, duration: Double) {
+        guard canPlayAudio else { return }
         let sampleRate: Double = 44100
         let samples = Int(sampleRate * duration)
 
@@ -70,40 +102,30 @@ class SoundManager {
         }
 
         // Create audio buffer and play
-        let audioFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        guard let audioFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1) else {
+            print("Failed to create audio format")
+            return
+        }
         guard let buffer = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: AVAudioFrameCount(samples)) else { return }
 
         buffer.frameLength = AVAudioFrameCount(samples)
-        let channelData = buffer.floatChannelData![0]
+        guard let channelData = buffer.floatChannelData?[0] else { return }
         for i in 0..<samples {
             channelData[i] = audioData[i]
         }
 
-        let engine = AVAudioEngine()
-        let player = AVAudioPlayerNode()
+        // Reconnect player node with the current format
+        engine.connect(playerNode, to: engine.mainMixerNode, format: audioFormat)
 
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: audioFormat)
-
-        do {
-            try engine.start()
-            player.scheduleBuffer(buffer, at: nil, options: .interrupts)
-            player.play()
-
-            // Keep engine alive for duration
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
-                player.stop()
-                engine.stop()
-            }
-        } catch {
-            print("Audio engine error: \(error)")
-        }
+        playerNode.scheduleBuffer(buffer, at: nil, options: .interrupts)
+        playerNode.play()
     }
 
     // MARK: - Haptic Feedback
 
     /// Futuristic sharp haptic for completion
     func triggerCompletionHaptic() {
+        guard SoundManager.hapticsEnabled else { return }
         let generator = UIImpactFeedbackGenerator(style: .rigid)
         generator.prepare()
         generator.impactOccurred(intensity: 1.0)
@@ -117,6 +139,7 @@ class SoundManager {
 
     /// Celebration haptic pattern
     func triggerCelebrationHaptic() {
+        guard SoundManager.hapticsEnabled else { return }
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
         generator.notificationOccurred(.success)
@@ -132,6 +155,7 @@ class SoundManager {
 
     /// Subtle selection haptic
     func triggerSelectionHaptic() {
+        guard SoundManager.hapticsEnabled else { return }
         let generator = UISelectionFeedbackGenerator()
         generator.prepare()
         generator.selectionChanged()

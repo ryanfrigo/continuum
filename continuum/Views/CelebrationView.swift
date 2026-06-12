@@ -167,13 +167,6 @@ struct CelebrationOverlay: View {
     }
 }
 
-struct CelebrationParticle: Identifiable {
-    let id = UUID()
-    var position: CGPoint
-    var size: CGFloat
-    var opacity: Double
-}
-
 // MARK: - Health Milestone Overlay
 
 struct HealthMilestoneOverlay: View {
@@ -279,6 +272,332 @@ struct HealthMilestoneOverlay: View {
     }
 }
 
+// MARK: - Habit Graduation Overlay
+
+struct HabitGraduationOverlay: View {
+    let habitName: String
+    let onDismiss: () -> Void
+    let onShare: () -> Void
+
+    private let goldAccent = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
+
+    // Animation states
+    @State private var backgroundOpacity: Double = 0
+    @State private var glowScale: CGFloat = 0.01
+    @State private var glowOpacity: Double = 0
+    @State private var ringProgress: CGFloat = 0
+    @State private var ringScale: CGFloat = 0.6
+    @State private var ringOpacity: Double = 0
+    @State private var numberScale: CGFloat = 0
+    @State private var numberOpacity: Double = 0
+    @State private var titleOpacity: Double = 0
+    @State private var titleOffset: CGFloat = 20
+    @State private var subtitleOpacity: Double = 0
+    @State private var buttonsOpacity: Double = 0
+
+    var body: some View {
+        ZStack {
+            // Phase 1: Deep dark background
+            Color(red: 0.04, green: 0.04, blue: 0.06).opacity(backgroundOpacity * 0.97)
+                .ignoresSafeArea()
+
+            // Golden radial glow from center
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    goldAccent.opacity(0.3),
+                    goldAccent.opacity(0.08),
+                    Color.clear
+                ]),
+                center: .center,
+                startRadius: 10,
+                endRadius: 300
+            )
+            .scaleEffect(glowScale)
+            .opacity(glowOpacity)
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+
+                // Animated graduation ring
+                ZStack {
+                    // Outer decorative ring (subtle)
+                    Circle()
+                        .stroke(goldAccent.opacity(0.15), lineWidth: 2)
+                        .frame(width: 220, height: 220)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+
+                    // Background track ring
+                    Circle()
+                        .stroke(Color.white.opacity(0.08), lineWidth: 12)
+                        .frame(width: 180, height: 180)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+
+                    // Animated progress ring filling to 100%
+                    Circle()
+                        .trim(from: 0, to: ringProgress)
+                        .stroke(
+                            AngularGradient(
+                                gradient: Gradient(colors: [
+                                    goldAccent.opacity(0.6),
+                                    goldAccent,
+                                    goldAccent.opacity(0.9)
+                                ]),
+                                center: .center,
+                                startAngle: .degrees(-90),
+                                endAngle: .degrees(270)
+                            ),
+                            style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                        )
+                        .frame(width: 180, height: 180)
+                        .rotationEffect(.degrees(-90))
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+
+                    // Center number
+                    VStack(spacing: 2) {
+                        Text("66")
+                            .font(.system(size: 68, weight: .black, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.white, goldAccent.opacity(0.85)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+
+                        Text("DAYS")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(goldAccent)
+                            .tracking(6)
+                    }
+                    .scaleEffect(numberScale)
+                    .opacity(numberOpacity)
+                }
+
+                Spacer().frame(height: 40)
+
+                // Title and messaging
+                VStack(spacing: 16) {
+                    Text("HABIT FORMED")
+                        .font(.system(size: 28, weight: .black, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [goldAccent, .white],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .tracking(3)
+                        .opacity(titleOpacity)
+                        .offset(y: titleOffset)
+
+                    Text(habitName)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(0.7))
+                        .opacity(titleOpacity)
+                        .offset(y: titleOffset)
+                }
+
+                Spacer().frame(height: 20)
+
+                // Motivational message
+                Text("This is now part of who you are")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.45))
+                    .italic()
+                    .opacity(subtitleOpacity)
+
+                Spacer()
+
+                // Action buttons
+                VStack(spacing: 14) {
+                    // Share achievement button
+                    Button(action: onShare) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text("Share Achievement")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(goldAccent)
+                        )
+                    }
+                    .accessibilityLabel("Share your 66-day habit achievement for \(habitName)")
+
+                    // Continue button
+                    Button(action: onDismiss) {
+                        Text("Continue")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.6))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
+                    }
+                    .accessibilityLabel("Dismiss graduation celebration")
+                }
+                .padding(.horizontal, 40)
+                .opacity(buttonsOpacity)
+                .padding(.bottom, 60)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Habit graduation celebration. \(habitName) has been formed after 66 days.")
+        .onAppear { startAnimation() }
+    }
+
+    private func startAnimation() {
+        // Sound and haptic feedback
+        SoundManager.shared.playCelebrationSound()
+        SoundManager.shared.triggerCelebrationHaptic()
+
+        // Phase 1: Background fade in (0.3s)
+        withAnimation(.easeOut(duration: 0.3)) {
+            backgroundOpacity = 1
+        }
+
+        // Golden glow emerges
+        withAnimation(.easeOut(duration: 0.8).delay(0.15)) {
+            glowScale = 1.0
+            glowOpacity = 1.0
+        }
+
+        // Phase 2: Ring expands with spring (0.5s delay)
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.5)) {
+            ringScale = 1.0
+            ringOpacity = 1.0
+        }
+
+        // Ring fills to 100%
+        withAnimation(.easeOut(duration: 1.2).delay(0.6)) {
+            ringProgress = 1.0
+        }
+
+        // Phase 3: Number scales in with bounce (0.3s delay from ring)
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.55).delay(0.8)) {
+            numberScale = 1.0
+            numberOpacity = 1.0
+        }
+
+        // Phase 4: "HABIT FORMED" text fades in (0.5s delay from start of sequence)
+        withAnimation(.easeOut(duration: 0.5).delay(1.1)) {
+            titleOpacity = 1.0
+            titleOffset = 0
+        }
+
+        // Phase 5: Subtitle and buttons fade in (0.7s delay from start)
+        withAnimation(.easeOut(duration: 0.4).delay(1.3)) {
+            subtitleOpacity = 1.0
+        }
+
+        withAnimation(.easeOut(duration: 0.4).delay(1.5)) {
+            buttonsOpacity = 1.0
+        }
+    }
+}
+
+// MARK: - Perfect Day Overlay
+
+struct PerfectDayOverlay: View {
+    let habitCount: Int
+    let onDismiss: () -> Void
+
+    private let accentColor = Color(hue: 0.10, saturation: 0.75, brightness: 0.95) // warm orange-gold
+
+    // Animation states
+    @State private var backgroundOpacity: Double = 0
+    @State private var iconScale: CGFloat = 0
+    @State private var iconOpacity: Double = 0
+    @State private var textOpacity: Double = 0
+
+    var body: some View {
+        ZStack {
+            // Dark background
+            Color(red: 0.06, green: 0.07, blue: 0.09).opacity(backgroundOpacity * 0.92)
+                .ignoresSafeArea()
+
+            VStack(spacing: 28) {
+                Spacer()
+
+                // Checkmark icon with subtle ring
+                ZStack {
+                    Circle()
+                        .stroke(accentColor.opacity(0.25), lineWidth: 3)
+                        .frame(width: 130, height: 130)
+
+                    Circle()
+                        .fill(accentColor.opacity(0.12))
+                        .frame(width: 130, height: 130)
+
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 52, weight: .bold))
+                        .foregroundStyle(accentColor)
+                }
+                .scaleEffect(iconScale)
+                .opacity(iconOpacity)
+
+                // Text content
+                VStack(spacing: 12) {
+                    Text("PERFECT DAY")
+                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .foregroundStyle(accentColor)
+                        .tracking(3)
+
+                    Text("All \(habitCount) habits complete")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.5))
+                }
+                .opacity(textOpacity)
+
+                Spacer()
+
+                // Dismiss hint
+                Text("Tap to continue")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.3))
+                    .opacity(textOpacity)
+                    .padding(.bottom, 60)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Perfect day. All \(habitCount) habits completed.")
+        .onTapGesture { onDismiss() }
+        .onAppear { startAnimation() }
+    }
+
+    private func startAnimation() {
+        // Sound and haptic
+        SoundManager.shared.playCelebrationSound()
+        SoundManager.shared.triggerCelebrationHaptic()
+
+        // Phase 1: Background fade in (0.3s)
+        withAnimation(.easeOut(duration: 0.3)) {
+            backgroundOpacity = 1
+        }
+
+        // Phase 2: Icon scales in with spring (0.4s delay)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.65).delay(0.4)) {
+            iconScale = 1.0
+            iconOpacity = 1.0
+        }
+
+        // Phase 3: Text fades in (0.6s delay)
+        withAnimation(.easeOut(duration: 0.4).delay(0.6)) {
+            textOpacity = 1.0
+        }
+    }
+}
+
 // MARK: - Supporting Shapes
 
 struct Diamond: Shape {
@@ -337,6 +656,21 @@ struct CornerBracket: Shape {
     HealthMilestoneOverlay(
         percentage: 50,
         habitName: "Meditate",
+        onDismiss: {}
+    )
+}
+
+#Preview("Habit Graduation") {
+    HabitGraduationOverlay(
+        habitName: "Exercise",
+        onDismiss: {},
+        onShare: {}
+    )
+}
+
+#Preview("Perfect Day") {
+    PerfectDayOverlay(
+        habitCount: 5,
         onDismiss: {}
     )
 }

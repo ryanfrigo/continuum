@@ -30,10 +30,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXBuildFile section */
-		C29E219164784681BBDE1D69 /* continuumWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-/* End PBXBuildFile section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		46C5D47461D5443EAEC42FE8 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;

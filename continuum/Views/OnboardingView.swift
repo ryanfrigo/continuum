@@ -15,7 +15,7 @@ struct OnboardingView: View {
             icon: "checkmark.circle.fill",
             title: "Track Daily",
             subtitle: "Build momentum",
-            description: "Tap to mark habits complete. Watch your streak grow day by day.",
+            description: "Double-tap a habit card to complete it. Watch the progress bar fill as your streak grows.",
             color: .orange
         ),
         OnboardingPage(
@@ -42,14 +42,16 @@ struct OnboardingView: View {
     ]
 
     private let habitSuggestions = [
-        "Exercise",
-        "Read",
+        "5 AM Club",
+        "Cold Plunge",
         "Meditate",
-        "Hydrate",
+        "No Phone Till Noon",
+        "Zone 2 Cardio",
+        "Read 30 Pages",
         "Journal",
-        "Learn",
-        "Sleep Early",
-        "Eat Healthy"
+        "No Processed Food",
+        "Lift Heavy",
+        "Breathwork",
     ]
 
     var body: some View {

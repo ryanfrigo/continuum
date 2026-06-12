@@ -11,14 +11,14 @@ struct AddHabitSheet: View {
     @State private var selectedSuggestion: String? = nil
 
     private let suggestions = [
-        "Exercise",
+        "Sunlight AM",
         "Read",
         "Meditate",
-        "Hydrate",
-        "Journal",
-        "Learn",
-        "Sleep Early",
-        "Eat Healthy"
+        "1 Gallon Water",
+        "Gratitude Log",
+        "Deep Work 2hr",
+        "Sleep by 10 PM",
+        "Whole Foods Only"
     ]
 
     var body: some View {
@@ -196,7 +196,10 @@ struct SuggestionChip: View {
             Text(name)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(isSelected ? .black : Color.white.opacity(0.8))
-                .padding(.horizontal, 16)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity)
                 .background(

@@ -7,6 +7,7 @@ struct HabitHistoryEditView: View {
     var onSave: () -> Void
 
     @State private var selectedDates: Set<Date> = []
+    @State private var originalDates: [Date] = []
     @State private var isDragging = false
     @State private var dragStartDate: Date? = nil
     @State private var dragMode: Bool = true // true = selecting, false = deselecting
@@ -120,7 +121,10 @@ struct HabitHistoryEditView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("CANCEL") { onCancel() }
+                    Button("CANCEL") {
+                            habit.completedDatesArray = originalDates
+                            onCancel()
+                        }
                         .font(.caption.monospaced())
                         .foregroundStyle(.gray)
                 }
@@ -134,6 +138,7 @@ struct HabitHistoryEditView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            originalDates = habit.completedDatesArray
             selectedDates = Set(habit.completedDatesArray.map { calendar.startOfDay(for: $0) })
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showContent = true
@@ -150,29 +155,32 @@ struct HabitHistoryEditView: View {
         let leadingEmptyCells: Int
     }
 
+    private static let monthFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
+
     private func groupDaysByMonth() -> [MonthData] {
         let days = generateLast66Days()
         var grouped: [Date: [Date]] = [:]
 
         for day in days {
-            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: day))!
+            guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: day)) else { continue }
             grouped[monthStart, default: []].append(day)
         }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-
         // Sorted chronologically - oldest first, current month at bottom
-        return grouped.keys.sorted().map { monthStart in
-            let monthDays = grouped[monthStart]!.sorted()
-            let firstDay = monthDays.first!
+        return grouped.keys.sorted().compactMap { monthStart in
+            let monthDays = (grouped[monthStart] ?? []).sorted()
+            guard let firstDay = monthDays.first else { return nil }
             let weekday = calendar.component(.weekday, from: firstDay)
             // Calculate empty cells needed before first day (Sunday = 1)
             let leadingCells = (weekday - 1)
 
             return MonthData(
                 month: monthStart,
-                monthName: formatter.string(from: monthStart),
+                monthName: Self.monthFormatter.string(from: monthStart),
                 days: monthDays,
                 leadingEmptyCells: leadingCells
             )
@@ -290,7 +298,8 @@ struct HabitHistoryEditView: View {
                     habit.completedDatesArray = dates
                 }
             }
-            current = calendar.date(byAdding: .day, value: 1, to: current)!
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = nextDay
         }
 
         #if os(iOS)
@@ -312,6 +321,12 @@ private struct DayCell: View {
     let isInRange: Bool
 
     private let calendar = Calendar.current
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter
+    }()
 
     var body: some View {
         VStack(spacing: 2) {
@@ -339,9 +354,7 @@ private struct DayCell: View {
     }
 
     private var dayOfMonth: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d"
-        return formatter.string(from: date)
+        Self.dayFormatter.string(from: date)
     }
 
     private var isToday: Bool {
