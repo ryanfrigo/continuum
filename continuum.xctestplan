@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "D1D24A0D-F58B-4524-9293-6D7AE34B1494",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:continuum.xcodeproj",
+      "identifier" : "DA112F332E9464AB004FF4C9",
+      "name" : "continuum"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:continuum.xcodeproj",
+        "identifier" : "DA112F412E9464AC004FF4C9",
+        "name" : "continuumTests"
+      }
+    }
+  ],
+  "version" : 1
+}

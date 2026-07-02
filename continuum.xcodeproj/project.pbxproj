@@ -6,7 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C29E219164784681BBDE1D69 /* continuumWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
+		9398BEE860E14C1B88C6CA81 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DA112F2C2E9464AB004FF4C9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6DA1B0CA91254684BFE54F32;
+			remoteInfo = continuumWidget;
+		};
 		DA112F432E9464AC004FF4C9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DA112F2C2E9464AB004FF4C9 /* Project object */;
@@ -21,18 +32,7 @@
 			remoteGlobalIDString = DA112F332E9464AB004FF4C9;
 			remoteInfo = continuum;
 		};
-		9398BEE860E14C1B88C6CA81 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = DA112F2C2E9464AB004FF4C9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 6DA1B0CA91254684BFE54F32;
-			remoteInfo = continuumWidget;
-		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXBuildFile section */
-		C29E219164784681BBDE1D69 /* continuumWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		46C5D47461D5443EAEC42FE8 /* Embed Foundation Extensions */ = {
@@ -49,27 +49,46 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		21AC649B8C0C457B8EF99E80 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A8CFCBA9FA05448FA55AD257 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = continuumWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA112F342E9464AB004FF4C9 /* continuum.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = continuum.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA112F422E9464AC004FF4C9 /* continuumTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = continuumTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA112F4C2E9464AC004FF4C9 /* continuumUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = continuumUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = continuumWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		21AC649B8C0C457B8EF99E80 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		A8CFCBA9FA05448FA55AD257 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		DAFA8D2B2FDC6FB400156DE7 /* continuum.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = continuum.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		48FD36EAB2AA42AD8E5FE740 /* Exceptions for "continuumWidget" */ = {
+		48FD36EAB2AA42AD8E5FE740 /* Exceptions for "continuumWidget" folder in "continuumWidget" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 6DA1B0CA91254684BFE54F32 /* continuumWidget */;
 		};
+		48FD36EAB2AA42AD8E5FE741 /* Exceptions for "continuum" folder in "continuum" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DA112F332E9464AB004FF4C9 /* continuum */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		86855126AC8F409A8397F4D5 /* continuumWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				48FD36EAB2AA42AD8E5FE740 /* Exceptions for "continuumWidget" folder in "continuumWidget" target */,
+			);
+			path = continuumWidget;
+			sourceTree = "<group>";
+		};
 		DA112F362E9464AB004FF4C9 /* continuum */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				48FD36EAB2AA42AD8E5FE741 /* Exceptions for "continuum" folder in "continuum" target */,
+			);
 			path = continuum;
 			sourceTree = "<group>";
 		};
@@ -86,14 +105,6 @@
 		DA112F502E9464AC004FF4C9 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shared;
-			sourceTree = "<group>";
-		};
-		86855126AC8F409A8397F4D5 /* continuumWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				48FD36EAB2AA42AD8E5FE740,
-			);
-			path = continuumWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -124,8 +135,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1CF0BBFE95004DF48E112503 /* SwiftUI.framework in Frameworks */,
-				1376DD980046401FA4C5ABB9 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,6 +144,7 @@
 		DA112F2B2E9464AB004FF4C9 = {
 			isa = PBXGroup;
 			children = (
+				DAFA8D2B2FDC6FB400156DE7 /* continuum.xctestplan */,
 				DA112F362E9464AB004FF4C9 /* continuum */,
 				DA112F502E9464AC004FF4C9 /* Shared */,
 				DA112F452E9464AC004FF4C9 /* continuumTests */,
@@ -168,6 +178,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		6DA1B0CA91254684BFE54F32 /* continuumWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F774FDC164343439F48C3DF /* Build configuration list for PBXNativeTarget "continuumWidget" */;
+			buildPhases = (
+				E2C1250AEE5345F2AD98F9DF /* Sources */,
+				E2A5CE556F7C4F4AB8060EAD /* Frameworks */,
+				67D099534A504968B209DAED /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				86855126AC8F409A8397F4D5 /* continuumWidget */,
+				DA112F502E9464AC004FF4C9 /* Shared */,
+			);
+			name = continuumWidget;
+			packageProductDependencies = (
+			);
+			productName = continuumWidget;
+			productReference = B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		DA112F332E9464AB004FF4C9 /* continuum */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = DA112F562E9464AC004FF4C9 /* Build configuration list for PBXNativeTarget "continuum" */;
@@ -239,29 +272,6 @@
 			productReference = DA112F4C2E9464AC004FF4C9 /* continuumUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		6DA1B0CA91254684BFE54F32 /* continuumWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 3F774FDC164343439F48C3DF /* Build configuration list for PBXNativeTarget "continuumWidget" */;
-			buildPhases = (
-				E2C1250AEE5345F2AD98F9DF /* Sources */,
-				E2A5CE556F7C4F4AB8060EAD /* Frameworks */,
-				67D099534A504968B209DAED /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				86855126AC8F409A8397F4D5 /* continuumWidget */,
-				DA112F502E9464AC004FF4C9 /* Shared */,
-			);
-			name = continuumWidget;
-			packageProductDependencies = (
-			);
-			productName = continuumWidget;
-			productReference = B2C813C1C9DD47949B1632F0 /* continuumWidget.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -273,10 +283,10 @@
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					DA112F332E9464AB004FF4C9 = {
+						6DA1B0CA91254684BFE54F32 = {
+							CreatedOnToolsVersion = 16.4;
+						};
 						CreatedOnToolsVersion = 16.4;
-					6DA1B0CA91254684BFE54F32 = {
-						CreatedOnToolsVersion = 16.4;
-					};
 					};
 					DA112F412E9464AC004FF4C9 = {
 						CreatedOnToolsVersion = 16.4;
@@ -311,6 +321,13 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		67D099534A504968B209DAED /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		DA112F322E9464AB004FF4C9 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -326,13 +343,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		DA112F4A2E9464AC004FF4C9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		67D099534A504968B209DAED /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -373,6 +383,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		AF15AA3417D24F7C87751DCF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6DA1B0CA91254684BFE54F32 /* continuumWidget */;
+			targetProxy = 9398BEE860E14C1B88C6CA81 /* PBXContainerItemProxy */;
+		};
 		DA112F442E9464AC004FF4C9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DA112F332E9464AB004FF4C9 /* continuum */;
@@ -383,14 +398,76 @@
 			target = DA112F332E9464AB004FF4C9 /* continuum */;
 			targetProxy = DA112F4D2E9464AC004FF4C9 /* PBXContainerItemProxy */;
 		};
-		AF15AA3417D24F7C87751DCF /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 6DA1B0CA91254684BFE54F32 /* continuumWidget */;
-			targetProxy = 9398BEE860E14C1B88C6CA81 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		20B97CE5203E4C26A3179720 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = continuumWidget/continuumWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = NVN2NY8GZC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = continuumWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Continuum Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 3.3;
+				OTHER_SWIFT_FLAGS = "-DWIDGET_EXTENSION";
+				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuum.continuumWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		932982279FF2422E98A808E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = continuumWidget/continuumWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = NVN2NY8GZC;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = continuumWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Continuum Widget";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 3.3;
+				OTHER_SWIFT_FLAGS = "-DWIDGET_EXTENSION";
+				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuum.continuumWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		DA112F542E9464AC004FF4C9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -513,12 +590,14 @@
 				CODE_SIGN_ENTITLEMENTS = continuum/continuum.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = NVN2NY8GZC;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = continuum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = continuum;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Continuum saves your streak share cards to your photo library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -533,7 +612,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
 					"-Xlinker",
 					"-interposable",
@@ -559,12 +638,14 @@
 				CODE_SIGN_ENTITLEMENTS = continuum/continuum.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = NVN2NY8GZC;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = continuum/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = continuum;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Continuum saves your streak share cards to your photo library.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -579,7 +660,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuum";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -598,11 +679,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuumTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -620,11 +701,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuumTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -641,11 +722,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuumUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -662,11 +743,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				MARKETING_VERSION = 3.2;
+				MARKETING_VERSION = 3.3;
 				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuumUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
@@ -679,75 +760,18 @@
 			};
 			name = Release;
 		};
-		932982279FF2422E98A808E1 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = continuumWidget/continuumWidget.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = NVN2NY8GZC;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = continuumWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Continuum Widget";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 3.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuum.continuumWidget";
-				OTHER_SWIFT_FLAGS = "-DWIDGET_EXTENSION";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		20B97CE5203E4C26A3179720 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = continuumWidget/continuumWidget.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = NVN2NY8GZC;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = continuumWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Continuum Widget";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 3.2;
-				PRODUCT_BUNDLE_IDENTIFIER = "orion-labs.continuum.continuumWidget";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3F774FDC164343439F48C3DF /* Build configuration list for PBXNativeTarget "continuumWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				932982279FF2422E98A808E1 /* Debug */,
+				20B97CE5203E4C26A3179720 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		DA112F2F2E9464AB004FF4C9 /* Build configuration list for PBXProject "continuum" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -780,15 +804,6 @@
 			buildConfigurations = (
 				DA112F5D2E9464AC004FF4C9 /* Debug */,
 				DA112F5E2E9464AC004FF4C9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		3F774FDC164343439F48C3DF /* Build configuration list for PBXNativeTarget "continuumWidget" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				932982279FF2422E98A808E1 /* Debug */,
-				20B97CE5203E4C26A3179720 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

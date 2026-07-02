@@ -38,6 +38,35 @@ extension View {
 
 @main
 struct continuumApp: App {
+
+    /// SwiftData container with iCloud (CloudKit) sync.
+    /// Falls back to a local-only store if the CloudKit-backed container
+    /// can't be created (e.g. capability missing), so the app never crashes
+    /// or loses data because of sync availability.
+    static let sharedModelContainer: ModelContainer = {
+        let schema = Schema([Habit.self])
+
+        let cloudConfig = ModelConfiguration(
+            schema: schema,
+            cloudKitDatabase: .private("iCloud.com.orionlabs.continuum")
+        )
+        do {
+            return try ModelContainer(for: schema, configurations: [cloudConfig])
+        } catch {
+            // Visible in Console.app on production devices — without this,
+            // a CloudKit misconfiguration silently ships as "no sync".
+            print("Continuum: CloudKit container unavailable, using local-only store: \(error)")
+        }
+
+        // Fallback: local-only (same on-disk store, no sync)
+        let localConfig = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+        do {
+            return try ModelContainer(for: schema, configurations: [localConfig])
+        } catch {
+            fatalError("Failed to create ModelContainer: \(error)")
+        }
+    }()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -51,6 +80,6 @@ struct continuumApp: App {
                 #endif
             #endif
         }
-        .modelContainer(for: Habit.self)
+        .modelContainer(Self.sharedModelContainer)
     }
 }

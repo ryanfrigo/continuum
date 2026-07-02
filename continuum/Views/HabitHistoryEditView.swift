@@ -6,7 +6,7 @@ struct HabitHistoryEditView: View {
     var onCancel: () -> Void
     var onSave: () -> Void
 
-    @State private var selectedDates: Set<Date> = []
+    @State private var selectedKeys: Set<Int> = []
     @State private var originalDates: [Date] = []
     @State private var isDragging = false
     @State private var dragStartDate: Date? = nil
@@ -139,7 +139,7 @@ struct HabitHistoryEditView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             originalDates = habit.completedDatesArray
-            selectedDates = Set(habit.completedDatesArray.map { calendar.startOfDay(for: $0) })
+            selectedKeys = habit.completedDayKeys
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showContent = true
             }
@@ -195,8 +195,7 @@ struct HabitHistoryEditView: View {
     // MARK: - Selection State
 
     private func isDateCompleted(_ date: Date) -> Bool {
-        let dayStart = calendar.startOfDay(for: date)
-        return selectedDates.contains(dayStart)
+        selectedKeys.contains(ContinuumDay.key(for: date))
     }
 
     @State private var dragCurrentDate: Date? = nil
@@ -281,21 +280,18 @@ struct HabitHistoryEditView: View {
         // Get all days in range
         var current = minDate
         while current <= maxDate {
+            let key = ContinuumDay.key(for: current)
             if dragMode {
                 // Selecting
-                if !selectedDates.contains(current) {
-                    selectedDates.insert(current)
-                    var dates = habit.completedDatesArray
-                    dates.append(current)
-                    habit.completedDatesArray = dates
+                if !selectedKeys.contains(key) {
+                    selectedKeys.insert(key)
+                    habit.setCompleted(true, forDayKey: key)
                 }
             } else {
                 // Deselecting
-                if selectedDates.contains(current) {
-                    selectedDates.remove(current)
-                    var dates = habit.completedDatesArray
-                    dates.removeAll { calendar.isDate($0, inSameDayAs: current) }
-                    habit.completedDatesArray = dates
+                if selectedKeys.contains(key) {
+                    selectedKeys.remove(key)
+                    habit.setCompleted(false, forDayKey: key)
                 }
             }
             guard let nextDay = calendar.date(byAdding: .day, value: 1, to: current) else { break }

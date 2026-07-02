@@ -7,12 +7,25 @@
 		<key>continuum.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<key>continuumWidget.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>6DA1B0CA91254684BFE54F32</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>DA112F332E9464AB004FF4C9</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

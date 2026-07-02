@@ -119,8 +119,12 @@ class NotificationManager {
         guard hour < 20 else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Your \(streak)-day \(habit.name) streak ends tonight!"
-        content.body = "Don't let your progress slip away."
+        content.title = "\(streak)-day \(habit.name) streak ends at midnight"
+        content.body = [
+            "One double-tap keeps it alive.",
+            "Four hours left. You've done harder things.",
+            "\(streak) days of work. One tap protects it.",
+        ].randomElement() ?? "One double-tap keeps it alive."
         content.sound = .default
         content.interruptionLevel = .timeSensitive
 
@@ -176,16 +180,40 @@ class NotificationManager {
     private func getMotivationalMessage(for habit: Habit) -> String {
         let streak = habit.currentStreak()
 
+        // Brand voice: dry, confident, zero guilt. Variants keep the 7-day
+        // prescheduled batch from reading identically every morning.
+        let lines: [String]
         if streak == 0 {
-            return "Start your streak today!"
+            lines = [
+                "Day one is waiting.",
+                "The grid wants its first mark.",
+                "Every streak starts with a single dot.",
+            ]
         } else if streak < 7 {
-            return "You're on a \(streak)-day streak. Keep it going!"
+            lines = [
+                "\(streak) down. Show up again today.",
+                "\(streak)-day streak. Keep the chain alive.",
+                "Day \(streak + 1) is right there.",
+            ]
         } else if streak < 21 {
-            return "\(streak) days strong. You're building something real."
+            lines = [
+                "\(streak) days strong. Machines don't miss days.",
+                "\(streak) days. Momentum is a habit too.",
+                "Day \(streak). Showing up is the brand.",
+            ]
         } else if streak < 66 {
-            return "\(streak)-day streak! You're on your way to forming a habit."
+            lines = [
+                "\(streak) days. Only \(66 - streak) to formed.",
+                "\(streak)-day streak — the hard part is behind you.",
+                "Still perfect at \(streak). Keep it boring.",
+            ]
         } else {
-            return "\(streak) days. This habit is part of who you are."
+            lines = [
+                "\(streak) days. This is who you are now.",
+                "Day \(streak). Legacy streak.",
+                "\(streak) days deep. The habit is you.",
+            ]
         }
+        return lines.randomElement() ?? lines[0]
     }
 }

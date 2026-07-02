@@ -39,6 +39,14 @@ struct HabitCardView: View {
     @State private var centerIconOpacity: Double = 0
     @State private var gridFlashProgress: Double = 0
 
+    // Variable reward: ~1 in 15 completions goes golden
+    @State private var isRareCompletion = false
+    private let goldColor = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
+
+    private var effectColor: Color {
+        isRareCompletion ? goldColor : themeColor
+    }
+
     // MARK: - Computed Properties
 
     private var health: Double {
@@ -310,9 +318,10 @@ struct HabitCardView: View {
             // Dark slate card background (darker than main bg)
             Color(red: 0.10, green: 0.11, blue: 0.13)
 
-            // Subtle border
+            // 1px border in the habit's progress color — brighter once
+            // today is complete, so the whole grid glows up as you go
             RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(themeColor.opacity(habit.isCompletedToday ? 0.42 : 0.16), lineWidth: 1)
         }
     }
 
@@ -346,19 +355,28 @@ struct HabitCardView: View {
         ZStack {
             // Single clean expanding ripple
             Circle()
-                .stroke(themeColor.opacity(0.5), lineWidth: 2)
+                .stroke(effectColor.opacity(0.5), lineWidth: 2)
                 .frame(width: 30, height: 30)
                 .scaleEffect(rippleScale)
                 .opacity(rippleOpacity)
 
-            // Center checkmark icon
+            // Second ripple only on rare (golden) completions
+            if isRareCompletion {
+                Circle()
+                    .stroke(effectColor.opacity(0.35), lineWidth: 1.5)
+                    .frame(width: 30, height: 30)
+                    .scaleEffect(rippleScale * 0.7)
+                    .opacity(rippleOpacity)
+            }
+
+            // Center icon — sparkles when golden
             ZStack {
                 Circle()
-                    .fill(themeColor)
+                    .fill(effectColor)
                     .frame(width: 36, height: 36)
-                    .shadow(color: themeColor.opacity(0.5), radius: 10)
+                    .shadow(color: effectColor.opacity(isRareCompletion ? 0.8 : 0.5), radius: isRareCompletion ? 16 : 10)
 
-                Image(systemName: "checkmark")
+                Image(systemName: isRareCompletion ? "sparkles" : "checkmark")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.black)
             }
@@ -464,23 +482,31 @@ struct HabitCardView: View {
         isAnimatingCompletion = false
         completionProgress = 0
 
+        // Variable reward: occasionally the completion goes golden
+        isRareCompletion = Int.random(in: 0..<15) == 0
+
         // Completion effects
         showCompletionEffect = true
         rippleScale = 0
-        rippleOpacity = 0.6
+        rippleOpacity = isRareCompletion ? 0.8 : 0.6
         centerIconScale = 0
         centerIconOpacity = 0
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-            cardScale = 1.05
+            cardScale = isRareCompletion ? 1.08 : 1.05
             centerIconScale = 1.0
             centerIconOpacity = 1.0
             gridFlashProgress = 1.0
-            rippleScale = 8.0
+            rippleScale = isRareCompletion ? 11.0 : 8.0
         }
 
-        SoundManager.shared.playCompletionBeep()
-        SoundManager.shared.triggerCompletionHaptic()
+        if isRareCompletion {
+            SoundManager.shared.playRareCompletionSound()
+            SoundManager.shared.triggerRareHaptic()
+        } else {
+            SoundManager.shared.playCompletionBeep()
+            SoundManager.shared.triggerCompletionHaptic()
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.easeOut(duration: 0.4)) {
@@ -511,6 +537,11 @@ struct HabitCardView: View {
 
     @ViewBuilder
     private var contextMenuContent: some View {
+        Button {
+            onAction?(.stats)
+        } label: {
+            Label("View Stats", systemImage: "chart.bar.fill")
+        }
         Button {
             onAction?(.share)
         } label: {
@@ -565,6 +596,7 @@ enum HabitAction {
     case rename(String)
     case delete
     case share
+    case stats
 }
 
 // MARK: - Preview

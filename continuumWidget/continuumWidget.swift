@@ -1,5 +1,44 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
+
+// MARK: - Toggle Habit Intent (interactive widget, iOS 17+)
+//
+// Runs in the widget extension process. It can't touch SwiftData directly,
+// so it: (1) updates the shared app-group snapshot optimistically so the
+// widget UI responds instantly, and (2) queues the desired end state for the
+// app to reconcile into SwiftData on next activation.
+struct ToggleHabitIntent: AppIntent {
+    static var title: LocalizedStringResource = "Complete Habit"
+    static var description = IntentDescription("Mark a habit as done for today.")
+    static var isDiscoverable: Bool = false
+
+    @Parameter(title: "Habit ID")
+    var habitIdString: String
+
+    init() {}
+
+    init(habitId: UUID) {
+        self.habitIdString = habitId.uuidString
+    }
+
+    func perform() async throws -> some IntentResult {
+        guard let habitId = UUID(uuidString: habitIdString),
+              let habitData = HabitDataManager.shared.getHabitData(for: habitId) else {
+            return .result()
+        }
+
+        let (updated, nowCompleted) = habitData.togglingToday()
+        HabitDataManager.shared.saveHabitData(updated)
+        HabitDataManager.shared.appendPendingToggle(
+            habitId: habitId,
+            dayKey: ContinuumDay.todayKey(),
+            completed: nowCompleted
+        )
+        HabitDataManager.shared.updateWidgetTimeline()
+        return .result()
+    }
+}
 
 // MARK: - Widget Entry
 
@@ -26,8 +65,53 @@ struct HabitProvider: TimelineProvider {
         let habits = HabitDataManager.shared.loadAllHabitData()
         let health = habits.isEmpty ? 0.0 : habits.reduce(0.0) { $0 + $1.habitHealth } / Double(habits.count)
         let entry = HabitEntry(date: Date(), habits: habits, overallHealth: health)
-        let midnight = Calendar.current.startOfDay(for: Date().addingTimeInterval(86400))
+        // "Now + 24h" lands in the PAST hour on a 25-hour DST-fall day;
+        // stepping a calendar day from today's start is always tomorrow.
+        let todayStart = Calendar.current.startOfDay(for: Date())
+        let midnight = Calendar.current.date(byAdding: .day, value: 1, to: todayStart)
+            ?? Date().addingTimeInterval(86400)
         completion(Timeline(entries: [entry], policy: .after(midnight)))
+    }
+}
+
+// MARK: - Complete Button (shared by widget sizes)
+
+struct CompleteButton: View {
+    let habit: HabitData
+    let color: Color
+    var compact: Bool = false
+
+    var body: some View {
+        Button(intent: ToggleHabitIntent(habitId: habit.id)) {
+            if habit.isCompletedToday {
+                HStack(spacing: 2) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: compact ? 6 : 7, weight: .heavy))
+                    if !compact {
+                        Text("DONE")
+                            .font(.system(size: 7, weight: .heavy, design: .rounded))
+                    }
+                }
+                .foregroundStyle(color)
+                .padding(.horizontal, compact ? 4 : 6)
+                .padding(.vertical, compact ? 4 : 3)
+                .background(Capsule().fill(color.opacity(0.15)))
+            } else {
+                HStack(spacing: 3) {
+                    Image(systemName: "circle")
+                        .font(.system(size: compact ? 8 : 9, weight: .bold))
+                    if !compact {
+                        Text("MARK DONE")
+                            .font(.system(size: 7, weight: .heavy, design: .rounded))
+                    }
+                }
+                .foregroundStyle(color.opacity(0.9))
+                .padding(.horizontal, compact ? 4 : 6)
+                .padding(.vertical, compact ? 4 : 3)
+                .background(Capsule().stroke(color.opacity(0.4), lineWidth: 1))
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -82,7 +166,7 @@ struct SmallWidgetView: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.45))
                     } else {
-                        Text("Hold to start")
+                        Text("Tap to start")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.3))
                     }
@@ -94,23 +178,12 @@ struct SmallWidgetView: View {
                 // 66-day grid
                 MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2)
 
-                // Today badge
-                if habit.isCompletedToday {
-                    HStack {
-                        Spacer()
-                        HStack(spacing: 2) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 6, weight: .heavy))
-                            Text("DONE")
-                                .font(.system(size: 7, weight: .heavy, design: .rounded))
-                        }
-                        .foregroundStyle(color)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(color.opacity(0.12)))
-                    }
-                    .padding(.top, 3)
+                // Complete button — interactive, no app launch needed
+                HStack {
+                    Spacer()
+                    CompleteButton(habit: habit, color: color)
                 }
+                .padding(.top, 3)
             }
             .padding(4)
         } else {
@@ -226,17 +299,15 @@ private struct MediumHabitCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Name
+            // Name + complete button
             HStack(spacing: 4) {
-                if habit.isCompletedToday {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 7, weight: .heavy))
-                        .foregroundStyle(color)
-                }
                 Text(habit.name)
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                CompleteButton(habit: habit, color: color, compact: true)
             }
 
             // Streak
@@ -261,6 +332,79 @@ private struct MediumHabitCard: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(color.opacity(habit.isCompletedToday ? 0.25 : 0.08), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Lock Screen Widgets (iOS 17 accessories)
+
+struct AccessoryCircularView: View {
+    let habit: HabitData?
+
+    var body: some View {
+        if let habit {
+            ZStack {
+                AccessoryWidgetBackground()
+                Circle()
+                    .trim(from: 0, to: max(0.04, habit.habitHealth))
+                    .stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .padding(3)
+
+                if habit.isCompletedToday {
+                    VStack(spacing: 0) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .heavy))
+                        Text("\(habit.currentStreak)")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        Text("\(habit.currentStreak)")
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                        Text("DAYS")
+                            .font(.system(size: 7, weight: .semibold, design: .rounded))
+                            .opacity(0.7)
+                    }
+                }
+            }
+        } else {
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "plus")
+            }
+        }
+    }
+}
+
+struct AccessoryRectangularView: View {
+    let habits: [HabitData]
+
+    private var completedCount: Int { habits.filter { $0.isCompletedToday }.count }
+
+    var body: some View {
+        if let first = habits.first {
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Image(systemName: first.isCompletedToday ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(first.name)
+                        .font(.system(size: 13, weight: .bold))
+                        .lineLimit(1)
+                }
+                Text("\(first.currentStreak)-day streak")
+                    .font(.system(size: 11, weight: .medium))
+                    .opacity(0.8)
+                if habits.count > 1 {
+                    Text("\(completedCount)/\(habits.count) done today")
+                        .font(.system(size: 10, weight: .medium))
+                        .opacity(0.6)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            Text("Add a habit in Continuum")
+                .font(.system(size: 12, weight: .medium))
+        }
     }
 }
 
@@ -309,7 +453,7 @@ struct ContinuumWidget: Widget {
         }
         .configurationDisplayName("Continuum")
         .description("Track your daily habit streaks")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -318,18 +462,23 @@ struct ContinuumWidgetEntryView: View {
     let entry: HabitEntry
 
     var body: some View {
-        Group {
-            switch family {
-            case .systemSmall:
-                SmallWidgetView(habit: entry.habits.first)
-            case .systemMedium:
-                MediumWidgetView(habits: entry.habits)
-            default:
-                SmallWidgetView(habit: entry.habits.first)
-            }
-        }
-        .containerBackground(for: .widget) {
-            Color(red: 0.08, green: 0.09, blue: 0.11)
+        switch family {
+        case .accessoryCircular:
+            AccessoryCircularView(habit: entry.habits.first)
+                .containerBackground(for: .widget) { Color.clear }
+        case .accessoryRectangular:
+            AccessoryRectangularView(habits: entry.habits)
+                .containerBackground(for: .widget) { Color.clear }
+        case .systemMedium:
+            MediumWidgetView(habits: entry.habits)
+                .containerBackground(for: .widget) {
+                    Color(red: 0.08, green: 0.09, blue: 0.11)
+                }
+        default:
+            SmallWidgetView(habit: entry.habits.first)
+                .containerBackground(for: .widget) {
+                    Color(red: 0.08, green: 0.09, blue: 0.11)
+                }
         }
     }
 }

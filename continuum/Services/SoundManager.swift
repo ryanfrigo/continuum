@@ -69,6 +69,38 @@ class SoundManager {
         }
     }
 
+    /// Rare "golden" completion — a longer pentatonic shimmer.
+    /// Fires on ~1 in 15 completions (variable reward).
+    func playRareCompletionSound() {
+        guard SoundManager.soundEnabled else { return }
+        let notes: [(frequency: Double, delay: Double, duration: Double)] = [
+            (659, 0.0, 0.10),    // E5
+            (784, 0.07, 0.10),   // G5
+            (988, 0.14, 0.10),   // B5
+            (1319, 0.21, 0.16),  // E6
+            (1976, 0.30, 0.22),  // B6 — the sparkle on top
+        ]
+        for note in notes {
+            DispatchQueue.main.asyncAfter(deadline: .now() + note.delay) {
+                self.generateElectronicBeep(frequency: note.frequency, duration: note.duration)
+            }
+        }
+    }
+
+    /// Heavier haptic for rare completions
+    func triggerRareHaptic() {
+        guard SoundManager.hapticsEnabled else { return }
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
+        for i in 1...4 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.08) {
+                let pulse = UIImpactFeedbackGenerator(style: i % 2 == 0 ? .rigid : .soft)
+                pulse.impactOccurred(intensity: min(1.0, 0.5 + Double(i) * 0.15))
+            }
+        }
+    }
+
     private func startEngine() {
         guard !engine.isRunning else { return }
         do {
