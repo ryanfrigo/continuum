@@ -30,11 +30,12 @@ verified stable across repeated runs).
 
 ## Must do before submitting (in order)
 
-1. **Xcode capability sanity check** — open the project once; with automatic
-   signing, building to a device registers the App ID capabilities (iCloud/
-   CloudKit container `iCloud.com.orionlabs.continuum`, app group, push,
-   background modes). All entitlements/Info.plist entries are already in the
-   repo — Xcode just needs to sync them to your team.
+1. ~~**Xcode capability sanity check**~~ ✅ Done 2026-07-02: headless device
+   build with `-allowProvisioningUpdates` + the ASC API key registered the
+   App ID capabilities (iCloud/CloudKit container, app group, push) and the
+   signed build carries all four entitlements. 3.3 was installed over 3.2 on
+   the iPhone 16 and launched — **eyeball your streaks to confirm the
+   migration** (the launch succeeded; visual check is yours).
 
 2. **⚠️ Verify CloudKit actually syncs the data — on real devices.**
    The simulator console showed `CoreData: fault: Could not materialize ...
@@ -65,6 +66,12 @@ verified stable across repeated runs).
 
 6. **TestFlight for a few days** before release. Phased release ON —
    this build touches the data layer and adds CloudKit.
+   **Blocked on Xcode 26**: App Store Connect rejects iOS 18-SDK uploads
+   (verified on this account, June 2026) and this Mac has only Xcode 16.4.
+   Install Xcode 26 from the Mac App Store, then the upload is one command
+   (Claude has the archive + upload runbook ready with the ASC API key
+   `6M245PSNS9`; exportOptions: method app-store-connect, team NVN2NY8GZC,
+   automatic signing, destination upload).
 
 ## Known limitation (accepted for 3.3, document — don't advertise around it)
 
