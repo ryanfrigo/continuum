@@ -111,34 +111,55 @@ class NotificationManager {
     func scheduleStreakAtRiskNotification(for habit: Habit) {
         removeStreakAtRiskNotification(for: habit)
 
-        let streak = habit.currentStreak()
-        guard streak >= 3, !habit.isCompletedToday else { return }
-
-        // Don't schedule if it's already past 8 PM
+        // The chain at stake TODAY ends yesterday — currentStreak() counts
+        // back from today and is always 0 while today is incomplete, so it
+        // can never be used to gate this alert.
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let streakAtStakeToday = habit.currentStreak(asOf: yesterday)
         let hour = Calendar.current.component(.hour, from: Date())
-        guard hour < 20 else { return }
+        if !habit.isCompletedToday, streakAtStakeToday >= 3, hour < 20 {
+            addStreakAtRiskRequest(
+                for: habit,
+                streak: streakAtStakeToday,
+                dayOffset: 0,
+                identifier: streakAtRiskNotificationId(for: habit)
+            )
+        }
 
+        // Tomorrow's alert — the safety net for the day the user never opens
+        // the app (today-only scheduling can't fire on the day you forget).
+        // The chain at stake tomorrow ends today, so it only exists once
+        // today is completed. Replaced or cancelled whenever the app
+        // activates or the habit is completed tomorrow.
+        let streakAtStakeTomorrow = habit.currentStreak()
+        if streakAtStakeTomorrow >= 3 {
+            addStreakAtRiskRequest(
+                for: habit,
+                streak: streakAtStakeTomorrow,
+                dayOffset: 1,
+                identifier: streakAtRiskNotificationId(for: habit) + "-next"
+            )
+        }
+    }
+
+    private func addStreakAtRiskRequest(for habit: Habit, streak: Int, dayOffset: Int, identifier: String) {
         let content = UNMutableNotificationContent()
         content.title = "\(streak)-day \(habit.name) streak ends at midnight"
         content.body = [
-            "One double-tap keeps it alive.",
+            "A one-second hold keeps it alive.",
             "Four hours left. You've done harder things.",
-            "\(streak) days of work. One tap protects it.",
-        ].randomElement() ?? "One double-tap keeps it alive."
+            "\(streak) days of work. One hold protects it.",
+        ].randomElement() ?? "A one-second hold keeps it alive."
         content.sound = .default
         content.interruptionLevel = .timeSensitive
 
-        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        guard let targetDay = Calendar.current.date(byAdding: .day, value: dayOffset, to: Date()) else { return }
+        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: targetDay)
         dateComponents.hour = 20
         dateComponents.minute = 0
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-
-        let request = UNNotificationRequest(
-            identifier: streakAtRiskNotificationId(for: habit),
-            content: content,
-            trigger: trigger
-        )
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
@@ -154,8 +175,9 @@ class NotificationManager {
     }
 
     func removeStreakAtRiskNotification(for habit: Habit) {
+        let id = streakAtRiskNotificationId(for: habit)
         UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [streakAtRiskNotificationId(for: habit)]
+            withIdentifiers: [id, id + "-next"]
         )
     }
 

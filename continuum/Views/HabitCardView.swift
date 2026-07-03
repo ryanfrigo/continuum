@@ -25,11 +25,13 @@ struct HabitCardView: View {
     // Completion progress states
     @State private var isAnimatingCompletion = false
     @State private var completionProgress: CGFloat = 0
-    @State private var completionTimer: Timer?
 
     // Hint / undo states
-    @State private var showDoubleTapHint = false
+    @State private var showHoldHint = false
     @State private var showUndoConfirm = false
+
+    // Reset confirmation
+    @State private var showingResetConfirmation = false
 
     // Completion animation states
     @State private var showCompletionEffect = false
@@ -94,7 +96,9 @@ struct HabitCardView: View {
 
     // MARK: - Body
 
-    private let completionAnimDuration: Double = 1.5
+    /// How long the user must hold the card to complete it. The fill bar
+    /// tracks the press in real time; releasing early cancels.
+    private let holdToCompleteDuration: Double = 0.9
 
     var body: some View {
         let _ = lastRefreshDate
@@ -115,9 +119,9 @@ struct HabitCardView: View {
                 completionEffectsOverlay
             }
 
-            // Double-tap hint overlay
-            if showDoubleTapHint {
-                doubleTapHintOverlay
+            // Hold hint overlay
+            if showHoldHint {
+                holdHintOverlay
             }
 
             // Undo confirmation overlay
@@ -125,14 +129,8 @@ struct HabitCardView: View {
                 undoConfirmOverlay
             }
         }
-        // Double-tap to complete
-        .onTapGesture(count: 2) {
-            if !habit.isCompletedToday && !isAnimatingCompletion {
-                startCompletion()
-            }
-        }
         // Single tap — undo if completed, hint if not
-        .onTapGesture(count: 1) {
+        .onTapGesture {
             if habit.isCompletedToday {
                 SoundManager.shared.triggerSelectionHaptic()
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -143,19 +141,32 @@ struct HabitCardView: View {
                         showUndoConfirm = false
                     }
                 }
-            } else if !isAnimatingCompletion && !showDoubleTapHint {
+            } else if !isAnimatingCompletion && !showHoldHint {
                 SoundManager.shared.triggerSelectionHaptic()
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                    showDoubleTapHint = true
+                    showHoldHint = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     withAnimation(.easeOut(duration: 0.2)) {
-                        showDoubleTapHint = false
+                        showHoldHint = false
                     }
                 }
             }
         }
-        .contextMenu { contextMenuContent }
+        // Hold to complete — the fill bar tracks the press; release early to cancel
+        .onLongPressGesture(minimumDuration: holdToCompleteDuration, maximumDistance: 40) {
+            if isAnimatingCompletion {
+                finishCompletion()
+            }
+        } onPressingChanged: { pressing in
+            if pressing {
+                if !habit.isCompletedToday && !isAnimatingCompletion {
+                    startCompletion()
+                }
+            } else if isAnimatingCompletion {
+                cancelCompletion()
+            }
+        }
         .onAppear {
             lastRefreshDate = Date()
         }
@@ -168,7 +179,36 @@ struct HabitCardView: View {
         } message: {
             Text("Are you sure you want to delete \"\(habit.name)\"? This action cannot be undone.")
         }
+        .confirmationDialog("Reset Progress", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
+            Button("Reset", role: .destructive) { onAction?(.reset) }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Erase all history for \"\(habit.name)\"? This cannot be undone.")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilitySummary)
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: habit.isCompletedToday ? "Undo today's completion" : "Complete today") {
+            if habit.isCompletedToday {
+                habit.toggleCompletion()
+                let habitData = HabitData(from: habit)
+                Task.detached(priority: .background) {
+                    HabitDataManager.shared.saveHabitData(habitData)
+                    HabitDataManager.shared.updateWidgetTimeline()
+                }
+                onCompletion?(false)
+            } else if !isAnimatingCompletion {
+                finishCompletion()
+            }
+        }
+    }
+
+    private var accessibilitySummary: String {
+        var parts = [habit.name]
+        if displayStreak > 0 { parts.append("\(displayStreak) day streak") }
+        parts.append(habit.isCompletedToday ? "completed today" : "not completed today")
+        if habit.isGraduated { parts.append("habit formed") }
+        return parts.joined(separator: ", ")
     }
 
     // MARK: - Card Content
@@ -216,6 +256,19 @@ struct HabitCardView: View {
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(themeColor)
             }
+
+            // Options menu (was the long-press context menu — long press
+            // now completes the habit)
+            Menu {
+                contextMenuContent
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.45))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Options for \(habit.name)")
         }
     }
 
@@ -244,7 +297,7 @@ struct HabitCardView: View {
                         .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
                 }
             } else {
-                Text("Double-tap to start")
+                Text("Hold to start")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.35))
             }
@@ -387,15 +440,15 @@ struct HabitCardView: View {
         .allowsHitTesting(false)
     }
 
-    // MARK: - Double-Tap Hint Overlay
+    // MARK: - Hold Hint Overlay
 
-    private var doubleTapHintOverlay: some View {
+    private var holdHintOverlay: some View {
         VStack {
             Spacer()
             HStack(spacing: 5) {
                 Image(systemName: "hand.tap.fill")
                     .font(.system(size: 10, weight: .semibold))
-                Text("Double-tap to complete")
+                Text("Hold to complete")
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(.white)
@@ -451,7 +504,7 @@ struct HabitCardView: View {
         .transition(.scale.combined(with: .opacity))
     }
 
-    // MARK: - Double-Tap Completion
+    // MARK: - Hold-to-Complete
 
     private func startCompletion() {
         isAnimatingCompletion = true
@@ -464,21 +517,22 @@ struct HabitCardView: View {
             cardScale = 0.97
         }
 
-        // Animate progress bar over completionAnimDuration
-        let startTime = Date()
-        completionTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-            let progress = min(Date().timeIntervalSince(startTime) / completionAnimDuration, 1.0)
-            completionProgress = CGFloat(progress)
+        // Fill tracks the hold; the gesture's perform fires at full duration
+        withAnimation(.linear(duration: holdToCompleteDuration)) {
+            completionProgress = 1
+        }
+    }
 
-            if progress >= 1.0 {
-                finishCompletion()
-            }
+    /// Finger lifted before the hold completed — settle back to rest.
+    private func cancelCompletion() {
+        isAnimatingCompletion = false
+        completionProgress = 0
+        withAnimation(.easeOut(duration: 0.2)) {
+            cardScale = 1.0
         }
     }
 
     private func finishCompletion() {
-        completionTimer?.invalidate()
-        completionTimer = nil
         isAnimatingCompletion = false
         completionProgress = 0
 
@@ -548,7 +602,7 @@ struct HabitCardView: View {
             Label("Share Streak", systemImage: "square.and.arrow.up")
         }
         Divider()
-        Button("Reset Progress", role: .destructive) { onAction?(.reset) }
+        Button("Reset Progress", role: .destructive) { showingResetConfirmation = true }
         Divider()
         Button("Edit Name") {
             newHabitName = habit.name
@@ -574,6 +628,9 @@ struct HabitCardView: View {
             HabitDataManager.shared.updateWidgetTimeline()
             showingSetStreak = false
         }
+        // Edits apply to the model live — swipe-dismiss would silently keep
+        // them while skipping both CANCEL's restore and SAVE's widget sync
+        .interactiveDismissDisabled()
     }
 
     private var renameSheet: some View {

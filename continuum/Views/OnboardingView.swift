@@ -15,7 +15,7 @@ struct OnboardingView: View {
             icon: "checkmark.circle.fill",
             title: "Track Daily",
             subtitle: "Build momentum",
-            description: "Double-tap a habit card to complete it. Watch the progress bar fill as your streak grows.",
+            description: "Press and hold a habit card to complete it. Watch the progress bar fill as your streak grows.",
             color: .orange
         ),
         OnboardingPage(

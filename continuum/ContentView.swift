@@ -69,6 +69,11 @@ struct ContentView: View {
     @AppStorage("hasCompletedWalkthrough") private var walkthroughCompleted = false
     @AppStorage("habitsFormedCount") private var habitsFormedCount = 0
     @AppStorage("reviewRequestedForMilestone") private var reviewRequestedForMilestone = 0
+    // Frequency gates so celebrations stay special instead of daily nags
+    @AppStorage("lastPerfectDayCelebrationKey") private var lastPerfectDayCelebrationKey = 0
+    @AppStorage("lastMinorMilestoneCelebrationKey") private var lastMinorMilestoneCelebrationKey = 0
+    // Defer the StoreKit review sheet until the 21-day celebration is dismissed
+    @State private var pendingReviewRequest = false
     @State private var showWalkthrough = false
     @Environment(\.requestReview) private var requestReview
 
@@ -136,6 +141,12 @@ struct ContentView: View {
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     celebrationMilestone = nil
+                                }
+                                if pendingReviewRequest {
+                                    pendingReviewRequest = false
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                        requestReview()
+                                    }
                                 }
                             }
                         )
@@ -311,11 +322,23 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             applyPendingWidgetToggles()
             dedupeHabits()
+            // iOS keeps apps suspended for days — a missed day must be
+            // rescued here too, not just on cold launch (onAppear)
+            autoApplyStreakFreezes()
+            grantWeeklyStreakFreezes()
             syncAllHabitsToWidget()
             refreshTrigger.toggle()
             scheduleStreakAtRiskNotifications()
             rescheduleAllReminders()
             NotificationManager.shared.clearBadge()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: DispatchQueue.main)) { _ in
+            // App sitting open across midnight: refresh "today" everywhere
+            autoApplyStreakFreezes()
+            refreshTrigger.toggle()
+            scheduleStreakAtRiskNotifications()
+            rescheduleAllReminders()
+            syncAllHabitsToWidget()
         }
     }
 
@@ -398,12 +421,8 @@ struct ContentView: View {
                         } onCompletion: { completed in
                             checkForMilestones(habit: habit, wasJustCompleted: completed)
                         }
-                        .draggable(habit.id.uuidString) {
-                            dragPreview(for: habit)
-                        }
-                        .dropDestination(for: String.self) { items, _ in
-                            handleDrop(items: items, onto: habit)
-                        }
+                        // No drag-reorder here: long press is the completion
+                        // gesture. Reordering lives in Settings → Reorder Habits.
                     }
                 }
                 .padding(.horizontal, 14)
@@ -534,30 +553,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Drag and Drop
-
-    private func dragPreview(for habit: Habit) -> some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color.white.opacity(0.1))
-            .frame(width: 140, height: 100)
-            .overlay(
-                Text(habit.name)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.8))
-            )
-    }
-
-    private func handleDrop(items: [String], onto destination: Habit) -> Bool {
-        guard let droppedId = items.first,
-              let droppedUUID = UUID(uuidString: droppedId),
-              let sourceHabit = habits.first(where: { $0.id == droppedUUID }),
-              sourceHabit.id != destination.id else {
-            return false
-        }
-        reorderHabit(from: sourceHabit, to: destination)
-        return true
-    }
-
     // MARK: - Actions
 
     private func handleHabitAction(_ action: HabitAction, for habit: Habit) {
@@ -571,6 +566,8 @@ struct ContentView: View {
         case .rename(let newName):
             habit.name = newName
             syncHabitToWidget(habit)
+            // Pending reminders still carry the old name — rebuild them
+            NotificationManager.shared.scheduleNotification(for: habit)
         case .delete:
             NotificationManager.shared.removeAllNotifications(for: habit)
             // Clean up widget data
@@ -603,13 +600,18 @@ struct ContentView: View {
         let previousStreak = previousStreaks[habit.id] ?? 0
         let previousHealthValue = previousHealth[habit.id] ?? 0
 
-        // When a habit is completed, remove its streak-at-risk and today's reminder
+        // When a habit is completed, silence today's nudges (and arm
+        // tomorrow's safety net — scheduleStreakAtRiskNotification handles both)
         if wasJustCompleted {
-            NotificationManager.shared.removeStreakAtRiskNotification(for: habit)
+            NotificationManager.shared.scheduleStreakAtRiskNotification(for: habit)
             NotificationManager.shared.removeTodayReminder(for: habit)
         }
 
         guard wasJustCompleted else {
+            // Undo: restore the reminders that completion just cancelled,
+            // or the streak dies silently on a day the user showed intent
+            NotificationManager.shared.scheduleNotification(for: habit)
+            NotificationManager.shared.scheduleStreakAtRiskNotification(for: habit)
             previousStreaks[habit.id] = habit.currentStreak()
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
             return
@@ -631,8 +633,15 @@ struct ContentView: View {
                 }
             }
         } else if let milestone = StreakMilestone.milestone(for: newStreak), newStreak > previousStreak {
-            // Regular milestone celebration (skip 66 since graduation handles it)
-            if milestone != .habitFormed {
+            // Regular milestone celebration (skip 66 since graduation handles it).
+            // Minor milestones (day 1/3/5) fire at most once per day — a new
+            // user with several onboarding habits gets one card, not a queue.
+            let minorAlreadyShownToday = milestone.isMinor
+                && lastMinorMilestoneCelebrationKey == ContinuumDay.todayKey()
+            if milestone != .habitFormed && !minorAlreadyShownToday {
+                if milestone.isMinor {
+                    lastMinorMilestoneCelebrationKey = ContinuumDay.todayKey()
+                }
                 let accent = healthColor(for: habit.habitHealth())
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     celebrationHabitName = habit.name
@@ -644,12 +653,11 @@ struct ContentView: View {
             }
         }
 
-        // StoreKit review prompt — ask after 21-day milestone
+        // StoreKit review prompt — ask after 21-day milestone, but only once
+        // the celebration is dismissed so the sheet never covers the moment
         if newStreak >= 21 && reviewRequestedForMilestone < 21 {
             reviewRequestedForMilestone = 21
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                requestReview()
-            }
+            pendingReviewRequest = true
         }
 
         // Grant a streak freeze at milestone achievements
@@ -696,8 +704,10 @@ struct ContentView: View {
         previousStreaks[habit.id] = newStreak
         previousHealth[habit.id] = newHealth
 
-        // Check for perfect day / perfect week (all habits complete)
-        if wasJustCompleted && allCompletedToday {
+        // Check for perfect day / perfect week (all habits complete).
+        // With one habit every completion is "perfect" — the completion
+        // animation is celebration enough, so these need 2+ habits.
+        if wasJustCompleted && allCompletedToday && habits.count > 1 {
             let delay: Double = (celebrationMilestone != nil || showGraduation) ? 3.0 : 1.2
 
             // 7, 14, 21... consecutive perfect days = perfect week(s)
@@ -714,7 +724,9 @@ struct ContentView: View {
                         showPerfectWeek = true
                     }
                 }
-            } else {
+            } else if lastPerfectDayCelebrationKey != ContinuumDay.todayKey() {
+                // At most once per day — undo/redo must not re-trigger it
+                lastPerfectDayCelebrationKey = ContinuumDay.todayKey()
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     guard !showPerfectDay else { return }
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -723,24 +735,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-
-    private func reorderHabit(from source: Habit, to destination: Habit) {
-        var ordered = sortedHabits
-        guard let sourceIndex = ordered.firstIndex(where: { $0.id == source.id }),
-              let destIndex = ordered.firstIndex(where: { $0.id == destination.id }) else {
-            return
-        }
-
-        ordered.remove(at: sourceIndex)
-        ordered.insert(source, at: destIndex)
-
-        for (index, habit) in ordered.enumerated() {
-            habit.order = index
-        }
-
-        try? modelContext.save()
-        SoundManager.shared.triggerSelectionHaptic()
     }
 
     private func initializeHabitOrders() {

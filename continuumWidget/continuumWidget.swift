@@ -1,6 +1,7 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import UserNotifications
 
 // MARK: - Toggle Habit Intent (interactive widget, iOS 17+)
 //
@@ -36,6 +37,16 @@ struct ToggleHabitIntent: AppIntent {
             completed: nowCompleted
         )
         HabitDataManager.shared.updateWidgetTimeline()
+
+        // Silence today's nudges — being reminded at 9pm about a habit
+        // completed from the lock screen at 9am gets notifications disabled.
+        // (IDs mirror NotificationManager's notificationId/streakAtRiskNotificationId.)
+        if nowCompleted {
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
+                "habit-reminder-\(habitId.uuidString)-day0",
+                "streak-risk-\(habitId.uuidString)",
+            ])
+        }
         return .result()
     }
 }

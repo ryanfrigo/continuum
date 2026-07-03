@@ -10,8 +10,8 @@ struct WalkthroughOverlay: View {
     private let steps: [WalkthroughStep] = [
         WalkthroughStep(
             icon: "hand.tap.fill",
-            title: "Double-Tap to Complete",
-            description: "Double-tap a habit card to mark it done. Watch the progress bar fill and celebrate your win."
+            title: "Hold to Complete",
+            description: "Press and hold a habit card to mark it done. The bar fills as you hold — release early to cancel."
         ),
         WalkthroughStep(
             icon: "arrow.uturn.backward",
@@ -19,9 +19,9 @@ struct WalkthroughOverlay: View {
             description: "Made a mistake? Tap a completed habit and confirm to undo it."
         ),
         WalkthroughStep(
-            icon: "hand.draw.fill",
-            title: "Long Press for Options",
-            description: "Long press any card to edit, share, delete, or manage your habit."
+            icon: "ellipsis.circle",
+            title: "The ⋯ Menu",
+            description: "Tap ⋯ on any card to view stats, edit, share, or delete your habit."
         ),
         WalkthroughStep(
             icon: "snowflake",

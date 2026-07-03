@@ -395,7 +395,8 @@ struct PerfectDayOverlay: View {
             accent: CelebrationPalette.gold,
             visual: .icon("checkmark"),
             title: "PERFECT DAY",
-            message: "All \(habitCount) habits complete",
+            message: habitCount == 1 ? "Habit complete" : "All \(habitCount) habits complete",
+            autoDismissAfter: 2.4,
             onDismiss: onDismiss
         )
         .accessibilityLabel("Perfect day. All \(habitCount) habits completed.")

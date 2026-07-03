@@ -50,46 +50,48 @@ struct SettingsView: View {
                 }
 
                 // Notifications Section
-                Section {
-                    ForEach(sortedHabits) { habit in
-                        HabitNotificationRow(
-                            habit: habit,
-                            notificationPermissionGranted: notificationPermissionGranted,
-                            onRequestPermission: { requestNotificationPermission() },
-                            onSave: { saveAndSchedule(habit) }
-                        )
-                        .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
-                    }
-                } header: {
-                    Text("Daily Reminders")
-                        .foregroundStyle(.gray)
-                } footer: {
-                    Text("Set a daily reminder time for each habit. You'll receive a notification if you haven't completed it yet.")
-                        .foregroundStyle(.gray.opacity(0.7))
-                }
-
-                // Reorder Habits Section
-                Section {
-                    ForEach(sortedHabits) { habit in
-                        HStack {
-                            Image(systemName: "line.3.horizontal")
-                                .foregroundStyle(.gray)
-                            Text(habit.name)
-                                .foregroundStyle(.white)
-                            Spacer()
-                            Text("\(habit.currentStreak()) days")
-                                .font(.caption)
-                                .foregroundStyle(.gray)
+                if !habits.isEmpty {
+                    Section {
+                        ForEach(sortedHabits) { habit in
+                            HabitNotificationRow(
+                                habit: habit,
+                                notificationPermissionGranted: notificationPermissionGranted,
+                                onRequestPermission: { requestNotificationPermission() },
+                                onSave: { saveAndSchedule(habit) }
+                            )
+                            .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
-                        .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                    } header: {
+                        Text("Daily Reminders")
+                            .foregroundStyle(.gray)
+                    } footer: {
+                        Text("Set a daily reminder time for each habit. You'll receive a notification if you haven't completed it yet.")
+                            .foregroundStyle(.gray.opacity(0.7))
                     }
-                    .onMove(perform: moveHabit)
-                } header: {
-                    Text("Reorder Habits")
-                        .foregroundStyle(.gray)
-                } footer: {
-                    Text("Drag to reorder your habits on the home screen")
-                        .foregroundStyle(.gray.opacity(0.7))
+
+                    // Reorder Habits Section
+                    Section {
+                        ForEach(sortedHabits) { habit in
+                            HStack {
+                                Image(systemName: "line.3.horizontal")
+                                    .foregroundStyle(.gray)
+                                Text(habit.name)
+                                    .foregroundStyle(.white)
+                                Spacer()
+                                Text("\(habit.currentStreak()) days")
+                                    .font(.caption)
+                                    .foregroundStyle(.gray)
+                            }
+                            .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                        }
+                        .onMove(perform: moveHabit)
+                    } header: {
+                        Text("Reorder Habits")
+                            .foregroundStyle(.gray)
+                    } footer: {
+                        Text("Drag to reorder your habits on the home screen")
+                            .foregroundStyle(.gray.opacity(0.7))
+                    }
                 }
 
                 // App Info Section
@@ -416,7 +418,7 @@ struct AboutView: View {
                                 .frame(width: 60, height: 1)
                                 .padding(.vertical, 4)
 
-                            Text("VERSION 3.0")
+                            Text("VERSION \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")")
                                 .font(.caption2.monospaced())
                                 .foregroundStyle(.gray)
                                 .tracking(2)
@@ -442,7 +444,7 @@ struct AboutView: View {
                                 icon: "diamond.fill",
                                 code: "SYS.MILESTONE.TRK",
                                 title: "MILESTONE EVENTS",
-                                description: "System triggers at 7, 21, 66, and 100 day thresholds. Each milestone signifies deeper neural encoding."
+                                description: "System triggers at 1, 3, 5, 7, 21, 66, 100, and 365 day thresholds. Each milestone signifies deeper neural encoding."
                             )
                         }
                         .padding(.horizontal)
