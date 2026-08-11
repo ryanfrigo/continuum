@@ -52,6 +52,31 @@ xcodes select 26.3
 `xcodes install` needs interactive Apple ID auth. An agent cannot complete the
 2FA prompt alone; hand this step to the user.
 
+### Irreducible human steps — don't burn time engineering around these
+
+Verified exhausted on 2026-08-11; every route to Xcode 26 ends at an Apple
+authentication boundary:
+
+| Route | Blocker |
+|---|---|
+| `xcodes install 26.x` | Apple ID + 2FA prompt |
+| Mac App Store / `mas` | signed-in App Store account |
+| developer.apple.com .xip | authenticated web session |
+| macOS update (needed to *run* Xcode 26) | `sudo` password, then a restart |
+
+Browser automation does **not** rescue this. Both stacks were unavailable:
+`claude-in-chrome` reported "extension is not connected", and
+`chrome-devtools` MCP refused with "browser is already running for
+`~/.cache/chrome-devtools-mcp/chrome-profile`" (its Chrome uses
+`--remote-debugging-pipe`, so there's no TCP port to attach to, and
+`--isolated` isn't settable from the tool call). Even when it works, that MCP
+uses its own scratch profile with **no Apple session**, so a human sign-in is
+still required.
+
+So: get the user to do the Apple ID steps, and **record the issuer UUID** in the
+table above so it's a one-time cost. Do not attempt to ship with an older SDK —
+App Store Connect rejects it outright, so there is no partial-credit path.
+
 ### Disk space
 
 Xcode 26 needs roughly **60–80 GB free** (≈10 GB .xip + expansion + install).
