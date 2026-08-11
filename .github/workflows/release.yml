@@ -111,11 +111,13 @@ jobs:
           SHORT=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' build/Continuum.xcarchive/Info.plist)
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' build/Continuum.xcarchive/Info.plist)
           echo "$SHORT ($BUILD) sdk=$SDK signed by: $SIGNED_BY"
-          # ARCHIVE SUCCEEDED does NOT imply distribution-signed; a development
-          # cert archives fine and only fails later at export.
+          # The archive is commonly Development-signed even for App Store builds:
+          # `-exportArchive` with signingStyle=automatic re-signs with the
+          # Apple Distribution cert (fetching/creating it via the ASC key). So
+          # this is informational — export is the real arbiter of signing.
           case "$SIGNED_BY" in
-            *Distribution*) echo "Distribution-signed" ;;
-            *) echo "::error::Signed by '$SIGNED_BY', not Apple Distribution"; exit 1 ;;
+            *Distribution*) echo "Already distribution-signed" ;;
+            *) echo "::notice::Archive is '$SIGNED_BY'; export will re-sign for distribution" ;;
           esac
           case "$SDK" in
             iphoneos2[6-9]*|iphoneos[3-9][0-9]*) echo "SDK ok" ;;

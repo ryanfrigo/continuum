@@ -97,9 +97,12 @@ SIGNED_BY=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIden
 ARCH_SDK=$(plutil -extract DTSDKName raw "$ARCHIVE/Products/Applications/continuum.app/Info.plist")
 ok "Archived $VERSION ($BUILD_NUM), sdk=$ARCH_SDK, signed by: $SIGNED_BY"
 
+# Commonly Development-signed even for App Store builds: -exportArchive with
+# signingStyle=automatic re-signs with the Apple Distribution cert via the ASC
+# key. Informational -- export is the real arbiter.
 case "$SIGNED_BY" in
-  *Distribution*) ok "Distribution-signed" ;;
-  *) die "Archive signed by '$SIGNED_BY', not Apple Distribution -- upload would fail." ;;
+  *Distribution*) ok "Already distribution-signed" ;;
+  *) printf '\033[33mwarn\033[0m  Archive is '"'"'%s'"'"'; export will re-sign for distribution\n' "$SIGNED_BY" ;;
 esac
 
 # ------------------------------------------------------------------ upload
