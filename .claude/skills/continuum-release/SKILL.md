@@ -142,6 +142,15 @@ Integrations → App Store Connect API**, shown as "Issuer ID" at the top. It
 cannot be derived from the `.p8`. Once you have it, **write it into the table
 above** so future releases are unattended.
 
+Don't re-test these — all verified dead ends on 2026-08-11:
+
+- Key `6M245PSNS9` is **team-scoped**, not an individual key. The individual-key
+  JWT form (omit `iss`, use `sub: "user"`) returns `401 NOT_AUTHORIZED`, so the
+  issuer really is mandatory.
+- Not cached anywhere on this Mac: shell history, `~/.appstoreconnect`,
+  `~/.fastlane`, `com.apple.dt.Xcode.plist`, the login keychain, `~/.config`.
+- No ASC endpoint returns it, and a wrong value just fails auth — never guess.
+
 ## Release runbook
 
 **Use the script** — it encodes every preflight below and fails fast:
