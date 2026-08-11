@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- The app uses only Apple-provided TLS (via CloudKit); no CryptoKit,
+	     CommonCrypto, or custom ciphers. Declaring the standard exemption here
+	     means every build ships its export-compliance answer, instead of each
+	     upload sitting in "Missing Compliance" until it's patched by hand. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
