@@ -227,6 +227,19 @@ struct HabitCardView: View {
         .padding(12)
         .background(cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        // Border lives outside the clip so it renders at full width and the
+        // completed-state glow isn't cut off. strokeBorder draws inward.
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(
+                    themeColor.opacity(habit.isCompletedToday ? 0.9 : 0.16),
+                    lineWidth: habit.isCompletedToday ? 2.5 : 1
+                )
+        )
+        .shadow(
+            color: themeColor.opacity(habit.isCompletedToday ? 0.35 : 0),
+            radius: 10
+        )
     }
 
     private var headerSection: some View {
@@ -367,15 +380,10 @@ struct HabitCardView: View {
     // MARK: - Card Background
 
     private var cardBackground: some View {
-        ZStack {
-            // Dark slate card background (darker than main bg)
-            Color(red: 0.10, green: 0.11, blue: 0.13)
-
-            // 1px border in the habit's progress color — brighter once
-            // today is complete, so the whole grid glows up as you go
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(themeColor.opacity(habit.isCompletedToday ? 0.42 : 0.16), lineWidth: 1)
-        }
+        // Dark slate card background (darker than main bg).
+        // The progress-color border is applied as an overlay in `body` so it
+        // sits outside the clip shape and can render its full width + glow.
+        Color(red: 0.10, green: 0.11, blue: 0.13)
     }
 
     // MARK: - Completion Progress Overlay
