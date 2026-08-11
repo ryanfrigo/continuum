@@ -34,6 +34,7 @@ struct ContentView: View {
     @State private var showGraduation = false
     @State private var graduationHabitName: String = ""
     @State private var graduationHabit: Habit? = nil
+    @State private var recordAccent: Color = .orange
 
     // Share state
     @State private var shareImage: UIImage? = nil
@@ -182,6 +183,7 @@ struct ContentView: View {
                     if showPerfectDay {
                         PerfectDayOverlay(
                             habitCount: habits.count,
+                            accent: healthColor(for: overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showPerfectDay = false
@@ -195,6 +197,7 @@ struct ContentView: View {
                     if showGraduation {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
+                            accent: healthColor(for: graduationHabit?.habitHealth() ?? 1.0),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showGraduation = false
@@ -218,6 +221,7 @@ struct ContentView: View {
                         PerfectWeekOverlay(
                             habitCount: habits.count,
                             weekCount: perfectWeekCount,
+                            accent: healthColor(for: overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showPerfectWeek = false
@@ -247,6 +251,7 @@ struct ContentView: View {
                         RecordOverlay(
                             habitName: recordHabitName,
                             streak: streak,
+                            accent: recordAccent,
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     recordStreak = nil
@@ -677,6 +682,7 @@ struct ContentView: View {
             if allTimeBest >= 7 && StreakMilestone.milestone(for: newStreak) == nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     recordHabitName = habit.name
+                    recordAccent = healthColor(for: habit.habitHealth())
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         recordStreak = newStreak
                     }
