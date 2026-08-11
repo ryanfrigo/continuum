@@ -94,6 +94,19 @@ cannot proceed. All three gates need a human:
    Integrations → App Store Connect API (shown at the top of the page).
    **Record it here** so the upload can run unattended next time.
 
+Also discovered and **resolved** 2026-08-11: the boot volume had only 18.5 GB
+free (Xcode 26 needs 60–80 GB). Cleared 45 GB of regenerable caches
+(`iOS DeviceSupport`, `DerivedData`, unavailable simulators) → **76 GB free**.
+No user data touched.
+
+Remaining sequence (mechanics now live in `.claude/skills/continuum-release`):
+
+1. **macOS 15.4.1 → 15.7.9** (3.1 GB, restart). Xcode 26.0–26.3 require macOS
+   15.6+; 26.4+ would require Tahoe 26.2, so 15.7.9 + Xcode 26.3 is the cheap
+   path and avoids a full Tahoe upgrade.
+2. **`xcodes install 26.3`** — needs interactive Apple ID + 2FA.
+3. **Issuer UUID** from ASC, then distribution cert via `-allowProvisioningUpdates`.
+
 Once all three are resolved, upload is:
 
 ```
