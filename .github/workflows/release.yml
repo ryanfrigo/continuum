@@ -1,0 +1,167 @@
+# Builds and uploads Continuum to App Store Connect / TestFlight.
+#
+# Exists because the local Mac can't: App Store Connect has rejected
+# non-iOS-26-SDK uploads since 2026-04-28, Xcode 26 needs macOS >= 15.6, and
+# obtaining Xcode 26 locally requires an interactive Apple ID 2FA prompt. The
+# macos-26 runner already has Xcode 26.6, so CI sidesteps all of it.
+#
+# Required repository secrets:
+#   ASC_KEY_P8_BASE64  base64 of ~/.appstoreconnect/private_keys/AuthKey_<id>.p8
+#   ASC_KEY_ID         App Store Connect API key id (e.g. 6M245PSNS9)
+#   ASC_ISSUER_ID      issuer UUID: ASC -> Users and Access -> Integrations
+#
+# Submission for review stays manual on purpose — see RELEASE_CHECKLIST.md.
+
+name: Release to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Override build number (App Store Connect rejects duplicates)"
+        required: false
+        type: string
+      run_tests:
+        description: "Run the test suite first"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode with the iOS 26 SDK
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i "iOS "
+          # Hard gate: anything older is rejected at upload.
+          xcodebuild -showsdks | grep -qE "iphoneos(2[6-9]|[3-9][0-9])" \
+            || { echo "::error::No iOS 26+ SDK on this runner"; exit 1; }
+
+      - name: Verify version consistency
+        run: |
+          VERSION=$(grep -m1 -o 'MARKETING_VERSION = [0-9.]*;' continuum.xcodeproj/project.pbxproj | grep -o '[0-9.]*')
+          COUNT=$(grep -c "MARKETING_VERSION = ${VERSION};" continuum.xcodeproj/project.pbxproj)
+          # A widget/app version mismatch caused an App Store rejection in 3.2.
+          [ "$COUNT" -eq 8 ] || { echo "::error::MARKETING_VERSION $VERSION in only $COUNT/8 configs"; exit 1; }
+          echo "Releasing $VERSION"
+
+      - name: Override build number
+        if: inputs.build_number != ''
+        run: |
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = ${{ inputs.build_number }};/g" \
+            continuum.xcodeproj/project.pbxproj
+          grep -o "CURRENT_PROJECT_VERSION = [0-9]*;" continuum.xcodeproj/project.pbxproj | sort | uniq -c
+
+      - name: Run tests
+        if: inputs.run_tests
+        run: |
+          # Suite must stay serialized — it was flaky from parallel-execution races.
+          SIM=$(xcrun simctl list devices available \
+                | grep -m1 -E "iPhone 1[6-9]" \
+                | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+          [ -n "$SIM" ] || { echo "::error::No iPhone simulator on runner"; exit 1; }
+          xcodebuild test -scheme continuum -testPlan continuum \
+            -destination "platform=iOS Simulator,id=$SIM" \
+            -derivedDataPath build/dd
+
+      - name: Write ASC API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          [ -n "$ASC_KEY_P8_BASE64" ] || { echo "::error::ASC_KEY_P8_BASE64 secret not set"; exit 1; }
+          mkdir -p ~/private_keys
+          # Never echo the key. Decode straight to disk with tight permissions.
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 -d > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          test -s ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 || { echo "::error::Decoded key is empty"; exit 1; }
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          # -allowProvisioningUpdates + the API key lets xcodebuild mint the
+          # Apple Distribution cert and profile on this clean runner.
+          xcodebuild archive \
+            -scheme continuum \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Continuum.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Verify the archive is actually shippable
+        run: |
+          SIGNED_BY=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIdentity' build/Continuum.xcarchive/Info.plist)
+          SDK=$(plutil -extract DTSDKName raw build/Continuum.xcarchive/Products/Applications/continuum.app/Info.plist)
+          SHORT=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' build/Continuum.xcarchive/Info.plist)
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' build/Continuum.xcarchive/Info.plist)
+          echo "$SHORT ($BUILD) sdk=$SDK signed by: $SIGNED_BY"
+          # ARCHIVE SUCCEEDED does NOT imply distribution-signed; a development
+          # cert archives fine and only fails later at export.
+          case "$SIGNED_BY" in
+            *Distribution*) echo "Distribution-signed" ;;
+            *) echo "::error::Signed by '$SIGNED_BY', not Apple Distribution"; exit 1 ;;
+          esac
+          case "$SDK" in
+            iphoneos2[6-9]*|iphoneos[3-9][0-9]*) echo "SDK ok" ;;
+            *) echo "::error::Built against $SDK — App Store Connect will reject"; exit 1 ;;
+          esac
+
+      - name: Upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > build/exportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>NVN2NY8GZC</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>destination</key><string>upload</string>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath build/Continuum.xcarchive \
+            -exportOptionsPlist build/exportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -rf ~/private_keys
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Uploaded to App Store Connect"
+            echo ""
+            echo "TestFlight processing takes ~5-15 min."
+            echo ""
+            echo "Before releasing, per \`RELEASE_CHECKLIST.md\`:"
+            echo "- upgrade-path test on real data"
+            echo "- TestFlight soak for a few days"
+            echo "- phased release ON (this build touches the data layer + CloudKit)"
+            echo ""
+            echo "Submission for review is intentionally not automated."
+          } >> "$GITHUB_STEP_SUMMARY"
