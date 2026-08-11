@@ -120,6 +120,19 @@ above** so future releases are unattended.
 
 ## Release runbook
 
+**Use the script** — it encodes every preflight below and fails fast:
+
+```bash
+./scripts/release.sh <ASC_ISSUER_UUID>
+```
+
+It verifies the ASC key, the iOS 26+ SDK, the distribution identity, and
+version consistency across all 8 configs; runs the tests; archives; asserts the
+archive is *actually* distribution-signed; then uploads. It stops before
+submission on purpose.
+
+The manual equivalent, step by step:
+
 ```bash
 # 1. Preflight
 xcodebuild test -scheme continuum -testPlan continuum \
