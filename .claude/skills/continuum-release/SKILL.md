@@ -52,10 +52,31 @@ xcodes select 26.3
 `xcodes install` needs interactive Apple ID auth. An agent cannot complete the
 2FA prompt alone; hand this step to the user.
 
-### Irreducible human steps — don't burn time engineering around these
+### You probably don't need local Xcode 26 at all — build on CI
 
-Verified exhausted on 2026-08-11; every route to Xcode 26 ends at an Apple
-authentication boundary:
+**Preferred path.** `.github/workflows/release.yml` builds on GitHub's
+`macos-26` runner, which ships **Xcode 26.6** (and 26.0–26.3). That sidesteps
+the local toolchain, the macOS upgrade, and the ~10 GB download completely:
+
+```bash
+gh workflow run release.yml                              # build what's on main
+gh workflow run release.yml -f build_number=5            # ASC rejects duplicate build numbers
+gh run watch $(gh run list -w release.yml -L1 --json databaseId -q '.[0].databaseId')
+```
+
+Needs three repo secrets. `ASC_KEY_ID` and `ASC_KEY_P8_BASE64` are already set;
+**`ASC_ISSUER_ID` is the one value that requires a human** (see "Issuer ID"):
+
+```bash
+gh secret set ASC_ISSUER_ID --body "<ISSUER-UUID>"
+```
+
+Signing needs no p12: `-allowProvisioningUpdates` plus the ASC API key mints the
+Apple Distribution cert on the clean runner.
+
+### Local Xcode 26 — only if you truly need to build on this Mac
+
+Every route ends at an Apple authentication boundary, so prefer CI above:
 
 | Route | Blocker |
 |---|---|
@@ -64,7 +85,8 @@ authentication boundary:
 | developer.apple.com .xip | authenticated web session |
 | macOS update (needed to *run* Xcode 26) | `sudo` password, then a restart |
 
-Browser automation does **not** rescue this. Both stacks were unavailable:
+Browser automation does not rescue the local path either. Both stacks were
+unavailable on 2026-08-11:
 `claude-in-chrome` reported "extension is not connected", and
 `chrome-devtools` MCP refused with "browser is already running for
 `~/.cache/chrome-devtools-mcp/chrome-profile`" (its Chrome uses
@@ -73,9 +95,11 @@ Browser automation does **not** rescue this. Both stacks were unavailable:
 uses its own scratch profile with **no Apple session**, so a human sign-in is
 still required.
 
-So: get the user to do the Apple ID steps, and **record the issuer UUID** in the
-table above so it's a one-time cost. Do not attempt to ship with an older SDK —
-App Store Connect rejects it outright, so there is no partial-credit path.
+**Conclusion: use CI.** The only thing a human must supply is the issuer UUID,
+because it lives solely behind an authenticated App Store Connect session.
+Record it in the table above so it's a one-time cost. Never attempt to ship with
+an older SDK — App Store Connect rejects it outright, so there is no
+partial-credit path, and never fake `DTSDKName` to look newer.
 
 ### Disk space
 
