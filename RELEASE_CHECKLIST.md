@@ -73,6 +73,39 @@ verified stable across repeated runs).
    `6M245PSNS9`; exportOptions: method app-store-connect, team NVN2NY8GZC,
    automatic signing, destination upload).
 
+### Upload attempt 2026-08-11 (3.4 build 4) — still blocked, 3 gates
+
+Archive itself succeeds (`ARCHIVE SUCCEEDED`, verified 3.4 / build 4). Upload
+cannot proceed. All three gates need a human:
+
+1. **Still Xcode 16.4** → archive builds against `iphoneos18.5` (only SDK
+   installed). The June 2026 rejection cause is unchanged. Install Xcode 26
+   from the Mac App Store (Apple ID + multi-GB download).
+2. **No Apple Distribution certificate on this Mac.** `security find-identity
+   -v -p codesigning` returns only `Apple Development: rf@stoaked.co
+   (44CX442496)`, so the archive is development-signed. App Store export needs
+   an `Apple Distribution` identity (Xcode → Settings → Accounts → Manage
+   Certificates → +, or let `-allowProvisioningUpdates` create one when signed
+   into a Team Agent/Admin account).
+3. **ASC API issuer ID is not recorded anywhere.** The key
+   `~/.appstoreconnect/private_keys/AuthKey_6M245PSNS9.p8` is present, but
+   `-authenticationKeyIssuerID` needs the issuer UUID, which cannot be derived
+   from the key. Get it from App Store Connect → Users and Access →
+   Integrations → App Store Connect API (shown at the top of the page).
+   **Record it here** so the upload can run unattended next time.
+
+Once all three are resolved, upload is:
+
+```
+xcodebuild -exportArchive \
+  -archivePath Continuum-3.4.xcarchive \
+  -exportOptionsPlist exportOptions.plist \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_6M245PSNS9.p8 \
+  -authenticationKeyID 6M245PSNS9 \
+  -authenticationKeyIssuerID <ISSUER-UUID>
+```
+
 ## Known limitation (accepted for 3.3, document — don't advertise around it)
 
 - `completedDates` syncs as a single array attribute → **last-writer-wins**
