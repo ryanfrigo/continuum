@@ -106,13 +106,41 @@ final class Habit {
     func setCompleted(_ completed: Bool, forDayKey key: Int) {
         var keys = completedDayKeys
         if completed {
-            guard !keys.contains(key) else { return }
             keys.insert(key)
         } else {
-            guard keys.contains(key) else { return }
             keys.remove(key)
         }
-        completedDatesArray = keys.sorted().map { ContinuumDay.storageDate(for: $0) }
+        setCompletedKeys(keys)
+    }
+
+    /// The single write path for user edits to completion history: updates the
+    /// working array and records each changed day in the per-day sync ledger
+    /// (see CompletionMark). Writing the array directly would sync
+    /// last-writer-wins and be overruled by the ledger on the next reconcile.
+    func setCompletedKeys(_ newKeys: Set<Int>) {
+        let oldKeys = completedDayKeys
+        guard newKeys != oldKeys else { return }
+        completedDatesArray = newKeys.sorted().map { ContinuumDay.storageDate(for: $0) }
+
+        // A habit not yet inserted has nothing to sync; reconcile imports its days later.
+        guard let context = modelContext else { return }
+        let habitId = id
+        let now = Date()
+        // One fetch for the habit, not one per day: reset or set-streak can touch hundreds
+        let existing = (try? context.fetch(FetchDescriptor<CompletionMark>(
+            predicate: #Predicate { $0.habitId == habitId }
+        ))) ?? []
+        let markByDay = Dictionary(existing.map { ($0.dayKey, $0) }, uniquingKeysWith: { a, _ in a })
+        for key in newKeys.symmetricDifference(oldKeys) {
+            let completed = newKeys.contains(key)
+            // Update the existing mark in place so repeated toggles don't pile up records
+            if let mark = markByDay[key] {
+                mark.isCompleted = completed
+                mark.modifiedAt = now
+            } else {
+                context.insert(CompletionMark(habitId: habitId, dayKey: key, isCompleted: completed, modifiedAt: now))
+            }
+        }
     }
 
     /// Current streak ending on `date`. Frozen days bridge AND count, so a
@@ -234,6 +262,8 @@ final class Habit {
 
     /// Absorb a CloudKit-sync duplicate of this habit (same `id`), merging
     /// histories so no completions are lost. Caller deletes the duplicate.
+    /// Writes the array directly on purpose: both copies share one ledger, and
+    /// fresh marks here would outrank real un-completions from other devices.
     func absorb(_ other: Habit) {
         let mergedCompleted = completedDayKeys.union(other.completedDayKeys)
         completedDatesArray = mergedCompleted.sorted().map { ContinuumDay.storageDate(for: $0) }
@@ -255,7 +285,7 @@ final class Habit {
 
     /// Remove all completion history.
     func resetProgress() {
-        completedDatesArray = []
+        setCompletedKeys([])
         freezeUsedDates = nil
         graduatedAt = nil
     }
@@ -269,7 +299,7 @@ final class Habit {
         for delta in 0..<count {
             keys.insert(ContinuumDay.key(byAdding: -delta, to: base))
         }
-        completedDatesArray = keys.sorted().map { ContinuumDay.storageDate(for: $0) }
+        setCompletedKeys(keys)
     }
 
     /// Force the current streak (ending today) to be exactly `target` days long.
@@ -292,6 +322,6 @@ final class Habit {
         // Break any longer chain by clearing the day just before the streak start
         keys.remove(ContinuumDay.key(byAdding: -clamped, to: todayKey))
 
-        completedDatesArray = keys.sorted().map { ContinuumDay.storageDate(for: $0) }
+        setCompletedKeys(keys)
     }
 }

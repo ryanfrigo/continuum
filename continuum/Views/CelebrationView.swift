@@ -606,8 +606,11 @@ struct CelebrationOverlay: View {
     let habitName: String
     var accent: Color = .orange   // habit's current progress color
     let onDismiss: () -> Void
+    /// Offered on major milestones only; minor cards auto-dismiss too fast to tap.
+    var onShare: (() -> Void)? = nil
 
     var body: some View {
+        let share = milestone.isMinor ? nil : onShare
         CelebrationCard(
             accent: accent,
             visual: .value(milestone.title, unit: milestone.subtitle),
@@ -615,6 +618,8 @@ struct CelebrationOverlay: View {
             subject: habitName,
             intensity: milestone.intensity,
             autoDismissAfter: milestone.isMinor ? 2.4 : nil,
+            primaryAction: share.map { ("Share Streak", "square.and.arrow.up", $0) },
+            secondaryActionLabel: share == nil ? nil : "Continue",
             onDismiss: onDismiss
         )
         .accessibilityLabel("\(milestone.title) \(milestone.subtitle) milestone for \(habitName). \(milestone.message).")

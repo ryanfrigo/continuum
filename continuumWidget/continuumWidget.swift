@@ -40,11 +40,13 @@ struct ToggleHabitIntent: AppIntent {
 
         // Silence today's nudges — being reminded at 9pm about a habit
         // completed from the lock screen at 9am gets notifications disabled.
-        // (IDs mirror NotificationManager's notificationId/streakAtRiskNotificationId.)
+        // IDs are keyed by date, so this hits today's requests even if the app
+        // hasn't run today. An un-complete is restored when the app next syncs.
         if nowCompleted {
+            let todayKey = ContinuumDay.todayKey()
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
-                "habit-reminder-\(habitId.uuidString)-day0",
-                "streak-risk-\(habitId.uuidString)",
+                NotificationID.reminder(habitId: habitId, dayKey: todayKey),
+                NotificationID.streakAlert(habitId: habitId, dayKey: todayKey),
             ])
         }
         return .result()

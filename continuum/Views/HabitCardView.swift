@@ -634,6 +634,11 @@ struct HabitCardView: View {
             let habitData = HabitData(from: habit)
             HabitDataManager.shared.saveHabitData(habitData)
             HabitDataManager.shared.updateWidgetTimeline()
+            // Marking today in history must silence today's reminder too
+            if let context = habit.modelContext,
+               let allHabits = try? context.fetch(FetchDescriptor<Habit>()) {
+                NotificationManager.shared.sync(habits: allHabits)
+            }
             showingSetStreak = false
         }
         // Edits apply to the model live — swipe-dismiss would silently keep

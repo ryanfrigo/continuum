@@ -1,3 +1,64 @@
+# Continuum — Release Checklist
+
+## 3.4 (build 4) — notification fixes + per-day sync
+
+Changed 2026-09-14. 49/49 unit tests pass (12 notification planner, 5 sync
+ledger). An upgrade install over a seeded 3.3-schema store in the simulator
+migrated cleanly (new entity added, habit and its 5 completed days intact).
+An independent review then caught a resurrection bug with 3.3 devices; fixed
+before commit (see item 3).
+
+What's in it:
+
+- **Notifications rebuilt.** Reminders said "Day one is waiting" to people on
+  40-day streaks (the streak read 0 until today was marked). Checking off from
+  the widget didn't cancel that day's reminder or the 8pm alert. IDs are now
+  keyed by date (`habit-reminder-<uuid>-20260914`), the horizon is 3 days
+  instead of 7, and the 8pm alert only fires for habits with reminders on —
+  never when a streak freeze would save it, never on top of a reminder set at
+  8pm or later. Capped at iOS's 64-pending limit, soonest first.
+- **Per-day sync ledger.** Each (habit, day) edit is its own `CompletionMark`
+  CloudKit record, so Monday on the phone and Tuesday on the iPad both
+  survive. The `completedDates` array stays (3.3 devices still use it) and is
+  rebuilt from the ledger on launch, activation, and remote change. Days no
+  3.4 device has touched still follow the array, exactly like 3.3.
+- **Share at milestones.** 7, 21, 100, and 365-day cards get a Share button.
+- Reminder toggle turns on after the permission prompt; it used to need a
+  second tap.
+
+Before submitting, in this order:
+
+1. **Deploy the CloudKit schema to Production — mandatory this time.**
+   `CompletionMark` is a new record type. Run a Debug build on a device signed
+   into iCloud, toggle one habit so the type reaches the Development schema,
+   then icloud.developer.apple.com → container → *Deploy Schema Changes to
+   Production*. Skip it and production exports of the new type fail.
+2. **Two-device test.** Airplane mode on both; complete a different day on
+   each; reconnect. Both days should show on both within a few minutes. Then
+   un-complete one day on one device and confirm it clears on the other.
+3. **Mixed-version test (if you still have a 3.3 device).** Complete a day on
+   3.3, confirm it shows on 3.4; un-complete it on 3.3, confirm it clears.
+   Known gap: if a 3.4 device edited that same day, the 3.4 edit sticks.
+4. **Notifications on device.** Set a reminder 2 minutes out, check it off
+   from the lock-screen widget, confirm nothing fires. Have a 3+ day streak
+   with no freezes and reminders on; confirm one 8pm alert with the right
+   number.
+5. Upload via the CI workflow (`.github/workflows/release.yml`) once the
+   `ASC_*` secrets are set — local Xcode 16.4 still can't produce an
+   accepted build.
+
+Not done, and why:
+
+- **Analytics** (TelemetryDeck or similar) needs an account and app ID from
+  you, plus an App Privacy label change in App Store Connect.
+- **Tip jar** needs IAP products created in App Store Connect and the Paid
+  Apps agreement signed. The ASC API could create the products, but the
+  issuer ID still isn't recorded anywhere.
+- `freezeUsedDates` and `streakFreezeCount` still sync last-writer-wins. Low
+  stakes: at worst a freeze gets double-spent or re-granted.
+
+---
+
 # Continuum 3.3 — Release Checklist
 
 Version 3.3 (build 3). Full review completed 2026-07-02: independent code
@@ -119,7 +180,7 @@ xcodebuild -exportArchive \
   -authenticationKeyIssuerID <ISSUER-UUID>
 ```
 
-## Known limitation (accepted for 3.3, document — don't advertise around it)
+## Known limitation (accepted for 3.3; fixed in 3.4 by the per-day ledger)
 
 - `completedDates` syncs as a single array attribute → **last-writer-wins**
   across devices. Complete Monday on the phone (offline) and Tuesday on the
@@ -142,5 +203,6 @@ xcodebuild -exportArchive \
 
 - Trophy shelf for graduated habits (next version's headline).
 - Widget buttons on lock-screen accessories (display-only there for now).
-- Monetization — deliberately out. Continuum stays a lovable, simple,
-  complete habit app.
+- Monetization — out for 3.3. Direction as of 2026-09-14: free now, grow,
+  then monetize with new premium features (never by gating what's free today).
+  Proposed trigger to start: 1,000 weekly active users.

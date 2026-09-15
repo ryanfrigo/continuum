@@ -472,3 +472,207 @@ struct DedupeTests {
     }
 }
 }
+
+// MARK: - Notification planning
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct NotificationPlannerTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private let today = 20260914
+
+    /// A habit with a reminder at `hour`:00 and a run of `streak` days ending yesterday.
+    private func habit(streak: Int, reminderHour: Int = 9, doneToday: Bool = false) -> Habit {
+        let h = Habit(name: "Read", reminderEnabled: true, reminderHour: reminderHour)
+        for back in 1...max(streak, 1) where streak > 0 {
+            h.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
+        }
+        if doneToday { h.setCompleted(true, forDayKey: today) }
+        return h
+    }
+
+    private func plan(_ h: Habit, hour: Int = 7, minute: Int = 0) -> [PlannedNotification] {
+        NotificationPlanner.plan(for: h, todayKey: today, hour: hour, minute: minute)
+    }
+
+    @Test func disabledReminderSchedulesNothingIncludingStreakAlerts() {
+        let h = habit(streak: 30)
+        h.reminderEnabled = false
+        #expect(plan(h).isEmpty)
+    }
+
+    @Test func morningReminderUsesTheStreakAtStakeNotZero() {
+        let h = habit(streak: 40)
+        let reminder = plan(h).first { $0.identifier == NotificationID.reminder(habitId: h.id, dayKey: today) }
+        #expect(reminder != nil)
+        #expect(reminder!.body.contains("40"))
+        #expect(!reminder!.body.contains("Day one"))
+    }
+
+    @Test func completedTodaySilencesTodayAndArmsTomorrow() {
+        let h = habit(streak: 5, doneToday: true)
+        let items = plan(h)
+        #expect(!items.contains { $0.dayKey == today })
+
+        let tomorrow = ContinuumDay.key(byAdding: 1, to: today)
+        let alert = items.first { $0.identifier == NotificationID.streakAlert(habitId: h.id, dayKey: tomorrow) }
+        #expect(alert?.title == "6-day Read streak ends at midnight")
+        #expect(alert?.hour == 20)
+    }
+
+    @Test func daysWhoseStreakIsUnknownGetNeutralText() {
+        let h = habit(streak: 12)   // today not done: tomorrow's streak depends on today
+        let later = plan(h).filter { $0.dayKey != today }
+        #expect(!later.isEmpty)
+        #expect(later.allSatisfy { !$0.body.contains("12") && !$0.body.contains("13") })
+        #expect(!later.contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    }
+
+    @Test func availableFreezeSuppressesStreakAlert() {
+        let h = habit(streak: 10)
+        h.streakFreezeCount = 1
+        #expect(!plan(h).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    }
+
+    @Test func shortStreaksGetNoAlert() {
+        #expect(!plan(habit(streak: 2)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+        #expect(plan(habit(streak: 3)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    }
+
+    @Test func pastTimesTodayAreSkipped() {
+        let h = habit(streak: 10)
+        let items = plan(h, hour: 20, minute: 30)
+        #expect(!items.contains { $0.dayKey == today })
+    }
+
+    @Test func reminderAtTheExactCurrentMinuteIsSkipped() {
+        let h = habit(streak: 0)
+        #expect(!plan(h, hour: 9, minute: 0).contains { $0.dayKey == today })
+        #expect(plan(h, hour: 8, minute: 59).contains { $0.dayKey == today })
+    }
+
+    @Test func eveningReminderReplacesTheStreakAlert() {
+        let h = habit(streak: 10, reminderHour: 21)
+        let items = plan(h)
+        #expect(!items.contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+        #expect(items.contains { $0.dayKey == today && $0.hour == 21 })
+    }
+
+    @Test func horizonCrossesMonthBoundaryWithDateKeyedIds() {
+        let h = Habit(name: "Read", reminderEnabled: true)
+        let keys = NotificationPlanner.plan(for: h, todayKey: 20260930, hour: 7, minute: 0).map(\.dayKey)
+        #expect(keys == [20260930, 20261001, 20261002])
+    }
+
+    @Test func manyHabitsCapAtSystemLimitKeepingSoonest() {
+        let habits = (0..<20).map { _ in habit(streak: 5) }
+        let items = NotificationPlanner.plan(for: habits, todayKey: today, hour: 7, minute: 0)
+        #expect(items.count == NotificationPlanner.systemPendingLimit)
+        #expect(items.map(\.fireOrder) == items.map(\.fireOrder).sorted())
+        // Every habit keeps today's reminder and today's streak alert
+        #expect(items.filter { $0.dayKey == today }.count == 40)
+    }
+
+    @Test func legacyAndCurrentIdsAreOwned() {
+        let id = UUID()
+        #expect(NotificationID.isOwned("habit-reminder-\(id.uuidString)-day3"))
+        #expect(NotificationID.isOwned("streak-risk-\(id.uuidString)-next"))
+        #expect(NotificationID.isOwned(NotificationID.reminder(habitId: id, dayKey: today)))
+        #expect(!NotificationID.isOwned("something-else"))
+    }
+}
+}
+
+// MARK: - Per-day completion ledger (cross-device merge)
+
+import SwiftData
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct CompletionLedgerTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private func mark(_ day: Int, _ done: Bool, at seconds: TimeInterval, id: UUID = UUID()) -> MarkSnapshot {
+        MarkSnapshot(markId: id, dayKey: day, isCompleted: done, modifiedAt: Date(timeIntervalSince1970: seconds))
+    }
+
+    @Test func editsToDifferentDaysOnTwoDevicesBothSurvive() {
+        // Phone marked Monday, iPad marked Tuesday; the iPad's array won the
+        // last-writer-wins race and only has Tuesday.
+        let result = CompletionLedger.merge(
+            arrayKeys: [20260915],
+            marks: [mark(20260914, true, at: 100), mark(20260915, true, at: 200)]
+        )
+        #expect(result.completed == [20260914, 20260915])
+    }
+
+    @Test func unCompletionBeatsStaleArrayCopy() {
+        let result = CompletionLedger.merge(
+            arrayKeys: [20260914],
+            marks: [mark(20260914, true, at: 100), mark(20260914, false, at: 200)]
+        )
+        #expect(result.completed.isEmpty)
+        #expect(result.duplicateMarkIds.count == 1)
+    }
+
+    @Test func unmarkedDaysFollowTheArraySoA33DeviceCanStillUncomplete() {
+        // Old history lives only in the array; a 3.3 device then un-completes 09-02
+        let before = CompletionLedger.merge(arrayKeys: [20260901, 20260902], marks: [])
+        #expect(before.completed == [20260901, 20260902])
+        let after = CompletionLedger.merge(arrayKeys: [20260901], marks: [])
+        #expect(after.completed == [20260901])
+    }
+
+    @Test func tiesKeepCompletionAndPickSameSurvivorOnEveryDevice() {
+        let a = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let b = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let forward = CompletionLedger.merge(arrayKeys: [], marks: [mark(20260914, true, at: 5, id: b), mark(20260914, true, at: 5, id: a)])
+        let reverse = CompletionLedger.merge(arrayKeys: [], marks: [mark(20260914, true, at: 5, id: a), mark(20260914, true, at: 5, id: b)])
+        #expect(forward.duplicateMarkIds == [b])
+        #expect(reverse.duplicateMarkIds == [b])
+
+        let conflict = CompletionLedger.merge(arrayKeys: [], marks: [mark(20260914, false, at: 5), mark(20260914, true, at: 5)])
+        #expect(conflict.completed == [20260914])
+    }
+
+    @MainActor
+    @Test func twoDevicesConvergeThroughTheLedger() throws {
+        let container = try ModelContainer(
+            for: Habit.self, CompletionMark.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let context = container.mainContext
+        let habit = Habit(name: "Run")
+        context.insert(habit)
+
+        // Pre-3.4 history lives in the array; reconcile leaves it alone
+        habit.completedDatesArray = [ContinuumDay.storageDate(for: 20260910)]
+        #expect(!CompletionLedger.reconcile(habits: [habit], in: context))
+
+        // Local edits record marks; toggling twice updates one mark in place
+        habit.setCompleted(true, forDayKey: 20260914)
+        habit.setCompleted(false, forDayKey: 20260914)
+        habit.setCompleted(true, forDayKey: 20260914)
+        let marks = try context.fetch(FetchDescriptor<CompletionMark>())
+        #expect(marks.filter { $0.dayKey == 20260914 }.count == 1)
+
+        // Another device's Tuesday mark arrives, then its array (which has the
+        // old history and Tuesday, but not our Monday) wins last-writer-wins
+        context.insert(CompletionMark(habitId: habit.id, dayKey: 20260915, isCompleted: true))
+        habit.completedDatesArray = [20260910, 20260915].map { ContinuumDay.storageDate(for: $0) }
+
+        #expect(CompletionLedger.reconcile(habits: [habit], in: context))
+        #expect(habit.completedDayKeys == [20260910, 20260914, 20260915])
+        #expect(!CompletionLedger.reconcile(habits: [habit], in: context))  // idempotent
+
+        // Un-completing on this device beats a stale array that still has the day
+        habit.setCompleted(false, forDayKey: 20260915)
+        habit.completedDatesArray = [20260910, 20260914, 20260915].map { ContinuumDay.storageDate(for: $0) }
+        CompletionLedger.reconcile(habits: [habit], in: context)
+        #expect(habit.completedDayKeys == [20260910, 20260914])
+    }
+}
+}

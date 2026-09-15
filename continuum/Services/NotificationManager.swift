@@ -1,209 +1,113 @@
 import Foundation
 import UserNotifications
 
-class NotificationManager {
-    static let shared = NotificationManager()
+// MARK: - Plan
+// What should be pending is a pure function of habit state and the clock, so
+// it's unit-tested here and the system center only ever gets reconciled to it.
 
-    private let daysAhead = 7 // Schedule non-repeating notifications 7 days ahead
+/// One notification the app wants pending.
+struct PlannedNotification: Equatable {
+    let identifier: String
+    let title: String
+    let body: String
+    let dayKey: Int
+    let hour: Int
+    let minute: Int
 
-    private init() {}
+    /// Chronological sort key, e.g. 202609142000.
+    var fireOrder: Int { dayKey * 10_000 + hour * 100 + minute }
+}
 
-    // MARK: - Permission
+enum NotificationPlanner {
+    /// Short horizon: content is computed now, and only the next day or two can
+    /// be worded truthfully. The app re-plans on every activation and day change.
+    static let daysAhead = 3
+    static let streakAlertHour = 20
+    static let minimumStreakForAlert = 3
+    /// iOS keeps at most 64 pending requests per app and silently drops the rest.
+    static let systemPendingLimit = 64
 
-    func requestPermission() async -> Bool {
-        do {
-            let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
-            return granted
-        } catch {
-            print("Notification permission error: \(error)")
-            return false
-        }
+    /// Every notification for every habit, soonest first, capped at the system limit
+    /// so it's the far-future ones that go missing, not tomorrow's.
+    static func plan(for habits: [Habit], todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
+        let all = habits.flatMap { plan(for: $0, todayKey: todayKey, hour: hour, minute: minute) }
+        return Array(all.sorted { $0.fireOrder < $1.fireOrder }.prefix(systemPendingLimit))
     }
 
-    func checkPermissionStatus() async -> UNAuthorizationStatus {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        return settings.authorizationStatus
-    }
+    static func plan(for habit: Habit, todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
+        // The per-habit reminder toggle is the one switch for everything this
+        // habit sends, streak alerts included.
+        guard habit.reminderEnabled else { return [] }
 
-    // MARK: - Badge
+        let completed = habit.completedDayKeys
+        let frozen = habit.frozenDayKeys
+        let doneToday = completed.contains(todayKey) || frozen.contains(todayKey)
+        let yesterdayKey = ContinuumDay.key(byAdding: -1, to: todayKey)
+        var result: [PlannedNotification] = []
 
-    func clearBadge() {
-        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
-    }
+        for offset in 0..<daysAhead {
+            if offset == 0 && doneToday { continue }
+            let dayKey = ContinuumDay.key(byAdding: offset, to: todayKey)
 
-    // MARK: - Daily Habit Reminders
-    // Uses non-repeating notifications scheduled 7 days ahead.
-    // Completed days are skipped. Rescheduled when app becomes active.
-
-    func scheduleNotification(for habit: Habit) {
-        // Remove all existing notifications for this habit
-        removeNotification(for: habit)
-
-        guard habit.reminderEnabled else { return }
-
-        let today = Calendar.current.startOfDay(for: Date())
-
-        for dayOffset in 0..<daysAhead {
-            guard let targetDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: today) else { continue }
-
-            // Skip today if already completed
-            if dayOffset == 0 && habit.isCompletedToday { continue }
-
-            var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: targetDate)
-            dateComponents.hour = habit.reminderHour
-            dateComponents.minute = habit.reminderMinute
-
-            // Skip if this time is already past (for today)
-            if dayOffset == 0 {
-                let now = Date()
-                if let triggerDate = Calendar.current.date(from: dateComponents), triggerDate <= now {
-                    continue
-                }
+            // The streak riding on a day is only known once every day before it
+            // is settled. currentStreak(asOf: today) is 0 until today is marked,
+            // which is how 40-day streaks used to get "Day one is waiting."
+            let streakAtStake: Int?
+            if offset == 0 {
+                streakAtStake = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: yesterdayKey)
+            } else if offset == 1 && doneToday {
+                streakAtStake = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: todayKey)
+            } else {
+                streakAtStake = nil
             }
 
-            let content = UNMutableNotificationContent()
-            content.title = "Time for \(habit.name)"
-            content.body = getMotivationalMessage(for: habit)
-            content.sound = .default
+            let reminderPassed = offset == 0
+                && habit.reminderHour * 100 + habit.reminderMinute <= hour * 100 + minute
+            if !reminderPassed {
+                result.append(PlannedNotification(
+                    identifier: NotificationID.reminder(habitId: habit.id, dayKey: dayKey),
+                    title: "Time for \(habit.name)",
+                    body: reminderBody(streak: streakAtStake, dayKey: dayKey),
+                    dayKey: dayKey,
+                    hour: habit.reminderHour,
+                    minute: habit.reminderMinute
+                ))
+            }
 
-            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-
-            let request = UNNotificationRequest(
-                identifier: notificationId(for: habit, dayOffset: dayOffset),
-                content: content,
-                trigger: trigger
-            )
-
-            UNUserNotificationCenter.current().add(request) { error in
-                if let error = error {
-                    print("Failed to schedule notification: \(error)")
-                }
+            if let streak = streakAtStake,
+               streak >= minimumStreakForAlert,
+               // A freeze is applied automatically after a missed day, so the
+               // streak does not actually end at midnight.
+               habit.streakFreezeCount == 0,
+               // An evening reminder already covers it; two pings is a nag.
+               habit.reminderHour < streakAlertHour,
+               offset > 0 || hour < streakAlertHour {
+                result.append(PlannedNotification(
+                    identifier: NotificationID.streakAlert(habitId: habit.id, dayKey: dayKey),
+                    title: "\(streak)-day \(habit.name) streak ends at midnight",
+                    body: pick([
+                        "A one-second hold keeps it alive.",
+                        "Four hours left. You've done harder things.",
+                        "\(streak) days of work. One hold protects it.",
+                    ], dayKey: dayKey),
+                    dayKey: dayKey,
+                    hour: streakAlertHour,
+                    minute: 0
+                ))
             }
         }
+        return result
     }
 
-    func removeNotification(for habit: Habit) {
-        // Remove all day-offset variants
-        let ids = (0..<daysAhead).map { notificationId(for: habit, dayOffset: $0) }
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
-    }
-
-    /// Remove just today's reminder (e.g., when habit is completed)
-    func removeTodayReminder(for habit: Habit) {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [notificationId(for: habit, dayOffset: 0)]
-        )
-    }
-
-    func removeAllNotifications() {
-        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
-    }
-
-    func rescheduleAllNotifications(habits: [Habit]) {
-        removeAllNotifications()
-        for habit in habits where habit.reminderEnabled {
-            scheduleNotification(for: habit)
+    // Brand voice: dry, confident, zero guilt.
+    static func reminderBody(streak: Int?, dayKey: Int) -> String {
+        guard let streak else {
+            return pick([
+                "Show up today.",
+                "One hold. That's the whole ask.",
+                "The grid is waiting.",
+            ], dayKey: dayKey)
         }
-    }
-
-    // MARK: - Streak At Risk Notifications
-
-    func scheduleStreakAtRiskNotification(for habit: Habit) {
-        removeStreakAtRiskNotification(for: habit)
-
-        // The chain at stake TODAY ends yesterday — currentStreak() counts
-        // back from today and is always 0 while today is incomplete, so it
-        // can never be used to gate this alert.
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        let streakAtStakeToday = habit.currentStreak(asOf: yesterday)
-        let hour = Calendar.current.component(.hour, from: Date())
-        if !habit.isCompletedToday, streakAtStakeToday >= 3, hour < 20 {
-            addStreakAtRiskRequest(
-                for: habit,
-                streak: streakAtStakeToday,
-                dayOffset: 0,
-                identifier: streakAtRiskNotificationId(for: habit)
-            )
-        }
-
-        // Tomorrow's alert — the safety net for the day the user never opens
-        // the app (today-only scheduling can't fire on the day you forget).
-        // The chain at stake tomorrow ends today, so it only exists once
-        // today is completed. Replaced or cancelled whenever the app
-        // activates or the habit is completed tomorrow.
-        let streakAtStakeTomorrow = habit.currentStreak()
-        if streakAtStakeTomorrow >= 3 {
-            addStreakAtRiskRequest(
-                for: habit,
-                streak: streakAtStakeTomorrow,
-                dayOffset: 1,
-                identifier: streakAtRiskNotificationId(for: habit) + "-next"
-            )
-        }
-    }
-
-    private func addStreakAtRiskRequest(for habit: Habit, streak: Int, dayOffset: Int, identifier: String) {
-        let content = UNMutableNotificationContent()
-        content.title = "\(streak)-day \(habit.name) streak ends at midnight"
-        content.body = [
-            "A one-second hold keeps it alive.",
-            "Four hours left. You've done harder things.",
-            "\(streak) days of work. One hold protects it.",
-        ].randomElement() ?? "A one-second hold keeps it alive."
-        content.sound = .default
-        content.interruptionLevel = .timeSensitive
-
-        guard let targetDay = Calendar.current.date(byAdding: .day, value: dayOffset, to: Date()) else { return }
-        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: targetDay)
-        dateComponents.hour = 20
-        dateComponents.minute = 0
-
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Failed to schedule streak-at-risk notification: \(error)")
-            }
-        }
-    }
-
-    func scheduleAllStreakAtRiskNotifications(habits: [Habit]) {
-        for habit in habits {
-            scheduleStreakAtRiskNotification(for: habit)
-        }
-    }
-
-    func removeStreakAtRiskNotification(for habit: Habit) {
-        let id = streakAtRiskNotificationId(for: habit)
-        UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [id, id + "-next"]
-        )
-    }
-
-    /// Remove all notifications for a habit (reminders + streak-at-risk)
-    func removeAllNotifications(for habit: Habit) {
-        removeNotification(for: habit)
-        removeStreakAtRiskNotification(for: habit)
-    }
-
-    // MARK: - Identifiers
-
-    private func notificationId(for habit: Habit, dayOffset: Int) -> String {
-        "habit-reminder-\(habit.id.uuidString)-day\(dayOffset)"
-    }
-
-    private func streakAtRiskNotificationId(for habit: Habit) -> String {
-        "streak-risk-\(habit.id.uuidString)"
-    }
-
-    // MARK: - Message
-
-    private func getMotivationalMessage(for habit: Habit) -> String {
-        let streak = habit.currentStreak()
-
-        // Brand voice: dry, confident, zero guilt. Variants keep the 7-day
-        // prescheduled batch from reading identically every morning.
         let lines: [String]
         if streak == 0 {
             lines = [
@@ -221,7 +125,7 @@ class NotificationManager {
             lines = [
                 "\(streak) days strong. Machines don't miss days.",
                 "\(streak) days. Momentum is a habit too.",
-                "Day \(streak). Showing up is the brand.",
+                "Day \(streak + 1). Showing up is the brand.",
             ]
         } else if streak < 66 {
             lines = [
@@ -232,10 +136,104 @@ class NotificationManager {
         } else {
             lines = [
                 "\(streak) days. This is who you are now.",
-                "Day \(streak). Legacy streak.",
+                "Day \(streak + 1). Legacy streak.",
                 "\(streak) days deep. The habit is you.",
             ]
         }
-        return lines.randomElement() ?? lines[0]
+        return pick(lines, dayKey: dayKey)
+    }
+
+    /// Varies by day but is deterministic, so re-planning doesn't reshuffle text.
+    private static func pick(_ lines: [String], dayKey: Int) -> String {
+        lines[dayKey % lines.count]
+    }
+}
+
+// MARK: - Manager
+
+@MainActor
+final class NotificationManager {
+    static let shared = NotificationManager()
+
+    private var syncChain: Task<Void, Never>?
+
+    private init() {}
+
+    // MARK: Permission
+
+    nonisolated func requestPermission() async -> Bool {
+        do {
+            return try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound])
+        } catch {
+            print("Notification permission error: \(error)")
+            return false
+        }
+    }
+
+    nonisolated func checkPermissionStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
+    // MARK: Badge
+
+    func clearBadge() {
+        UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
+    }
+
+    // MARK: Sync
+
+    /// Make the pending queue match `habits` exactly: schedule what's planned,
+    /// drop everything else we own (completed days, disabled or deleted habits,
+    /// changes synced from another device, pre-3.4 identifiers).
+    /// Call after any change to habits, reminders, or completions.
+    func sync(habits: [Habit], now: Date = Date()) {
+        // Snapshot on the main actor; SwiftData models don't cross actors.
+        let calendar = Calendar.current
+        let plan = NotificationPlanner.plan(
+            for: habits,
+            todayKey: ContinuumDay.key(for: now),
+            hour: calendar.component(.hour, from: now),
+            minute: calendar.component(.minute, from: now)
+        )
+        // Serialize: two overlapping syncs could otherwise each read the pending
+        // list before the other writes, leaving a stale request behind.
+        let previous = syncChain
+        syncChain = Task {
+            await previous?.value
+            await Self.apply(plan)
+        }
+    }
+
+    private nonisolated static func apply(_ plan: [PlannedNotification]) async {
+        let center = UNUserNotificationCenter.current()
+        let planned = Set(plan.map(\.identifier))
+        let stale = await center.pendingNotificationRequests()
+            .map(\.identifier)
+            .filter { NotificationID.isOwned($0) && !planned.contains($0) }
+        center.removePendingNotificationRequests(withIdentifiers: stale)
+
+        for item in plan {
+            let content = UNMutableNotificationContent()
+            content.title = item.title
+            content.body = item.body
+            content.sound = .default
+
+            // Components without a time zone float with the device, so a
+            // 9:00 reminder stays 9:00 local after travel.
+            var components = DateComponents()
+            components.year = item.dayKey / 10_000
+            components.month = item.dayKey / 100 % 100
+            components.day = item.dayKey % 100
+            components.hour = item.hour
+            components.minute = item.minute
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+
+            // Same identifier replaces the pending request, refreshing its text.
+            do {
+                try await center.add(UNNotificationRequest(identifier: item.identifier, content: content, trigger: trigger))
+            } catch {
+                print("Failed to schedule \(item.identifier): \(error)")
+            }
+        }
     }
 }

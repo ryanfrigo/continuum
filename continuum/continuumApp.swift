@@ -44,7 +44,7 @@ struct continuumApp: App {
     /// can't be created (e.g. capability missing), so the app never crashes
     /// or loses data because of sync availability.
     static let sharedModelContainer: ModelContainer = {
-        let schema = Schema([Habit.self])
+        let schema = Schema([Habit.self, CompletionMark.self])
 
         let cloudConfig = ModelConfiguration(
             schema: schema,

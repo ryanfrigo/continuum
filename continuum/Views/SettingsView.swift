@@ -56,7 +56,7 @@ struct SettingsView: View {
                             HabitNotificationRow(
                                 habit: habit,
                                 notificationPermissionGranted: notificationPermissionGranted,
-                                onRequestPermission: { requestNotificationPermission() },
+                                onRequestPermission: { requestNotificationPermission(enabling: habit) },
                                 onSave: { saveAndSchedule(habit) }
                             )
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
@@ -65,7 +65,7 @@ struct SettingsView: View {
                         Text("Daily Reminders")
                             .foregroundStyle(.gray)
                     } footer: {
-                        Text("Set a daily reminder time for each habit. You'll receive a notification if you haven't completed it yet.")
+                        Text("Set a daily reminder time for each habit. You'll get a notification only if it isn't done yet, plus an 8pm heads-up when a 3+ day streak is at risk.")
                             .foregroundStyle(.gray.opacity(0.7))
                     }
 
@@ -223,7 +223,8 @@ struct SettingsView: View {
     }
 
     private func deleteAllHabits() {
-        NotificationManager.shared.removeAllNotifications()
+        NotificationManager.shared.sync(habits: [])
+        CompletionLedger.deleteMarks(for: Set(habits.map(\.id)), in: modelContext)
         for habit in habits {
             modelContext.delete(habit)
         }
@@ -243,12 +244,17 @@ struct SettingsView: View {
         }
     }
 
-    private func requestNotificationPermission() {
+    /// The user flipped a reminder on before granting permission — finish
+    /// what they asked for once they allow it, instead of making them tap twice.
+    private func requestNotificationPermission(enabling habit: Habit) {
         Task {
             let granted = await NotificationManager.shared.requestPermission()
             await MainActor.run {
                 notificationPermissionGranted = granted
-                if !granted {
+                if granted {
+                    habit.reminderEnabled = true
+                    saveAndSchedule(habit)
+                } else {
                     showingPermissionAlert = true
                 }
             }
@@ -257,7 +263,7 @@ struct SettingsView: View {
 
     private func saveAndSchedule(_ habit: Habit) {
         try? modelContext.save()
-        NotificationManager.shared.scheduleNotification(for: habit)
+        NotificationManager.shared.sync(habits: habits)
     }
 }
 

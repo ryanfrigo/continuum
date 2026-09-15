@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import CoreData
 import StoreKit
 #if canImport(Inject)
 import Inject
@@ -25,6 +26,7 @@ struct ContentView: View {
     // Celebration state
     @State private var celebrationMilestone: StreakMilestone? = nil
     @State private var celebrationHabitName: String = ""
+    @State private var celebrationHabit: Habit? = nil
     @State private var celebrationAccent: Color = .orange
     @State private var healthMilestonePercentage: Int? = nil
     @State private var healthMilestoneHabitName: String = ""
@@ -148,6 +150,20 @@ struct ContentView: View {
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                                         requestReview()
                                     }
+                                }
+                            },
+                            // The share card is the app's only word-of-mouth loop;
+                            // offer it at the moment people are proudest.
+                            // (A pending review prompt waits for the next dismissal
+                            // rather than stacking on the share sheet.)
+                            onShare: {
+                                guard let habit = celebrationHabit else { return }
+                                shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    celebrationMilestone = nil
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                    showShareSheet = true
                                 }
                             }
                         )
@@ -313,36 +329,48 @@ struct ContentView: View {
             }
             migrateAllHabitDates()      // legacy midnight dates → canonical (timezone-safe)
             dedupeHabits()              // merge CloudKit sync duplicates
+            reconcileCompletions()      // per-day ledger → arrays (after dedupe)
             applyPendingWidgetToggles() // reconcile completions made from the widget
             initializeHabitOrders()
             initializeMilestoneTracking()
             syncAllHabitsToWidget()
-            scheduleStreakAtRiskNotifications()
-            rescheduleAllReminders()
             autoApplyStreakFreezes()
             grantWeeklyStreakFreezes()
+            syncNotifications()         // after freezes: they change what's at stake
             NotificationManager.shared.clearBadge()
             refreshTrigger.toggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             applyPendingWidgetToggles()
             dedupeHabits()
+            reconcileCompletions()
             // iOS keeps apps suspended for days — a missed day must be
             // rescued here too, not just on cold launch (onAppear)
             autoApplyStreakFreezes()
             grantWeeklyStreakFreezes()
             syncAllHabitsToWidget()
             refreshTrigger.toggle()
-            scheduleStreakAtRiskNotifications()
-            rescheduleAllReminders()
+            syncNotifications()
             NotificationManager.shared.clearBadge()
+        }
+        // CloudKit delivered changes while the app is open: merge them before
+        // the last-writer-wins array value sticks on screen
+        .onReceive(
+            NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)
+                .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+        ) { _ in
+            dedupeHabits()
+            if reconcileCompletions() {
+                syncAllHabitsToWidget()
+                syncNotifications()
+                refreshTrigger.toggle()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: DispatchQueue.main)) { _ in
             // App sitting open across midnight: refresh "today" everywhere
             autoApplyStreakFreezes()
             refreshTrigger.toggle()
-            scheduleStreakAtRiskNotifications()
-            rescheduleAllReminders()
+            syncNotifications()
             syncAllHabitsToWidget()
         }
     }
@@ -565,22 +593,26 @@ struct ContentView: View {
         case .reset:
             habit.resetProgress()
             syncHabitToWidget(habit)
+            syncNotifications()
         case .setStreak(let n):
             habit.setCurrentStreak(n)
             syncHabitToWidget(habit)
+            syncNotifications()
         case .rename(let newName):
             habit.name = newName
             syncHabitToWidget(habit)
             // Pending reminders still carry the old name — rebuild them
-            NotificationManager.shared.scheduleNotification(for: habit)
+            syncNotifications()
         case .delete:
-            NotificationManager.shared.removeAllNotifications(for: habit)
+            // @Query may not drop the habit synchronously; plan without it
+            NotificationManager.shared.sync(habits: habits.filter { $0.id != habit.id })
             // Clean up widget data
             var allIds = HabitDataManager.shared.getAllHabitIds()
             allIds.removeAll { $0 == habit.id }
             HabitDataManager.shared.saveAllHabitIds(allIds)
             HabitDataManager.shared.removeHabitData(for: habit.id)
             HabitDataManager.shared.updateWidgetTimeline()
+            CompletionLedger.deleteMarks(for: [habit.id], in: modelContext)
             modelContext.delete(habit)
             try? modelContext.save()
         case .share:
@@ -605,18 +637,12 @@ struct ContentView: View {
         let previousStreak = previousStreaks[habit.id] ?? 0
         let previousHealthValue = previousHealth[habit.id] ?? 0
 
-        // When a habit is completed, silence today's nudges (and arm
-        // tomorrow's safety net — scheduleStreakAtRiskNotification handles both)
-        if wasJustCompleted {
-            NotificationManager.shared.scheduleStreakAtRiskNotification(for: habit)
-            NotificationManager.shared.removeTodayReminder(for: habit)
-        }
+        // Completion silences today's nudges and arms tomorrow's safety net;
+        // undo restores them, or the streak dies silently on a day the user
+        // showed intent. The planner derives both from the new state.
+        syncNotifications()
 
         guard wasJustCompleted else {
-            // Undo: restore the reminders that completion just cancelled,
-            // or the streak dies silently on a day the user showed intent
-            NotificationManager.shared.scheduleNotification(for: habit)
-            NotificationManager.shared.scheduleStreakAtRiskNotification(for: habit)
             previousStreaks[habit.id] = habit.currentStreak()
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
             return
@@ -650,6 +676,7 @@ struct ContentView: View {
                 let accent = healthColor(for: habit.habitHealth())
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     celebrationHabitName = habit.name
+                    celebrationHabit = habit
                     celebrationAccent = accent
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         celebrationMilestone = milestone
@@ -798,15 +825,8 @@ struct ContentView: View {
         HabitDataManager.shared.updateWidgetTimeline()
     }
 
-    private func scheduleStreakAtRiskNotifications() {
-        NotificationManager.shared.scheduleAllStreakAtRiskNotifications(habits: habits)
-    }
-
-    private func rescheduleAllReminders() {
-        // Reschedule 7-day-ahead non-repeating reminders, skipping completed days
-        for habit in habits where habit.reminderEnabled {
-            NotificationManager.shared.scheduleNotification(for: habit)
-        }
+    private func syncNotifications() {
+        NotificationManager.shared.sync(habits: habits)
     }
 
     private func autoApplyStreakFreezes() {
@@ -908,6 +928,11 @@ struct ContentView: View {
         if changed { try? modelContext.save() }
     }
 
+    @discardableResult
+    private func reconcileCompletions() -> Bool {
+        CompletionLedger.reconcile(habits: habits, in: modelContext)
+    }
+
     /// Apply completions/uncompletions made from the interactive widget.
     /// The widget already updated its own snapshot optimistically; here we
     /// bring SwiftData (the source of truth) up to date and fire milestones.
@@ -936,8 +961,6 @@ struct ContentView: View {
             // Surface celebrations/graduation for today's completions
             if toggle.completed && toggle.dayKey == ContinuumDay.todayKey() {
                 checkForMilestones(habit: habit, wasJustCompleted: true)
-                NotificationManager.shared.removeStreakAtRiskNotification(for: habit)
-                NotificationManager.shared.removeTodayReminder(for: habit)
             }
         }
 

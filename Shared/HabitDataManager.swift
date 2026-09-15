@@ -193,6 +193,28 @@ enum HabitMath {
     }
 }
 
+// MARK: - Notification Identifiers
+// Shared so the widget can cancel exactly what the app scheduled. Keyed by
+// calendar day: an offset ("day0") is relative to whenever the app last ran,
+// so the widget could never tell which request was today's.
+enum NotificationID {
+    static let reminderPrefix = "habit-reminder-"
+    static let streakAlertPrefix = "streak-risk-"
+
+    static func reminder(habitId: UUID, dayKey: Int) -> String {
+        "\(reminderPrefix)\(habitId.uuidString)-\(dayKey)"
+    }
+
+    static func streakAlert(habitId: UUID, dayKey: Int) -> String {
+        "\(streakAlertPrefix)\(habitId.uuidString)-\(dayKey)"
+    }
+
+    /// Everything the app has ever scheduled, including pre-3.4 offset-style IDs.
+    static func isOwned(_ identifier: String) -> Bool {
+        identifier.hasPrefix(reminderPrefix) || identifier.hasPrefix(streakAlertPrefix)
+    }
+}
+
 // MARK: - Pending Widget Toggles
 // The interactive widget can't write to SwiftData directly, so it updates the
 // shared JSON optimistically AND records the desired end state here. The app

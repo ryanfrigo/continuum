@@ -122,7 +122,7 @@ struct HabitHistoryEditView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("CANCEL") {
-                            habit.completedDatesArray = originalDates
+                            habit.setCompletedKeys(ContinuumDay.keys(fromStorage: originalDates))
                             onCancel()
                         }
                         .font(.caption.monospaced())
