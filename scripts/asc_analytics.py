@@ -87,7 +87,9 @@ def ensure_request() -> str:
         {
             "data": {
                 "type": "analyticsReportRequests",
-                "attributes": {"accessType": "ONE_TIME_SNAPSHOT", "name": "continuum-adoption"},
+                # accessType is the only writable attribute here; sending a
+                # name gets a 409 ENTITY_ERROR.ATTRIBUTE.UNKNOWN.
+                "attributes": {"accessType": "ONE_TIME_SNAPSHOT"},
                 "relationships": {"app": {"data": {"type": "apps", "id": APP_ID}}},
             }
         },
