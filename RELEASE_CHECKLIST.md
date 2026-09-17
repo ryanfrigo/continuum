@@ -1,6 +1,11 @@
 # Continuum — Release Checklist
 
-## 3.4 (build 4) — notification fixes + per-day sync
+## 3.5 (build 5) — notification fixes + per-day sync
+
+**3.4 (build 4) shipped to the App Store on 2026-08-11** via
+`.github/workflows/release.yml` on the `macos-26` runner. All three `ASC_*`
+secrets are set, so the CI upload runs unattended. As of 2026-09-17 the live
+listing is 3.4, free, 4 ratings at 5.0, first released 2025-10-24.
 
 Changed 2026-09-14. 49/49 unit tests pass (12 notification planner, 5 sync
 ledger). An upgrade install over a seeded 3.3-schema store in the simulator
@@ -43,14 +48,16 @@ Before submitting, in this order:
    from the lock-screen widget, confirm nothing fires. Have a 3+ day streak
    with no freezes and reminders on; confirm one 8pm alert with the right
    number.
-5. Upload via the CI workflow (`.github/workflows/release.yml`) once the
-   `ASC_*` secrets are set — local Xcode 16.4 still can't produce an
-   accepted build.
+5. Upload: `gh workflow run release.yml -f build_number=5`, then
+   `gh run watch`. Local Xcode 16.4 can't produce an accepted build; CI can,
+   and did for 3.4.
 
 Not done, and why:
 
-- **Analytics** (TelemetryDeck or similar) needs an account and app ID from
-  you, plus an App Privacy label change in App Store Connect.
+- **In-app analytics** (TelemetryDeck or similar) needs an account and app ID
+  from you, plus an App Privacy label change in App Store Connect. App Store
+  download/retention numbers need no new SDK — see
+  `.github/workflows/analytics.yml`, which reads them with the ASC secrets.
 - **Tip jar** needs IAP products created in App Store Connect and the Paid
   Apps agreement signed. The ASC API could create the products, but the
   issuer ID still isn't recorded anywhere.
@@ -134,7 +141,11 @@ verified stable across repeated runs).
    `6M245PSNS9`; exportOptions: method app-store-connect, team NVN2NY8GZC,
    automatic signing, destination upload).
 
-### Upload attempt 2026-08-11 (3.4 build 4) — still blocked, 3 gates
+### Upload attempt 2026-08-11 (3.4 build 4) — RESOLVED, shipped that day
+
+Everything below is the state *before* CI landed; all three gates were cleared
+on 2026-08-11 by building on GitHub's `macos-26` runner instead of this Mac.
+Kept for the reasoning, not as current status.
 
 Archive itself succeeds (`ARCHIVE SUCCEEDED`, verified 3.4 / build 4). Upload
 cannot proceed. All three gates need a human:

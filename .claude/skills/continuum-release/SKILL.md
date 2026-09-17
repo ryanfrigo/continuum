@@ -21,7 +21,7 @@ verify a change visually.
 | Team ID | `NVN2NY8GZC` |
 | ASC API key ID | `6M245PSNS9` |
 | ASC key path | `~/.appstoreconnect/private_keys/AuthKey_6M245PSNS9.p8` |
-| ASC issuer UUID | **NOT RECORDED — see "Issuer ID" below. Fill this in.** |
+| ASC issuer UUID | Set as GitHub secret `ASC_ISSUER_ID` (2026-08-11). Value is not on this Mac — CI uses it unattended; for a local run ask Ryan. |
 | Apple ID | `rf@stoaked.co` |
 
 ## Toolchain floor — check FIRST, it invalidates everything else
@@ -64,11 +64,13 @@ gh workflow run release.yml -f build_number=5            # ASC rejects duplicate
 gh run watch $(gh run list -w release.yml -L1 --json databaseId -q '.[0].databaseId')
 ```
 
-Needs three repo secrets. `ASC_KEY_ID` and `ASC_KEY_P8_BASE64` are already set;
-**`ASC_ISSUER_ID` is the one value that requires a human** (see "Issuer ID"):
+All three repo secrets are set (`gh secret list` to confirm): `ASC_KEY_ID`,
+`ASC_KEY_P8_BASE64`, `ASC_ISSUER_ID`. **This path shipped 3.4 to the App Store
+on 2026-08-11**, so it is proven, not theoretical. Check the live version
+before assuming what's shipped:
 
 ```bash
-gh secret set ASC_ISSUER_ID --body "<ISSUER-UUID>"
+curl -s "https://itunes.apple.com/lookup?bundleId=orion-labs.continuum" | python3 -m json.tool | grep -E '"version"|ReleaseDate'
 ```
 
 Signing needs no p12: `-allowProvisioningUpdates` plus the ASC API key mints the
@@ -137,7 +139,8 @@ is supplied.
 
 ## Issuer ID
 
-Only obtainable from the web UI: **App Store Connect → Users and Access →
+Already in CI as `ASC_ISSUER_ID`; you only need this section to run a release
+*locally*. Only obtainable from the web UI: **App Store Connect → Users and Access →
 Integrations → App Store Connect API**, shown as "Issuer ID" at the top. It
 cannot be derived from the `.p8`. Once you have it, **write it into the table
 above** so future releases are unattended.
@@ -150,6 +153,10 @@ Don't re-test these — all verified dead ends on 2026-08-11:
 - Not cached anywhere on this Mac: shell history, `~/.appstoreconnect`,
   `~/.fastlane`, `com.apple.dt.Xcode.plist`, the login keychain, `~/.config`.
 - No ASC endpoint returns it, and a wrong value just fails auth — never guess.
+- Browser rescue re-tested 2026-09-17: `claude-in-chrome` still reports
+  "extension is not connected", and `chrome-devtools` MCP now runs but on a
+  blank profile — appstoreconnect.apple.com bounces to `authResult=FAILED`.
+  Don't retry; run it through CI instead.
 
 ## Release runbook
 

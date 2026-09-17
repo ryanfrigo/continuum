@@ -1,0 +1,53 @@
+name: App Store numbers
+
+# Downloads and retention from App Store Connect, using the same ASC secrets
+# as the release workflow. Read-only; the app ships no analytics SDK.
+#
+#   gh workflow run analytics.yml
+#   gh run watch $(gh run list -w analytics.yml -L1 --json databaseId -q '.[0].databaseId')
+#
+# Apple builds the reports asynchronously: the first run creates the request,
+# a run a day later prints the numbers.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 15 * * 1"   # Mondays, so the numbers show up without being asked for
+
+jobs:
+  numbers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet "pyjwt[crypto]"
+
+      - name: Write ASC API key
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          [ -n "$ASC_KEY_P8_BASE64" ] || { echo "::error::ASC_KEY_P8_BASE64 secret not set"; exit 1; }
+          mkdir -p ~/private_keys
+          # Never echo the key. Decode straight to disk with tight permissions.
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 -d > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          test -s ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 || { echo "::error::Decoded key is empty"; exit 1; }
+
+      - name: Read the numbers
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          export ASC_KEY_PATH=~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          python3 scripts/asc_analytics.py | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Public listing (ratings)
+        run: |
+          curl -s "https://itunes.apple.com/lookup?bundleId=orion-labs.continuum&country=us" \
+            | python3 -c "import sys,json;a=json.load(sys.stdin)['results'][0];print(f\"version {a['version']} · {a.get('userRatingCount',0)} ratings · avg {a.get('averageUserRating',0):.1f}\")" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
