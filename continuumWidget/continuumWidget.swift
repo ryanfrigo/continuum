@@ -134,7 +134,7 @@ struct SmallWidgetView: View {
     let habit: HabitData?
 
     private var health: Double { habit?.habitHealth ?? 0.0 }
-    private var streak: Int { habit?.currentStreak ?? 0 }
+    private var streak: Int { habit?.displayStreak ?? 0 }
     private var color: Color { healthColor(health) }
 
     private var flags: [Bool] {
@@ -260,23 +260,28 @@ struct MediumWidgetView: View {
 
                     Spacer()
 
-                    // Health ring
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white.opacity(0.08), lineWidth: 2)
-                        Circle()
-                            .trim(from: 0, to: overallHealth)
-                            .stroke(healthColor(overallHealth), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
+                    // Health: ring + label side by side. A percentage inside a
+                    // 28pt ring is unreadable, and the ring alone got clipped
+                    // by the widget's own corner radius.
+                    HStack(spacing: 4) {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white.opacity(0.08), lineWidth: 2)
+                            Circle()
+                                .trim(from: 0, to: overallHealth)
+                                .stroke(healthColor(overallHealth), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                        }
+                        .frame(width: 14, height: 14)
+
                         Text("\(Int(overallHealth * 100))%")
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
                             .foregroundStyle(healthColor(overallHealth))
                     }
-                    .frame(width: 24, height: 24)
                 }
-                .padding(.horizontal, 4)
-                .padding(.top, 2)
-                .padding(.bottom, 2)
+                .padding(.horizontal, 6)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
 
                 // Habit cards with grids
                 HStack(spacing: 6) {
@@ -302,7 +307,7 @@ private struct MediumHabitCard: View {
 
     private var health: Double { habit.habitHealth }
     private var color: Color { healthColor(health) }
-    private var streak: Int { habit.currentStreak }
+    private var streak: Int { habit.displayStreak }
 
     private var flags: [Bool] {
         var r = habit.historyCompletionFlags(daysBack: 66)
@@ -323,12 +328,11 @@ private struct MediumHabitCard: View {
                 CompleteButton(habit: habit, color: color, compact: true)
             }
 
-            // Streak
-            if streak > 0 {
-                Text("\(streak)d")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-                    .foregroundStyle(color.opacity(0.7))
-            }
+            // Always rendered: an if here makes one card's grid sit higher
+            // than its neighbour's, which is what made the widget look broken.
+            Text(streak > 0 ? "\(streak)d" : "start today")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(streak > 0 ? color.opacity(0.7) : .white.opacity(0.25))
 
             Spacer(minLength: 2)
 
@@ -367,12 +371,12 @@ struct AccessoryCircularView: View {
                     VStack(spacing: 0) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                        Text("\(habit.currentStreak)")
+                        Text("\(habit.displayStreak)")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                     }
                 } else {
                     VStack(spacing: 0) {
-                        Text("\(habit.currentStreak)")
+                        Text("\(habit.displayStreak)")
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                         Text("DAYS")
                             .font(.system(size: 7, weight: .semibold, design: .rounded))
@@ -404,7 +408,7 @@ struct AccessoryRectangularView: View {
                         .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
                 }
-                Text("\(first.currentStreak)-day streak")
+                Text("\(first.displayStreak)-day streak")
                     .font(.system(size: 11, weight: .medium))
                     .opacity(0.8)
                 if habits.count > 1 {
@@ -431,27 +435,21 @@ private struct MiniGrid: View {
     let dotSpacing: CGFloat
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let dotSize = floor((w - CGFloat(columns - 1) * dotSpacing) / CGFloat(columns))
-
-            VStack(spacing: dotSpacing) {
-                ForEach(0..<rows, id: \.self) { row in
-                    HStack(spacing: dotSpacing) {
-                        ForEach(0..<columns, id: \.self) { col in
-                            let idx = row * columns + col
-                            let filled = idx < flags.count && flags[idx]
-                            let isToday = idx == 0
-
-                            RoundedRectangle(cornerRadius: max(1, dotSize * 0.15))
-                                .fill(filled ? color : Color.white.opacity(isToday ? 0.12 : 0.05))
-                                .frame(width: dotSize, height: dotSize)
-                        }
-                    }
-                }
+        // Flexible columns stretch to the card's real width. The old
+        // GeometryReader + fixed aspectRatio shrank the grid to a
+        // height-constrained box and stranded it against the left edge.
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: dotSpacing), count: columns),
+            spacing: dotSpacing
+        ) {
+            ForEach(0..<(rows * columns), id: \.self) { idx in
+                let filled = idx < flags.count && flags[idx]
+                let isToday = idx == 0
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(filled ? color : Color.white.opacity(isToday ? 0.12 : 0.05))
+                    .aspectRatio(1, contentMode: .fit)
             }
         }
-        .aspectRatio(CGFloat(columns) / CGFloat(rows) * 1.0, contentMode: .fit)
     }
 }
 

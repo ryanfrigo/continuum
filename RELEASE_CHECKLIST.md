@@ -36,6 +36,13 @@ What's in it:
   looked like it had just crossed the line on every completion. Seeded from
   yesterday now, and graduation is gated on `checkAndMarkGraduation()` so it
   can only happen once per habit.
+- **Widget fixes.** The widget showed `currentStreak`, which reads 0 until
+  today is marked, so a habit's streak line disappeared each morning and left
+  the two medium-widget cards misaligned. Both app and widget now use
+  `HabitData.displayStreak`, the streak row always renders, the history grid
+  fills the card width (it was squeezed by a fixed aspect ratio), and the
+  health ring sits beside its percentage instead of being clipped by the
+  widget's corner.
 - **Shared cards carry the App Store link** (`AppStoreLink.shareItems`), so a
   screenshot someone posts is something a reader can act on.
 - Reminder toggle turns on after the permission prompt; it used to need a

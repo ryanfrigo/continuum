@@ -419,6 +419,15 @@ struct HabitData: Codable {
         currentStreak(asOf: Date())
     }
 
+    /// The streak to show. `currentStreak` counts back from today and so reads
+    /// 0 until today is marked — showing that would blank out a 40-day streak
+    /// every morning. Matches HabitCardView.displayStreak in the app.
+    var displayStreak: Int {
+        if isCompletedToday { return currentStreak }
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        return currentStreak(asOf: yesterday)
+    }
+
     func currentStreak(asOf date: Date = Date()) -> Int {
         HabitMath.currentStreak(
             completed: completedKeys,
