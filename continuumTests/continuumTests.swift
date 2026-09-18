@@ -676,3 +676,62 @@ struct CompletionLedgerTests {
     }
 }
 }
+
+// MARK: - Milestone detection
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct MilestoneDetectorTests {
+
+    private func events(
+        previous: Int, new: Int, graduated: Bool = false, best: Int = 0,
+        previousHealth: Int = 100, newHealth: Int = 100, minorShown: Bool = false
+    ) -> [CelebrationEvent] {
+        MilestoneDetector.events(
+            previousStreak: previous, newStreak: new, isAlreadyGraduated: graduated,
+            allTimeBest: best, previousHealth: previousHealth, newHealth: newHealth,
+            minorAlreadyShownToday: minorShown
+        )
+    }
+
+    @Test func graduationFiresOnceAndNeverAgain() {
+        #expect(events(previous: 65, new: 66, best: 65) == [.graduation])
+        // The bug: a stale previousStreak of 0 on a formed habit re-fired this daily
+        #expect(!events(previous: 0, new: 120, graduated: true, best: 200).contains(.graduation))
+        #expect(events(previous: 0, new: 66, graduated: true, best: 200).isEmpty)
+    }
+
+    @Test func streakMilestonesFireOnTheirExactDay() {
+        #expect(events(previous: 6, new: 7, best: 6) == [.milestone(.week)])
+        #expect(events(previous: 7, new: 8, best: 8) == [])
+    }
+
+    @Test func minorMilestonesFireOncePerDayAcrossHabits() {
+        #expect(events(previous: 0, new: 3, best: 0) == [.milestone(.dayThree)])
+        #expect(events(previous: 0, new: 3, best: 0, minorShown: true).isEmpty)
+        // A major one still fires even if a minor already showed today
+        #expect(events(previous: 6, new: 7, best: 6, minorShown: true) == [.milestone(.week)])
+    }
+
+    @Test func personalRecordNeedsAnEstablishedBestAndNoMilestone() {
+        #expect(events(previous: 9, new: 10, best: 9) == [.personalRecord(10)])
+        #expect(events(previous: 3, new: 4, best: 3).isEmpty)          // best below the floor
+        #expect(events(previous: 20, new: 21, best: 20) == [.milestone(.threeWeeks)])  // not also a record
+    }
+
+    @Test func healthMilestoneCrossingIsReportedOnce() {
+        // A plain day (no milestone, no new best) that crosses 75% health
+        #expect(events(previous: 9, new: 10, best: 10, previousHealth: 74, newHealth: 76) == [.health(75)])
+        #expect(events(previous: 9, new: 10, best: 10, previousHealth: 76, newHealth: 78).isEmpty)
+    }
+
+    @Test func graduationHasNoTileCardButOthersDo() {
+        #expect(TileCelebration(.graduation) == nil)
+        let week = TileCelebration(.milestone(.week))
+        #expect(week?.value == "7")
+        #expect(week?.isShareable == true)
+        #expect(TileCelebration(.milestone(.dayOne))?.isShareable == false)
+        #expect(TileCelebration(.health(50))?.unit == "%")
+    }
+}
+}

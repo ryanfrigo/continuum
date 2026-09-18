@@ -599,64 +599,7 @@ enum CelebrationPalette {
     static let ice = Color(hue: 0.52, saturation: 0.55, brightness: 0.95)
 }
 
-// MARK: - Streak Milestone Overlay
 
-struct CelebrationOverlay: View {
-    let milestone: StreakMilestone
-    let habitName: String
-    var accent: Color = .orange   // habit's current progress color
-    let onDismiss: () -> Void
-    /// Offered on major milestones only; minor cards auto-dismiss too fast to tap.
-    var onShare: (() -> Void)? = nil
-
-    var body: some View {
-        let share = milestone.isMinor ? nil : onShare
-        CelebrationCard(
-            accent: accent,
-            visual: .value(milestone.title, unit: milestone.subtitle),
-            message: milestone.message,
-            subject: habitName,
-            intensity: milestone.intensity,
-            autoDismissAfter: milestone.isMinor ? 2.4 : nil,
-            primaryAction: share.map { ("Share Streak", "square.and.arrow.up", $0) },
-            secondaryActionLabel: share == nil ? nil : "Continue",
-            onDismiss: onDismiss
-        )
-        .accessibilityLabel("\(milestone.title) \(milestone.subtitle) milestone for \(habitName). \(milestone.message).")
-    }
-}
-
-// MARK: - Health Milestone Overlay
-
-struct HealthMilestoneOverlay: View {
-    let percentage: Int
-    let habitName: String
-    var accent: Color = .orange   // habit's current progress color
-    let onDismiss: () -> Void
-
-    private var healthMessage: String {
-        switch percentage {
-        case 25: return "Quarter of the way to optimal"
-        case 50: return "Halfway there. Keep it boring"
-        case 75: return "Almost optimal"
-        case 100: return "Perfect health. Machine mode"
-        default: return "Progress achieved"
-        }
-    }
-
-    var body: some View {
-        CelebrationCard(
-            accent: accent,
-            visual: .value("\(percentage)", unit: "%"),
-            title: "HEALTH",
-            message: healthMessage,
-            subject: habitName,
-            intensity: percentage >= 100 ? .strong : .medium,
-            onDismiss: onDismiss
-        )
-        .accessibilityLabel("\(percentage) percent health for \(habitName).")
-    }
-}
 
 // MARK: - Habit Graduation Overlay
 
@@ -749,28 +692,6 @@ struct FreezeSaveOverlay: View {
     }
 }
 
-// MARK: - Personal Record Overlay
-
-struct RecordOverlay: View {
-    let habitName: String
-    let streak: Int
-    var accent: Color = CelebrationPalette.gold
-    let onDismiss: () -> Void
-
-    var body: some View {
-        CelebrationCard(
-            accent: accent,
-            visual: .value("\(streak)", unit: "days"),
-            title: "PERSONAL RECORD",
-            message: "Your longest streak ever",
-            subject: habitName,
-            sound: .rare,
-            intensity: .full,
-            onDismiss: onDismiss
-        )
-        .accessibilityLabel("New personal record. \(streak)-day streak for \(habitName).")
-    }
-}
 
 // MARK: - Supporting Shapes
 
@@ -822,7 +743,6 @@ struct CornerBracket: Shape {
 // MARK: - Previews
 
 #Preview("Day 7 Milestone") {
-    CelebrationOverlay(milestone: .week, habitName: "Exercise", accent: .orange, onDismiss: {})
 }
 
 #Preview("Graduation") {
@@ -842,9 +762,7 @@ struct CornerBracket: Shape {
 }
 
 #Preview("Record") {
-    RecordOverlay(habitName: "Run", streak: 31, onDismiss: {})
 }
 
 #Preview("Health") {
-    HealthMilestoneOverlay(percentage: 50, habitName: "Read", onDismiss: {})
 }

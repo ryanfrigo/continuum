@@ -6,6 +6,10 @@ struct HabitCardView: View {
     var refreshTrigger: Bool = false
     var onAction: ((HabitAction) -> Void)? = nil
     var onCompletion: ((Bool) -> Void)? = nil
+    /// Milestone/record/health celebration shown inside this tile. Full-screen
+    /// takeovers are reserved for graduation and the app-wide moments.
+    var celebration: TileCelebration? = nil
+    var onCelebrationTap: (() -> Void)? = nil
 
     // Visual constants
     private let cornerRadius: CGFloat = 20
@@ -128,10 +132,21 @@ struct HabitCardView: View {
             if showUndoConfirm {
                 undoConfirmOverlay
             }
+
+            if let celebration {
+                celebrationOverlay(celebration)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    .zIndex(10)
+            }
         }
-        // Single tap — undo if completed, hint if not
+        // Single tap — share the moment, else undo if completed, else hint
         .onTapGesture {
-            if habit.isCompletedToday {
+            if let celebration {
+                if celebration.isShareable {
+                    SoundManager.shared.triggerSelectionHaptic()
+                    onCelebrationTap?()
+                }
+            } else if habit.isCompletedToday {
                 SoundManager.shared.triggerSelectionHaptic()
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                     showUndoConfirm = true
@@ -446,6 +461,53 @@ struct HabitCardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
+    }
+
+    // MARK: - Celebration Overlay (in-tile)
+
+    /// Covers the tile's own bounds for ~2.4s. Same grammar as the full-screen
+    /// cards — accent frame, one big number — at tile scale.
+    private func celebrationOverlay(_ celebration: TileCelebration) -> some View {
+        let accent = themeColor
+        return ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color.black.opacity(0.9))
+
+            VStack(spacing: 2) {
+                Text(celebration.value)
+                    .font(.system(size: 46, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(accent)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+
+                Text(celebration.unit.uppercased())
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .tracking(2)
+                    .foregroundStyle(accent.opacity(0.8))
+
+                Text(celebration.caption)
+                    .font(.system(size: 11, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .padding(.top, 4)
+
+                if celebration.isShareable {
+                    Label("TAP TO SHARE", systemImage: "square.and.arrow.up")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .padding(.top, 6)
+                }
+            }
+            .padding(8)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(accent.opacity(0.9), lineWidth: 2.5)
+        )
+        .shadow(color: accent.opacity(0.4), radius: 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(celebration.value) \(celebration.unit) — \(celebration.caption) for \(habit.name)")
     }
 
     // MARK: - Hold Hint Overlay

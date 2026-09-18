@@ -77,7 +77,7 @@ struct HabitStatsView: View {
             }
             .sheet(isPresented: $showShareSheet) {
                 if let image = shareImage {
-                    ShareSheet(items: [image])
+                    ShareSheet(items: AppStoreLink.shareItems(with: image))
                 }
             }
         }

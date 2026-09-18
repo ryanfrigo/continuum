@@ -449,6 +449,18 @@ final class ShareCardGenerator {
 
 // MARK: - Share Sheet
 
+/// Where a shared streak card should send people. Shared by every share
+/// entry point so a card never goes out without a way to get the app.
+enum AppStoreLink {
+    static let url = URL(string: "https://apps.apple.com/app/id6754441151")!
+
+    /// Image first so Messages/Instagram still preview the card, with the
+    /// link as a second item rather than burned into the picture.
+    static func shareItems(with image: UIImage) -> [Any] {
+        [image, url]
+    }
+}
+
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     var excludedActivityTypes: [UIActivity.ActivityType]? = nil

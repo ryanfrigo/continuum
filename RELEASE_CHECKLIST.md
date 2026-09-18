@@ -27,7 +27,17 @@ What's in it:
   survive. The `completedDates` array stays (3.3 devices still use it) and is
   rebuilt from the ledger on launch, activation, and remote change. Days no
   3.4 device has touched still follow the array, exactly like 3.3.
-- **Share at milestones.** 7, 21, 100, and 365-day cards get a Share button.
+- **Celebrations moved into the tile.** Streak milestones, personal records
+  and health milestones now celebrate inside the habit's own card for 2.4s;
+  tapping a shareable one opens the share card. Graduation, perfect day,
+  perfect week and streak-saved stay full-screen.
+- **Graduation fired every day.** `previousStreaks` was seeded from
+  `currentStreak()`, which reads 0 until today is marked, so any 66+ day habit
+  looked like it had just crossed the line on every completion. Seeded from
+  yesterday now, and graduation is gated on `checkAndMarkGraduation()` so it
+  can only happen once per habit.
+- **Shared cards carry the App Store link** (`AppStoreLink.shareItems`), so a
+  screenshot someone posts is something a reader can act on.
 - Reminder toggle turns on after the permission prompt; it used to need a
   second tap.
 

@@ -23,14 +23,10 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingOnboarding = false
 
-    // Celebration state
-    @State private var celebrationMilestone: StreakMilestone? = nil
-    @State private var celebrationHabitName: String = ""
-    @State private var celebrationHabit: Habit? = nil
-    @State private var celebrationAccent: Color = .orange
-    @State private var healthMilestonePercentage: Int? = nil
-    @State private var healthMilestoneHabitName: String = ""
-    @State private var healthMilestoneAccent: Color = .orange
+    // Celebration state. Milestones, records and health now celebrate inside
+    // the habit's own tile; only graduation and the app-wide moments take over
+    // the screen.
+    @State private var tileCelebrations: [UUID: TileCelebration] = [:]
 
     // Graduation state
     @State private var showGraduation = false
@@ -59,9 +55,6 @@ struct ContentView: View {
     }
     @State private var freezeSave: FreezeSave? = nil
 
-    // Personal record state
-    @State private var recordHabitName: String = ""
-    @State private var recordStreak: Int? = nil
 
     // Track previous streaks/health to detect milestone crossings
     @State private var previousStreaks: [UUID: Int] = [:]
@@ -135,56 +128,7 @@ struct ContentView: View {
                         emptyStateView
                     }
 
-                    // Celebration overlays
-                    if let milestone = celebrationMilestone {
-                        CelebrationOverlay(
-                            milestone: milestone,
-                            habitName: celebrationHabitName,
-                            accent: celebrationAccent,
-                            onDismiss: {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    celebrationMilestone = nil
-                                }
-                                if pendingReviewRequest {
-                                    pendingReviewRequest = false
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                        requestReview()
-                                    }
-                                }
-                            },
-                            // The share card is the app's only word-of-mouth loop;
-                            // offer it at the moment people are proudest.
-                            // (A pending review prompt waits for the next dismissal
-                            // rather than stacking on the share sheet.)
-                            onShare: {
-                                guard let habit = celebrationHabit else { return }
-                                shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    celebrationMilestone = nil
-                                }
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                    showShareSheet = true
-                                }
-                            }
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                        .zIndex(100)
-                    }
 
-                    if let percentage = healthMilestonePercentage {
-                        HealthMilestoneOverlay(
-                            percentage: percentage,
-                            habitName: healthMilestoneHabitName,
-                            accent: healthMilestoneAccent,
-                            onDismiss: {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    healthMilestonePercentage = nil
-                                }
-                            }
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                        .zIndex(100)
-                    }
 
                     // Walkthrough overlay
                     if showWalkthrough {
@@ -263,26 +207,12 @@ struct ContentView: View {
                         .zIndex(102)
                     }
 
-                    if let streak = recordStreak {
-                        RecordOverlay(
-                            habitName: recordHabitName,
-                            streak: streak,
-                            accent: recordAccent,
-                            onDismiss: {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    recordStreak = nil
-                                }
-                            }
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                        .zIndex(103)
-                    }
                 }
             }
         }
         .sheet(isPresented: $showShareSheet) {
             if let image = shareImage {
-                ShareSheet(items: [image])
+                ShareSheet(items: AppStoreLink.shareItems(with: image))
             }
         }
         .sheet(item: $statsHabit) { habit in
@@ -448,12 +378,20 @@ struct ContentView: View {
                     ForEach(sortedHabits) { habit in
                         HabitCardView(
                             habit: habit,
-                            refreshTrigger: refreshTrigger
-                        ) { action in
-                            handleHabitAction(action, for: habit)
-                        } onCompletion: { completed in
-                            checkForMilestones(habit: habit, wasJustCompleted: completed)
-                        }
+                            refreshTrigger: refreshTrigger,
+                            onAction: { action in
+                                handleHabitAction(action, for: habit)
+                            },
+                            onCompletion: { completed in
+                                checkForMilestones(habit: habit, wasJustCompleted: completed)
+                            },
+                            celebration: tileCelebrations[habit.id],
+                            onCelebrationTap: {
+                                tileCelebrations[habit.id] = nil
+                                shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
+                                showShareSheet = true
+                            }
+                        )
                         // No drag-reorder here: long press is the completion
                         // gesture. Reordering lives in Settings → Reorder Habits.
                     }
@@ -649,44 +587,49 @@ struct ContentView: View {
         }
 
         let newStreak = habit.currentStreak()
+        let newHealth = Int(habit.habitHealth() * 100)
+        let allTimeBest = previousBest[habit.id] ?? 0
 
-        // Check for habit graduation (66 days) — special overlay
-        if newStreak >= 66 && previousStreak < 66 {
-            if habit.checkAndMarkGraduation() {
-                habitsFormedCount += 1
-                try? modelContext.save()
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                graduationHabitName = habit.name
-                graduationHabit = habit
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    showGraduation = true
+        let events = MilestoneDetector.events(
+            previousStreak: previousStreak,
+            newStreak: newStreak,
+            isAlreadyGraduated: habit.isGraduated,
+            allTimeBest: allTimeBest,
+            previousHealth: previousHealthValue,
+            newHealth: newHealth,
+            minorAlreadyShownToday: lastMinorMilestoneCelebrationKey == ContinuumDay.todayKey()
+        )
+
+        let hasTileCelebration = events.contains { TileCelebration($0) != nil }
+
+        for event in events {
+            switch event {
+            case .graduation:
+                if habit.checkAndMarkGraduation() {
+                    habitsFormedCount += 1
+                    try? modelContext.save()
                 }
-            }
-        } else if let milestone = StreakMilestone.milestone(for: newStreak), newStreak > previousStreak {
-            // Regular milestone celebration (skip 66 since graduation handles it).
-            // Minor milestones (day 1/3/5) fire at most once per day — a new
-            // user with several onboarding habits gets one card, not a queue.
-            let minorAlreadyShownToday = milestone.isMinor
-                && lastMinorMilestoneCelebrationKey == ContinuumDay.todayKey()
-            if milestone != .habitFormed && !minorAlreadyShownToday {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    graduationHabitName = habit.name
+                    graduationHabit = habit
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        showGraduation = true
+                    }
+                }
+            case .milestone(let milestone):
+                // Day 1/3/5 fire at most once a day — a new user with several
+                // habits gets one card, not a queue.
                 if milestone.isMinor {
                     lastMinorMilestoneCelebrationKey = ContinuumDay.todayKey()
                 }
-                let accent = healthColor(for: habit.habitHealth())
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    celebrationHabitName = habit.name
-                    celebrationHabit = habit
-                    celebrationAccent = accent
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        celebrationMilestone = milestone
-                    }
-                }
+                showTileCelebration(event, for: habit)
+            case .personalRecord, .health:
+                showTileCelebration(event, for: habit)
             }
         }
 
-        // StoreKit review prompt — ask after 21-day milestone, but only once
-        // the celebration is dismissed so the sheet never covers the moment
+        // StoreKit review prompt — ask after the 21-day milestone, once its
+        // celebration has cleared so the sheet never covers the moment
         if newStreak >= 21 && reviewRequestedForMilestone < 21 {
             reviewRequestedForMilestone = 21
             pendingReviewRequest = true
@@ -700,48 +643,18 @@ struct ContentView: View {
             }
         }
 
-        // Personal record — current streak beats the all-time best.
-        // Floor of 7 so early days aren't constant "records"; skip when a
-        // milestone celebration already fired for this same number.
-        let allTimeBest = previousBest[habit.id] ?? 0
-        if newStreak > allTimeBest {
-            previousBest[habit.id] = newStreak
-            if allTimeBest >= 7 && StreakMilestone.milestone(for: newStreak) == nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    recordHabitName = habit.name
-                    recordAccent = healthColor(for: habit.habitHealth())
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        recordStreak = newStreak
-                    }
-                }
-            }
-        }
-
-        let newHealth = Int(habit.habitHealth() * 100)
-        let healthMilestones = [25, 50, 75, 100]
-        for milestone in healthMilestones {
-            if newHealth >= milestone && previousHealthValue < milestone {
-                let delay = (celebrationMilestone != nil || showGraduation) ? 2.0 : 1.0
-                let accent = healthColor(for: habit.habitHealth())
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    healthMilestoneHabitName = habit.name
-                    healthMilestoneAccent = accent
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        healthMilestonePercentage = milestone
-                    }
-                }
-                break
-            }
-        }
-
         previousStreaks[habit.id] = newStreak
         previousHealth[habit.id] = newHealth
+        previousBest[habit.id] = max(allTimeBest, newStreak)
 
         // Check for perfect day / perfect week (all habits complete).
         // With one habit every completion is "perfect" — the completion
         // animation is celebration enough, so these need 2+ habits.
         if wasJustCompleted && allCompletedToday && habits.count > 1 {
-            let delay: Double = (celebrationMilestone != nil || showGraduation) ? 3.0 : 1.2
+            // A tile celebration is scheduled 0.8s out, so checking whether one
+            // is on screen right now always says "no" — ask the events instead
+            let delay: Double = showGraduation ? 3.0
+                : (hasTileCelebration ? 0.8 + TileCelebration.duration + 0.4 : 1.2)
 
             // 7, 14, 21... consecutive perfect days = perfect week(s)
             let perfectRun = HabitMath.consecutivePerfectDays(
@@ -782,8 +695,12 @@ struct ContentView: View {
     }
 
     private func initializeMilestoneTracking() {
+        // As of YESTERDAY: currentStreak() is 0 until today is marked, so
+        // seeding from it made every formed habit look like it crossed 66
+        // again on the next completion — a graduation card every single day.
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
         for habit in habits {
-            previousStreaks[habit.id] = habit.currentStreak()
+            previousStreaks[habit.id] = habit.currentStreak(asOf: yesterday)
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
             previousBest[habit.id] = habit.longestStreak()
         }
@@ -823,6 +740,33 @@ struct ContentView: View {
         }
 
         HabitDataManager.shared.updateWidgetTimeline()
+    }
+
+    /// Show a celebration inside the habit's tile, then clear it. Each tile
+    /// keeps its own, so two habits finishing together both celebrate instead
+    /// of queueing behind one full-screen card.
+    private func showTileCelebration(_ event: CelebrationEvent, for habit: Habit) {
+        guard let celebration = TileCelebration(event) else { return }
+        let habitId = habit.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                tileCelebrations[habitId] = celebration
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + TileCelebration.duration) {
+                // Only clear our own: a newer celebration may have replaced it,
+                // and a share tap may have cleared it already.
+                guard tileCelebrations[habitId]?.id == celebration.id else { return }
+                withAnimation(.easeOut(duration: 0.3)) {
+                    tileCelebrations[habitId] = nil
+                }
+                if pendingReviewRequest {
+                    pendingReviewRequest = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        requestReview()
+                    }
+                }
+            }
+        }
     }
 
     private func syncNotifications() {
