@@ -125,7 +125,7 @@ struct HabitStatsView: View {
     private var statTiles: some View {
         let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         let perfectWeeks = weekColumns.filter(\.isPerfect).count
-        let current = habit.currentStreak()
+        let current = habit.displayStreak
         let longest = habit.longestStreak()
         return LazyVGrid(columns: columns, spacing: 10) {
             statTile(value: "\(current)", unit: current == 1 ? "day" : "days", label: "CURRENT STREAK", color: themeColor)

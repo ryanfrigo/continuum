@@ -920,7 +920,7 @@ struct ContentView: View {
         let daysSinceGrant = Calendar.current.dateComponents([.day], from: lastGrant, to: Date()).day ?? 999
 
         if daysSinceGrant >= 7 {
-            for habit in habits where habit.currentStreak() >= 7 {
+            for habit in habits where habit.displayStreak >= 7 {
                 habit.grantStreakFreeze()
             }
             UserDefaults.standard.set(Date(), forKey: lastGrantKey)

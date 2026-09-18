@@ -735,3 +735,43 @@ struct MilestoneDetectorTests {
     }
 }
 }
+
+// MARK: - Displayed streak (the "reads 0 until today is marked" trap)
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct DisplayStreakTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    @Test func liveStreakStaysVisibleBeforeTodayIsMarked() {
+        let habit = Habit(name: "Run")
+        let today = ContinuumDay.todayKey()
+        for back in 1...9 {
+            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
+        }
+        #expect(habit.currentStreak() == 0)     // counts back from today
+        #expect(habit.displayStreak == 9)       // what every screen should show
+
+        habit.setCompleted(true, forDayKey: today)
+        #expect(habit.displayStreak == 10)
+    }
+
+    @Test func brokenStreakStillReadsZero() {
+        let habit = Habit(name: "Run")
+        let today = ContinuumDay.todayKey()
+        // Last completed three days ago: the chain is genuinely gone
+        habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -3, to: today))
+        #expect(habit.displayStreak == 0)
+    }
+
+    @Test func appAndWidgetAgree() {
+        let habit = Habit(name: "Run")
+        let today = ContinuumDay.todayKey()
+        for back in 1...4 {
+            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
+        }
+        #expect(HabitData(from: habit).displayStreak == habit.displayStreak)
+    }
+}
+}

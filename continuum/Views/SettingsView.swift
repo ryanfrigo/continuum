@@ -78,7 +78,7 @@ struct SettingsView: View {
                                 Text(habit.name)
                                     .foregroundStyle(.white)
                                 Spacer()
-                                Text("\(habit.currentStreak()) days")
+                                Text("\(habit.displayStreak) days")
                                     .font(.caption)
                                     .foregroundStyle(.gray)
                             }

@@ -39,7 +39,7 @@ struct ShareCardView: View {
     }
 
     private var streak: Int {
-        habit.currentStreak()
+        habit.displayStreak
     }
 
     private var themeColor: Color {

@@ -63,9 +63,7 @@ struct HabitCardView: View {
         Int(health * 100)
     }
 
-    private var displayStreak: Int {
-        habit.isCompletedToday ? habit.currentStreak() : habit.currentStreak(asOf: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
-    }
+    private var displayStreak: Int { habit.displayStreak }
 
     private var themeColor: Color {
         healthColor(for: health)
