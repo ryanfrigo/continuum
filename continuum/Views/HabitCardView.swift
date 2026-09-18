@@ -36,6 +36,7 @@ struct HabitCardView: View {
 
     // Reset confirmation
     @State private var showingResetConfirmation = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Completion animation states
     @State private var showCompletionEffect = false
@@ -308,6 +309,7 @@ struct HabitCardView: View {
                     .opacity(displayStreak > 0 ? 1 : 0)
 
                 Text("\(displayStreak)d")
+                    .contentTransition(.numericText())
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
@@ -578,10 +580,13 @@ struct HabitCardView: View {
         isAnimatingCompletion = true
         completionProgress = 0
 
-        SoundManager.shared.triggerSelectionHaptic()
+        // A ladder of transients that tightens as the bar fills, instead of
+        // one tick followed by 900ms of nothing
+        SoundManager.shared.startHoldFeedback(duration: holdToCompleteDuration)
 
-        // Gentle card press
-        withAnimation(.easeOut(duration: 0.2)) {
+        // Press-down must be immediate: a slow one is the loudest
+        // "sluggish app" tell there is
+        withAnimation(.easeOut(duration: 0.1)) {
             cardScale = 0.97
         }
 
@@ -594,10 +599,15 @@ struct HabitCardView: View {
     /// Finger lifted before the hold completed — settle back to rest.
     private func cancelCompletion() {
         isAnimatingCompletion = false
-        completionProgress = 0
-        withAnimation(.easeOut(duration: 0.2)) {
+        // Rewind roughly 3x faster than it filled: the asymmetry is what makes
+        // "nothing happened" legible
+        withAnimation(.easeOut(duration: holdToCompleteDuration / 3)) {
+            completionProgress = 0
+        }
+        withAnimation(.easeOut(duration: 0.18)) {
             cardScale = 1.0
         }
+        SoundManager.shared.cancelHoldFeedback()
     }
 
     private func finishCompletion() {
@@ -614,12 +624,15 @@ struct HabitCardView: View {
         centerIconScale = 0
         centerIconOpacity = 0
 
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-            cardScale = isRareCompletion ? 1.08 : 1.05
+        SoundManager.shared.finishHoldFeedback()
+
+        // Reduce Motion keeps the timing and the haptics, drops the travel
+        withAnimation(reduceMotion ? .easeOut(duration: 0.3) : .spring(response: 0.3, dampingFraction: 0.5)) {
+            cardScale = reduceMotion ? 1.0 : (isRareCompletion ? 1.08 : 1.05)
             centerIconScale = 1.0
             centerIconOpacity = 1.0
             gridFlashProgress = 1.0
-            rippleScale = isRareCompletion ? 11.0 : 8.0
+            rippleScale = reduceMotion ? 1.0 : (isRareCompletion ? 11.0 : 8.0)
         }
 
         if isRareCompletion {

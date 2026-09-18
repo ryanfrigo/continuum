@@ -83,7 +83,10 @@ struct ReminderPromptView: View {
                             .background(RoundedRectangle(cornerRadius: 12).fill(accent))
                     }
 
-                    Button(action: onDismiss) {
+                    Button {
+                        SoundManager.shared.triggerSelectionHaptic()
+                        onDismiss()
+                    } label: {
                         Text("Not now")
                             .font(.system(size: 13, design: .monospaced))
                             .foregroundStyle(.white.opacity(0.4))

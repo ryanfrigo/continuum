@@ -813,6 +813,9 @@ struct ContentView: View {
         guard let celebration = TileCelebration(event) else { return }
         let habitId = habit.id
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            // Full-screen cards get this via CelebrationCard.start(); without
+            // it the in-tile versions are felt-less copies of the same moment
+            SoundManager.shared.triggerCelebrationHaptic()
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 tileCelebrations[habitId] = celebration
             }
