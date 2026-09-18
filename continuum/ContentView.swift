@@ -28,6 +28,11 @@ struct ContentView: View {
     // the screen.
     @State private var tileCelebrations: [UUID: TileCelebration] = [:]
 
+    // Reminder opt-in, asked once after the first completion
+    @AppStorage("hasAskedForReminders") private var hasAskedForReminders = false
+    @State private var showReminderPrompt = false
+    @State private var pendingReminderPrompt = false
+
     // Graduation state
     @State private var showGraduation = false
     @State private var graduationHabitName: String = ""
@@ -152,6 +157,19 @@ struct ContentView: View {
                         )
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         .zIndex(98)
+                    }
+
+                    if showReminderPrompt {
+                        ReminderPromptView(
+                            accent: healthColor(for: overallHealth),
+                            onEnable: { time in enableRemindersForAll(at: time) },
+                            onDismiss: {
+                                hasAskedForReminders = true
+                                withAnimation(.easeOut(duration: 0.25)) { showReminderPrompt = false }
+                            }
+                        )
+                        .transition(.opacity)
+                        .zIndex(104)
                     }
 
                     if showGraduation {
@@ -628,6 +646,10 @@ struct ContentView: View {
             }
         }
 
+        // First completion ever: this is the moment to offer reminders, while
+        // the app has just visibly worked. Nothing else brings people back.
+        considerReminderPrompt()
+
         // StoreKit review prompt — ask after the 21-day milestone, once its
         // celebration has cleared so the sheet never covers the moment
         if newStreak >= 21 && reviewRequestedForMilestone < 21 {
@@ -740,6 +762,48 @@ struct ContentView: View {
         }
 
         HabitDataManager.shared.updateWidgetTimeline()
+    }
+
+    /// Ask about reminders once, after the first completion. The system
+    /// permission dialog is only triggered if they tap REMIND ME, so a "not
+    /// now" doesn't spend the single prompt iOS allows.
+    private func considerReminderPrompt() {
+        let completions = habits.reduce(0) { $0 + $1.completedDayKeys.count }
+        let anyEnabled = habits.contains { $0.reminderEnabled }
+        guard !hasAskedForReminders, !anyEnabled, completions == 1 else { return }
+
+        Task {
+            let status = await NotificationManager.shared.checkPermissionStatus()
+            guard ReminderPrompt.shouldAsk(
+                alreadyAsked: hasAskedForReminders,
+                permission: status,
+                anyReminderEnabled: anyEnabled,
+                totalCompletions: completions
+            ) else { return }
+            // Let the day-one tile card land first
+            try? await Task.sleep(nanoseconds: UInt64((TileCelebration.duration + 1.4) * 1_000_000_000))
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                showReminderPrompt = true
+            }
+        }
+    }
+
+    private func enableRemindersForAll(at time: Date) {
+        hasAskedForReminders = true
+        withAnimation(.easeOut(duration: 0.25)) { showReminderPrompt = false }
+
+        Task {
+            let granted = await NotificationManager.shared.requestPermission()
+            guard granted else { return }
+            let components = Calendar.current.dateComponents([.hour, .minute], from: time)
+            for habit in habits {
+                habit.reminderEnabled = true
+                habit.reminderHour = components.hour ?? ReminderPrompt.defaultHour
+                habit.reminderMinute = components.minute ?? ReminderPrompt.defaultMinute
+            }
+            try? modelContext.save()
+            syncNotifications()
+        }
     }
 
     /// Show a celebration inside the habit's tile, then clear it. Each tile

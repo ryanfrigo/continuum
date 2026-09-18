@@ -775,3 +775,39 @@ struct DisplayStreakTests {
     }
 }
 }
+
+// MARK: - Reminder opt-in prompt
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct ReminderPromptTests {
+
+    @Test func asksOnceAfterTheFirstCompletion() {
+        #expect(ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .notDetermined,
+                                         anyReminderEnabled: false, totalCompletions: 1))
+        // Not before anything has been completed, not on later completions
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .notDetermined,
+                                          anyReminderEnabled: false, totalCompletions: 0))
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .notDetermined,
+                                          anyReminderEnabled: false, totalCompletions: 2))
+    }
+
+    @Test func neverAsksTwiceOrAfterIosHasDecided() {
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: true, permission: .notDetermined,
+                                          anyReminderEnabled: false, totalCompletions: 1))
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .denied,
+                                          anyReminderEnabled: false, totalCompletions: 1))
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .authorized,
+                                          anyReminderEnabled: false, totalCompletions: 1))
+    }
+
+    @Test func staysQuietIfRemindersAreAlreadySetUp() {
+        #expect(!ReminderPrompt.shouldAsk(alreadyAsked: false, permission: .notDetermined,
+                                          anyReminderEnabled: true, totalCompletions: 1))
+    }
+
+    @Test func defaultTimeAvoidsTheEveningStreakAlert() {
+        #expect(ReminderPrompt.defaultHour < NotificationPlanner.streakAlertHour)
+    }
+}
+}

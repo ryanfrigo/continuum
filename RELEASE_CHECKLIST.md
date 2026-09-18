@@ -36,6 +36,13 @@ What's in it:
   looked like it had just crossed the line on every completion. Seeded from
   yesterday now, and graduation is gated on `checkAndMarkGraduation()` so it
   can only happen once per habit.
+- **Reminders are finally offered.** The app never mentioned reminders — you
+  had to find the per-habit toggle in Settings, so almost nobody had them on
+  and none of the notification work reached anyone. It now asks once, after
+  the first completion, defaulting to 9:00 AM. The iOS permission dialog only
+  appears if they tap REMIND ME, so "Not now" doesn't spend the single system
+  prompt. Verify in the on-device pass: fresh install → create habit →
+  complete → prompt appears → REMIND ME turns reminders on for every habit.
 - **Widget fixes.** The widget showed `currentStreak`, which reads 0 until
   today is marked, so a habit's streak line disappeared each morning and left
   the two medium-widget cards misaligned. Both app and widget now use
