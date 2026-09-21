@@ -221,6 +221,21 @@ xcodebuild -exportArchive \
   -authenticationKeyIssuerID <ISSUER-UUID>
 ```
 
+### Submitting for review — scriptable after all
+
+`scripts/asc-submit.mjs` does what the upload stops short of: create the
+version, set What's New from `scripts/whats-new.txt`, attach the build, turn on
+phased release, submit.
+
+```bash
+node scripts/asc-submit.mjs --version 3.5 --build 6            # prepare; prints what it staged
+node scripts/asc-submit.mjs --version 3.5 --build 6 --submit   # sends it to Apple
+```
+
+Prepare is idempotent — run it first and read the output. The build must report
+`VALID` (processing finished) or the attach leaves the version buildless and
+review bounces it. Used for 3.5 on 2026-09-21 → `WAITING_FOR_REVIEW`.
+
 Then **stop and get human sign-off** before submitting for review. The gates in
 `RELEASE_CHECKLIST.md` are deliberate: upgrade-path test on real data,
 TestFlight soak, phased release ON (this app touches the data layer + CloudKit).
