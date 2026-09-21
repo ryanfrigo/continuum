@@ -89,9 +89,14 @@ Before submitting, in this order:
    cktool has no deploy/promote command — the Development → Production step is
    console-only, by design. Always verify after with `export-schema
    --environment production`.
-2. **Two-device test.** Airplane mode on both; complete a different day on
-   each; reconnect. Both days should show on both within a few minutes. Then
-   un-complete one day on one device and confirm it clears on the other.
+2. ~~**Two-device test.**~~ Skipped by choice for 3.5. Covered instead by
+   `TwoDeviceSyncTests` — two in-memory stores with records shuttled between
+   them, including a habit record arriving before its marks and an
+   un-completion that must not resurrect. That exercises the merge logic but
+   **cannot** catch CloudKit-specific failures: a wrong field type in the
+   hand-authored production schema, entitlement problems, or push delivery.
+   Phased release is the net for those — watch day one at 1% and pause from
+   the version page if history goes missing.
 3. **Mixed-version test (if you still have a 3.3 device).** Complete a day on
    3.3, confirm it shows on 3.4; un-complete it on 3.3, confirm it clears.
    Known gap: if a 3.4 device edited that same day, the 3.4 edit sticks.

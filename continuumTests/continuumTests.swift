@@ -862,3 +862,119 @@ struct ReminderCopyTests {
     }
 }
 }
+
+// MARK: - Two simulated devices sharing one ledger
+//
+// Stands in for the on-device test nobody wants to run: two stores, records
+// shuttled between them by hand, including out-of-order delivery. It cannot
+// catch CloudKit-specific failures (a wrong field type in the production
+// schema, entitlements, push) — only the merge logic.
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct TwoDeviceSyncTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private func store() throws -> ModelContext {
+        ModelContext(try ModelContainer(
+            for: Habit.self, CompletionMark.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        ))
+    }
+
+    /// Copy habits and marks from one store to another, the way CloudKit would:
+    /// the habit's completedDates is a whole-array attribute (last writer wins),
+    /// marks are independent records.
+    private func deliver(from a: ModelContext, to b: ModelContext, arrayOnly: Bool = false) throws {
+        let habits = try a.fetch(FetchDescriptor<Habit>())
+        let existing = try b.fetch(FetchDescriptor<Habit>())
+        for h in habits {
+            if let there = existing.first(where: { $0.id == h.id }) {
+                there.completedDatesArray = h.completedDatesArray
+            } else {
+                let copy = Habit(id: h.id, name: h.name)
+                copy.completedDatesArray = h.completedDatesArray
+                b.insert(copy)
+            }
+        }
+        if !arrayOnly {
+            let marks = try a.fetch(FetchDescriptor<CompletionMark>())
+            let here = try b.fetch(FetchDescriptor<CompletionMark>())
+            for m in marks where !here.contains(where: { $0.markId == m.markId }) {
+                let copy = CompletionMark(habitId: m.habitId, dayKey: m.dayKey,
+                                          isCompleted: m.isCompleted, modifiedAt: m.modifiedAt)
+                copy.markId = m.markId
+                b.insert(copy)
+            }
+        }
+        try b.save()
+    }
+
+    private func keys(_ ctx: ModelContext) throws -> Set<Int> {
+        try ctx.fetch(FetchDescriptor<Habit>()).first?.completedDayKeys ?? []
+    }
+
+    private func settle(_ ctx: ModelContext) throws {
+        CompletionLedger.reconcile(habits: try ctx.fetch(FetchDescriptor<Habit>()), in: ctx)
+    }
+
+    @MainActor
+    @Test func mondayOnOneDeviceAndTuesdayOnTheOtherBothSurvive() throws {
+        let phone = try store(), pad = try store()
+        let id = UUID()
+        for ctx in [phone, pad] {
+            let h = Habit(id: id, name: "Run")
+            ctx.insert(h)
+            h.setCompleted(true, forDayKey: 20260901)
+            try ctx.save()
+        }
+        // Offline edits to different days — the case last-writer-wins used to lose
+        try phone.fetch(FetchDescriptor<Habit>()).first!.setCompleted(true, forDayKey: 20260914)
+        try pad.fetch(FetchDescriptor<Habit>()).first!.setCompleted(true, forDayKey: 20260915)
+        try phone.save(); try pad.save()
+
+        try deliver(from: phone, to: pad)
+        try deliver(from: pad, to: phone)
+        try settle(phone); try settle(pad)
+        #expect(try keys(phone) == [20260901, 20260914, 20260915])
+        #expect(try keys(pad) == [20260901, 20260914, 20260915])
+    }
+
+    @MainActor
+    @Test func anArrayArrivingBeforeItsMarksStillConverges() throws {
+        let phone = try store(), pad = try store()
+        let id = UUID()
+        for ctx in [phone, pad] {
+            let h = Habit(id: id, name: "Run"); ctx.insert(h)
+            h.setCompleted(true, forDayKey: 20260910); try ctx.save()
+        }
+        try phone.fetch(FetchDescriptor<Habit>()).first!.setCompleted(true, forDayKey: 20260914)
+        try phone.save()
+        try deliver(from: phone, to: pad, arrayOnly: true)   // record first, marks later
+        try settle(pad)
+        try deliver(from: phone, to: pad)
+        try settle(pad)
+        #expect(try keys(pad) == [20260910, 20260914])
+    }
+
+    @MainActor
+    @Test func anUncompletionPropagatesInsteadOfComingBack() throws {
+        let phone = try store(), pad = try store()
+        let id = UUID()
+        for ctx in [phone, pad] {
+            let h = Habit(id: id, name: "Run"); ctx.insert(h)
+            h.setCompleted(true, forDayKey: 20260914); try ctx.save()
+        }
+        try phone.fetch(FetchDescriptor<Habit>()).first!.setCompleted(false, forDayKey: 20260914)
+        try phone.save()
+        try deliver(from: phone, to: pad)
+        try settle(pad)
+        #expect(try keys(pad).isEmpty)
+
+        try deliver(from: pad, to: phone)   // and it must not come back
+        try settle(phone)
+        #expect(try keys(phone).isEmpty)
+    }
+}
+}
