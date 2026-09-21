@@ -43,6 +43,13 @@ enum NotificationPlanner {
         let frozen = habit.frozenDayKeys
         let doneToday = completed.contains(todayKey) || frozen.contains(todayKey)
         let yesterdayKey = ContinuumDay.key(byAdding: -1, to: todayKey)
+        // "Day one" copy is only true for an empty grid. A streak of 0 also
+        // means "missed yesterday", and a habit with 40 days behind it should
+        // never be told it has never started. Day keys are yyyymmdd, so the
+        // window is a plain integer comparison.
+        let windowStartKey = ContinuumDay.key(byAdding: -(65), to: todayKey)
+        let hasRecentHistory = completed.contains { $0 >= windowStartKey && $0 <= todayKey }
+            || frozen.contains { $0 >= windowStartKey && $0 <= todayKey }
         var result: [PlannedNotification] = []
 
         for offset in 0..<daysAhead {
@@ -67,7 +74,7 @@ enum NotificationPlanner {
                 result.append(PlannedNotification(
                     identifier: NotificationID.reminder(habitId: habit.id, dayKey: dayKey),
                     title: "Time for \(habit.name)",
-                    body: reminderBody(streak: streakAtStake, dayKey: dayKey),
+                    body: reminderBody(streak: streakAtStake, hasRecentHistory: hasRecentHistory, dayKey: dayKey),
                     dayKey: dayKey,
                     hour: habit.reminderHour,
                     minute: habit.reminderMinute
@@ -100,7 +107,7 @@ enum NotificationPlanner {
     }
 
     // Brand voice: dry, confident, zero guilt.
-    static func reminderBody(streak: Int?, dayKey: Int) -> String {
+    static func reminderBody(streak: Int?, hasRecentHistory: Bool = false, dayKey: Int) -> String {
         guard let streak else {
             return pick([
                 "Show up today.",
@@ -109,7 +116,14 @@ enum NotificationPlanner {
             ], dayKey: dayKey)
         }
         let lines: [String]
-        if streak == 0 {
+        if streak == 0 && hasRecentHistory {
+            // The run broke, but the grid is not empty. No guilt, no "day one".
+            lines = [
+                "Yesterday's gone. Today's open.",
+                "Start the next run.",
+                "The grid's still yours. Pick it back up.",
+            ]
+        } else if streak == 0 {
             lines = [
                 "Day one is waiting.",
                 "The grid wants its first mark.",

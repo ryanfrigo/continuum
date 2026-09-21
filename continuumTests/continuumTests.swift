@@ -811,3 +811,54 @@ struct ReminderPromptTests {
     }
 }
 }
+
+// MARK: - Reminder copy vs. an empty grid
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct ReminderCopyTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private let today = 20260921
+
+    private func body(_ habit: Habit) -> String {
+        NotificationPlanner.plan(for: habit, todayKey: today, hour: 7, minute: 0)
+            .first { $0.identifier.hasPrefix(NotificationID.reminderPrefix) }?.body ?? ""
+    }
+
+    private func habit(completing offsets: [Int]) -> Habit {
+        let h = Habit(name: "Read", reminderEnabled: true)
+        for back in offsets {
+            h.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
+        }
+        return h
+    }
+
+    @Test func emptyGridGetsDayOneCopy() {
+        let text = body(habit(completing: []))
+        #expect(["Day one is waiting.", "The grid wants its first mark.",
+                 "Every streak starts with a single dot."].contains(text))
+    }
+
+    @Test func brokenStreakIsNotToldItNeverStarted() {
+        // 40 days on the grid, missed yesterday: streak is 0 but the grid is full
+        let text = body(habit(completing: Array(2...41)))
+        #expect(!text.contains("Day one"))
+        #expect(!text.contains("first mark"))
+        #expect(!text.contains("single dot"))
+    }
+
+    @Test func historyOlderThanTheGridCountsAsEmpty() {
+        // The card shows 66 days; anything older isn't on it
+        let text = body(habit(completing: [80, 81, 82]))
+        #expect(["Day one is waiting.", "The grid wants its first mark.",
+                 "Every streak starts with a single dot."].contains(text))
+    }
+
+    @Test func aSingleDotOnTheGridIsStillHistory() {
+        let text = body(habit(completing: [30]))
+        #expect(!text.contains("first mark"))
+    }
+}
+}
