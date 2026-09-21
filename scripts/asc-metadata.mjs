@@ -60,7 +60,9 @@ if (has('promo') || has('apply')) {
 }
 
 if (has('apply')) {
-  if (version.attributes.appStoreState !== 'PREPARE_FOR_SUBMISSION') {
+  // Verified 2026-09-21: WAITING_FOR_REVIEW still accepts metadata edits.
+  // IN_REVIEW is the state that locks them.
+  if (!['PREPARE_FOR_SUBMISSION', 'WAITING_FOR_REVIEW', 'DEVELOPER_REJECTED'].includes(version.attributes.appStoreState)) {
     console.log(`\n⚠️  Version is ${version.attributes.appStoreState}; name/subtitle/keywords/description are locked.`)
     console.log('   Run --apply once a version is editable again.')
     process.exit(1)
