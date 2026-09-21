@@ -1,5 +1,18 @@
 # Continuum — Release Checklist
 
+## iCloud sync never worked in production until 2026-09-21
+
+The CloudKit **schema was never deployed to Production**. The console showed
+`Record type 'CD_Habit' cannot be found` in Production while Development had
+it with 18 fields. So from 3.3 (July 2026, where iCloud sync was the headline
+"What's New" item) through 3.4, every shipped build's CloudKit export failed
+and silently fell back to the local-only store — exactly the failure mode step
+3 of the 3.3 checklist warned about, unticked. Deployed 2026-09-21.
+
+Lesson for every release from here: **verify the record type in the Production
+environment**, not just that the deploy step is on a list. The local-only
+fallback means a broken sync produces no crash, no bad review, no signal.
+
 ## 3.5 (build 5) — notification fixes + per-day sync
 
 **3.4 (build 4) shipped to the App Store on 2026-08-11** via
