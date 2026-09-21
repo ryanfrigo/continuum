@@ -180,7 +180,7 @@ The manual equivalent, step by step:
 ```bash
 # 1. Preflight
 xcodebuild test -scheme continuum -testPlan continuum \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # expect 32/32
+  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # 66 tests as of 3.5
 
 # 2. Bump version — 8 occurrences each, app + widget + test targets.
 #    Widget Info.plist already tracks $(MARKETING_VERSION)/$(CURRENT_PROJECT_VERSION).
@@ -236,9 +236,47 @@ Prepare is idempotent — run it first and read the output. The build must repor
 `VALID` (processing finished) or the attach leaves the version buildless and
 review bounces it. Used for 3.5 on 2026-09-21 → `WAITING_FOR_REVIEW`.
 
-Then **stop and get human sign-off** before submitting for review. The gates in
+Sign-off is a *people* gate, not a tooling one: run the script only once Ryan
+has said to ship. The gates in
 `RELEASE_CHECKLIST.md` are deliberate: upgrade-path test on real data,
 TestFlight soak, phased release ON (this app touches the data layer + CloudKit).
+
+## CloudKit schema
+
+**A new `@Model` type does not sync until its record type exists in the
+PRODUCTION schema.** Nothing crashes when it's missing — the container falls
+back to local-only — so this fails completely silently. It bit hard: the schema
+was never deployed at all until 2026-09-21, meaning iCloud sync had never once
+worked for a real user since 3.3 shipped it as the headline feature in July.
+
+Check Production first, and don't trust the console UI alone:
+
+```bash
+xcrun cktool save-token --type management   # CloudKit console → Tokens & Keys
+xcrun cktool export-schema --team-id NVN2NY8GZC \
+  --container-id iCloud.com.orionlabs.continuum --environment production
+```
+
+To add a record type without a device or an iCloud sign-in: export the
+Development schema, hand-write the `RECORD TYPE` block mirroring an existing
+one for field types (SwiftData maps UUID → STRING, Int/Bool → INT64, Date →
+TIMESTAMP, `[Date]?` → BYTES, plus `CD_entityName STRING QUERYABLE SEARCHABLE
+SORTABLE` and the same GRANTs), then:
+
+```bash
+xcrun cktool validate-schema ... --environment development --file new.ckdb
+xcrun cktool import-schema   ... --environment development --file new.ckdb
+```
+
+`import-schema` **refuses Production** ("endpoint not applicable in the
+environment 'production'") and cktool has **no deploy/promote command** — the
+Development → Production step is console-only, by Apple's design: CloudKit
+Console → container → Development → *Deploy Schema Changes…*. A human has to
+click it. Verify afterwards with `export-schema --environment production` and
+diff it against development.
+
+Production schema changes are **permanent and additive**: you can add a record
+type or field, never remove one or change a field's type.
 
 ## Running it in the simulator
 
@@ -320,6 +358,6 @@ Back up the file first and **revert it before committing**; verify with
 
 ## Test suite
 
-32 tests, and they **must stay serialized** — the suite was flaky from
+66 tests as of 3.5, and they **must stay serialized** — the suite was flaky from
 parallel-execution races. Canonical day storage is **12:00:30 UTC**; the `:30`
 is load-bearing (a UTC+12 collision), so never "simplify" it to noon.
