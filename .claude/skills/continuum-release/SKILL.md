@@ -21,7 +21,7 @@ verify a change visually.
 | Team ID | `NVN2NY8GZC` |
 | ASC API key ID | `6M245PSNS9` |
 | ASC key path | `~/.appstoreconnect/private_keys/AuthKey_6M245PSNS9.p8` |
-| ASC issuer UUID | Set as GitHub secret `ASC_ISSUER_ID` (2026-08-11). Value is not on this Mac — CI uses it unattended; for a local run ask Ryan. |
+| ASC issuer UUID | `9603f3d8-7877-4300-93fb-f740c62cd44e` (also a GitHub secret). One key = one team; this orion-labs key covers Continuum, WakeEarly and Siftbird. |
 | Apple ID | `rf@stoaked.co` |
 
 ## Toolchain floor — check FIRST, it invalidates everything else
@@ -139,8 +139,12 @@ is supplied.
 
 ## Issuer ID
 
-Already in CI as `ASC_ISSUER_ID`; you only need this section to run a release
-*locally*. Only obtainable from the web UI: **App Store Connect → Users and Access →
+**Recorded above.** It was in `.claude/skills/siftbird-appstore-ship` the whole
+time — same key, same team — while this file said it was unavailable and cost
+several sessions' worth of dead ends. If a value looks missing, grep the other
+skills for the key id before concluding it can't be had.
+
+Historical note on obtaining one: **App Store Connect → Users and Access →
 Integrations → App Store Connect API**, shown as "Issuer ID" at the top. It
 cannot be derived from the `.p8`. Once you have it, **write it into the table
 above** so future releases are unattended.

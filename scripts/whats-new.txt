@@ -1,0 +1,9 @@
+Reminders now know your streak. A 40-day streak no longer gets told to start at day one, and checking a habit off from the widget silences that day's reminders.
+
+Milestones celebrate inside the habit card instead of taking over the screen.
+
+iCloud sync now merges day by day, so completing Monday on your phone and Tuesday on your iPad keeps both.
+
+The widget shows your streak correctly again.
+
+Holding to complete has real texture now — the card builds under your thumb.
