@@ -70,11 +70,25 @@ What's in it:
 
 Before submitting, in this order:
 
-1. **Deploy the CloudKit schema to Production — mandatory this time.**
-   `CompletionMark` is a new record type. Run a Debug build on a device signed
-   into iCloud, toggle one habit so the type reaches the Development schema,
-   then icloud.developer.apple.com → container → *Deploy Schema Changes to
-   Production*. Skip it and production exports of the new type fail.
+1. ~~**Deploy the CloudKit schema to Production**~~ ✅ Done 2026-09-21.
+   `CD_CompletionMark` is live in Production with all six fields, verified by
+   `cktool export-schema` (not just the console UI); Development and
+   Production are identical.
+
+   How, for next time — no device or iCloud sign-in needed:
+   ```bash
+   xcrun cktool save-token --type management        # token from CloudKit console → Tokens & Keys
+   xcrun cktool export-schema --team-id NVN2NY8GZC \
+     --container-id iCloud.com.orionlabs.continuum --environment development > dev.ckdb
+   # add the RECORD TYPE by hand, mirroring an existing one for field types
+   # (UUID → STRING, Int/Bool → INT64, Date → TIMESTAMP)
+   xcrun cktool validate-schema ... --environment development --file new.ckdb
+   xcrun cktool import-schema   ... --environment development --file new.ckdb
+   ```
+   `import-schema` **refuses Production** ("endpoint not applicable"), and
+   cktool has no deploy/promote command — the Development → Production step is
+   console-only, by design. Always verify after with `export-schema
+   --environment production`.
 2. **Two-device test.** Airplane mode on both; complete a different day on
    each; reconnect. Both days should show on both within a few minutes. Then
    un-complete one day on one device and confirm it clears on the other.
