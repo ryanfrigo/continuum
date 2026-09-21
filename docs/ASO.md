@@ -42,7 +42,27 @@ review**. `--apply` refuses unless the version is `PREPARE_FOR_SUBMISSION`, so
 run it on the next version after 3.5 clears. Promotional text was applied
 2026-09-21 while 3.5 sat in review.
 
-## Screenshots — still to do
+## Screenshots — done 2026-09-21
+
+Replaced. Five of the six were onboarding pages; the listing sold the tutorial
+rather than the app. The set is now three, captured from the running app on an
+iPhone 16 Pro Max simulator (1320x2868) and captioned in Menlo to match the UI:
+
+1. `01_grid.png` — six habits, full 66-day grids. "66 days. / one dot at a time"
+2. `02_hold.png` — the hold-to-complete affordance. "Hold to mark done. / harder to do by accident"
+3. `03_milestone.png` — a 21-day milestone inside its card. "Milestones land / in the card, not over it"
+
+Sources are in `AppStoreScreenshots/3.5/`. Upload with
+`node scripts/asc-screenshots.mjs <dir> --replace` (adds the new set before
+deleting the old, so the listing is never empty).
+
+**Apple accepts text metadata edits while a version is WAITING_FOR_REVIEW but
+refuses screenshot changes** ("Can't Create Screenshot while Waiting For
+Review"). Changing screenshots means cancelling the review submission
+(`PATCH /v1/reviewSubmissions/{id} {canceled:true}`), uploading, and
+resubmitting — which costs the queue position. Do screenshots before submitting.
+
+## Old brief (kept for the shots not yet taken)
 
 Six exist, 6.7" iPhone only, no iPad set (while the description promises iPad
 sync). They still show the full-screen celebrations 3.5 replaced. The first
