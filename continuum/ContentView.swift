@@ -650,11 +650,14 @@ struct ContentView: View {
         // the app has just visibly worked. Nothing else brings people back.
         considerReminderPrompt()
 
-        // StoreKit review prompt — ask after the 21-day milestone, once its
-        // celebration has cleared so the sheet never covers the moment
-        if newStreak >= 21 && reviewRequestedForMilestone < 21 {
-            reviewRequestedForMilestone = 21
+        // StoreKit review prompt, fired once a celebration has cleared so the
+        // sheet never covers the moment. Ask at 7 days first: a 21-day streak
+        // is rare by definition, so waiting for one meant almost nobody was
+        // ever asked. iOS caps this at 3 prompts a year and ignores the rest.
+        for milestone in [7, 21] where newStreak >= milestone && reviewRequestedForMilestone < milestone {
+            reviewRequestedForMilestone = milestone
             pendingReviewRequest = true
+            break
         }
 
         // Grant a streak freeze at milestone achievements

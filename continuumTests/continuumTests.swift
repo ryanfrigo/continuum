@@ -978,3 +978,30 @@ struct TwoDeviceSyncTests {
     }
 }
 }
+
+// MARK: - When the rating prompt is offered
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct ReviewPromptTests {
+
+    /// Mirrors ContentView's rule so the milestone ladder is pinned by a test.
+    private func asked(streak: Int, alreadyAskedAt: Int) -> Int? {
+        for milestone in [7, 21] where streak >= milestone && alreadyAskedAt < milestone {
+            return milestone
+        }
+        return nil
+    }
+
+    @Test func asksAtSevenDaysNotOnlyAtTwentyOne() {
+        #expect(asked(streak: 7, alreadyAskedAt: 0) == 7)
+        #expect(asked(streak: 6, alreadyAskedAt: 0) == nil)
+    }
+
+    @Test func asksAgainAtTwentyOneButNeverTwiceForTheSameMilestone() {
+        #expect(asked(streak: 21, alreadyAskedAt: 7) == 21)
+        #expect(asked(streak: 30, alreadyAskedAt: 21) == nil)
+        #expect(asked(streak: 9, alreadyAskedAt: 7) == nil)
+    }
+}
+}
