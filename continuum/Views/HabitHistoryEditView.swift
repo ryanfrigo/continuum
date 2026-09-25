@@ -12,6 +12,8 @@ struct HabitHistoryEditView: View {
     @State private var dragStartDate: Date? = nil
     @State private var dragMode: Bool = true // true = selecting, false = deselecting
     @State private var showContent = false
+    @State private var showingYesterdayTip = false
+    @AppStorage("yesterdayShortcutTipShown") private var yesterdayTipShown = false
 
     private let calendar = Calendar.current
 
@@ -129,7 +131,14 @@ struct HabitHistoryEditView: View {
                         .foregroundStyle(.gray)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("SAVE") { onSave() }
+                    Button("SAVE") {
+                        if !yesterdayTipShown && onlyMarkedYesterday {
+                            yesterdayTipShown = true
+                            showingYesterdayTip = true
+                        } else {
+                            onSave()
+                        }
+                    }
                         .font(.caption.monospaced())
                         .foregroundStyle(.orange)
                         .fontWeight(.semibold)
@@ -137,6 +146,11 @@ struct HabitHistoryEditView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .alert("Quicker way to do yesterday", isPresented: $showingYesterdayTip) {
+            Button("Got it") { onSave() }
+        } message: {
+            Text("Next time, tap the card once, then press and hold. That fills in yesterday, no trip to history needed.")
+        }
         .onAppear {
             originalDates = habit.completedDatesArray
             selectedKeys = habit.completedDayKeys
@@ -144,6 +158,15 @@ struct HabitHistoryEditView: View {
                 showContent = true
             }
         }
+    }
+
+    /// The whole edit was ticking yesterday — the case the tap-then-hold
+    /// gesture on the card already covers.
+    private var onlyMarkedYesterday: Bool {
+        let original = ContinuumDay.keys(fromStorage: originalDates)
+        let yesterday = ContinuumDay.key(byAdding: -1, to: ContinuumDay.todayKey())
+        return habit.completedDayKeys.subtracting(original) == [yesterday]
+            && original.isSubset(of: habit.completedDayKeys)
     }
 
     // MARK: - Month Grouping

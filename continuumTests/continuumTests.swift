@@ -109,12 +109,47 @@ struct StreakTests {
         #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 5)
     }
 
-    @Test func gapBreaksStreak() {
+    @Test func singleMissIsBridgedButNotCounted() {
         let habit = Habit(name: "Test")
         habit.setCompleted(true, forDayKey: 20260612)
         habit.setCompleted(true, forDayKey: 20260611)
-        // gap on 06-10
+        // grace day on 06-10
         habit.setCompleted(true, forDayKey: 20260609)
+        #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 3)
+    }
+
+    @Test func twoMissesInARowBreakStreak() {
+        let habit = Habit(name: "Test")
+        for key in [20260612, 20260611, 20260608] { habit.setCompleted(true, forDayKey: key) }
+        #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 2)
+    }
+
+    @Test func secondMissWithinAWeekCutsAtTheOlderGap() {
+        let habit = Habit(name: "Test")
+        // 06-01...06-12 done except 06-05 and 06-09 (four days apart)
+        for day in 1...12 where day != 5 && day != 9 {
+            habit.setCompleted(true, forDayKey: 20260600 + day)
+        }
+        // 06-09 takes the grace; 06-05 can't, so the run starts 06-06
+        #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 6)
+    }
+
+    @Test func graceDaysAWeekApartBothBridge() {
+        let habit = Habit(name: "Test")
+        // 05-30...06-12 done except 06-02 and 06-09 (exactly 7 days apart)
+        for offset in 0..<14 {
+            let key = ContinuumDay.key(byAdding: -offset, to: 20260612)
+            if key != 20260609 && key != 20260602 { habit.setCompleted(true, forDayKey: key) }
+        }
+        #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 12)
+        #expect(habit.longestStreak() == 12)
+    }
+
+    @Test func unmarkedDayIsPendingGrace() {
+        let habit = Habit(name: "Test")
+        habit.setCompleted(true, forDayKey: 20260610)
+        habit.setCompleted(true, forDayKey: 20260611)
+        // 06-12 not marked yet: the streak survives if it gets done
         #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 2)
     }
 
@@ -484,9 +519,12 @@ struct NotificationPlannerTests {
     private let today = 20260914
 
     /// A habit with a reminder at `hour`:00 and a run of `streak` days ending yesterday.
-    private func habit(streak: Int, reminderHour: Int = 9, doneToday: Bool = false) -> Habit {
+    /// `graceUsed` spends the week's grace day two days ago (still `streak` days),
+    /// so missing today or tomorrow would really cost the streak.
+    private func habit(streak: Int, reminderHour: Int = 9, doneToday: Bool = false, graceUsed: Bool = false) -> Habit {
         let h = Habit(name: "Read", reminderEnabled: true, reminderHour: reminderHour)
-        for back in 1...max(streak, 1) where streak > 0 {
+        let span = graceUsed ? streak + 1 : streak
+        for back in 1...max(span, 1) where streak > 0 && !(graceUsed && back == 2) {
             h.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
         }
         if doneToday { h.setCompleted(true, forDayKey: today) }
@@ -512,7 +550,7 @@ struct NotificationPlannerTests {
     }
 
     @Test func completedTodaySilencesTodayAndArmsTomorrow() {
-        let h = habit(streak: 5, doneToday: true)
+        let h = habit(streak: 5, doneToday: true, graceUsed: true)
         let items = plan(h)
         #expect(!items.contains { $0.dayKey == today })
 
@@ -537,8 +575,14 @@ struct NotificationPlannerTests {
     }
 
     @Test func shortStreaksGetNoAlert() {
-        #expect(!plan(habit(streak: 2)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
-        #expect(plan(habit(streak: 3)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+        #expect(!plan(habit(streak: 2, graceUsed: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+        #expect(plan(habit(streak: 3, graceUsed: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    }
+
+    @Test func unusedGraceDaySuppressesStreakAlert() {
+        // One miss a week is forgiven, so tonight's midnight isn't a deadline
+        #expect(!plan(habit(streak: 10)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+        #expect(!plan(habit(streak: 5, doneToday: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
     }
 
     @Test func pastTimesTodayAreSkipped() {
@@ -554,7 +598,7 @@ struct NotificationPlannerTests {
     }
 
     @Test func eveningReminderReplacesTheStreakAlert() {
-        let h = habit(streak: 10, reminderHour: 21)
+        let h = habit(streak: 10, reminderHour: 21, graceUsed: true)
         let items = plan(h)
         #expect(!items.contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
         #expect(items.contains { $0.dayKey == today && $0.hour == 21 })
@@ -567,7 +611,7 @@ struct NotificationPlannerTests {
     }
 
     @Test func manyHabitsCapAtSystemLimitKeepingSoonest() {
-        let habits = (0..<20).map { _ in habit(streak: 5) }
+        let habits = (0..<20).map { _ in habit(streak: 5, graceUsed: true) }
         let items = NotificationPlanner.plan(for: habits, todayKey: today, hour: 7, minute: 0)
         #expect(items.count == NotificationPlanner.systemPendingLimit)
         #expect(items.map(\.fireOrder) == items.map(\.fireOrder).sorted())
@@ -750,7 +794,7 @@ struct DisplayStreakTests {
         for back in 1...9 {
             habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
         }
-        #expect(habit.currentStreak() == 0)     // counts back from today
+        #expect(habit.currentStreak() == 9)     // unmarked today is a pending grace day
         #expect(habit.displayStreak == 9)       // what every screen should show
 
         habit.setCompleted(true, forDayKey: today)

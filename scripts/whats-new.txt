@@ -1,1 +1,7 @@
-Small release. Continuum now asks what you think of it after a week, rather than waiting for a 21-day streak almost nobody reaches.
+Miss a day and your streak survives now. One missed day a week is forgiven; two in a row still breaks it, so the number still means something. Old streaks that a single miss broke are back.
+
+Forgot yesterday? Tap a habit once, then hold.
+
+Completed habits catch the light as you tilt your phone. Small things, mostly: the border traces itself while you hold, the grid ripples when a day lands, and your last habit of the day plays a low chord that took me far too long to tune. The greeting header is gone (less to read, more grid).
+
+The completion sound is softer too. The old two-tone beep sounded glitchy — I should have caught that sooner.

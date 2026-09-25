@@ -4,6 +4,11 @@ import SwiftData
 struct HabitCardView: View {
     @Bindable var habit: Habit
     var refreshTrigger: Bool = false
+    /// Habits done today and in total — the day's last completion plays a chord.
+    var completedTodayCount: Int = 0
+    var habitCount: Int = 1
+    /// Bumped by ContentView when the day's last habit is done.
+    var perfectDaySweep: Int = 0
     var onAction: ((HabitAction) -> Void)? = nil
     var onCompletion: ((Bool) -> Void)? = nil
     /// Milestone/record/health celebration shown inside this tile. Full-screen
@@ -30,6 +35,14 @@ struct HabitCardView: View {
     @State private var isAnimatingCompletion = false
     @State private var completionProgress: CGFloat = 0
 
+    // Tap-then-hold backfills yesterday. The tap's own feedback (hint / undo)
+    // waits out the window so a second press can't land on the undo button.
+    @State private var lastTapAt: Date?
+    @State private var pendingTapFeedback: UUID?
+    /// Non-nil while the current hold is filling in yesterday instead of today.
+    @State private var backfillDate: Date?
+    private let tapHoldWindow: Double = 0.35
+
     // Hint / undo states
     @State private var showHoldHint = false
     @State private var showUndoConfirm = false
@@ -44,7 +57,10 @@ struct HabitCardView: View {
     @State private var rippleOpacity: Double = 0
     @State private var centerIconScale: CGFloat = 0
     @State private var centerIconOpacity: Double = 0
-    @State private var gridFlashProgress: Double = 0
+    // Completion ripple: bumping the token rolls a swell through the filled
+    // days, starting at the day just marked
+    @State private var rippleToken = 0
+    @State private var rippleOrigin = 0
 
     // Variable reward: ~1 in 15 completions goes golden
     @State private var isRareCompletion = false
@@ -111,10 +127,13 @@ struct HabitCardView: View {
             cardContent
                 .scaleEffect(cardScale)
                 .overlay {
-                    // Completion progress bar overlay
+                    // Border traces itself as you hold
                     if isAnimatingCompletion {
                         completionProgressOverlay
                     }
+                }
+                .overlay {
+                    PerfectDaySweep(trigger: perfectDaySweep, cornerRadius: cornerRadius)
                 }
 
             // Completion effects overlay
@@ -145,36 +164,33 @@ struct HabitCardView: View {
                     SoundManager.shared.triggerSelectionHaptic()
                     onCelebrationTap?()
                 }
-            } else if habit.isCompletedToday {
-                SoundManager.shared.triggerSelectionHaptic()
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                    showUndoConfirm = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showUndoConfirm = false
-                    }
-                }
-            } else if !isAnimatingCompletion && !showHoldHint {
-                SoundManager.shared.triggerSelectionHaptic()
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                    showHoldHint = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        showHoldHint = false
-                    }
-                }
+                return
+            }
+            lastTapAt = Date()
+            let token = UUID()
+            pendingTapFeedback = token
+            DispatchQueue.main.asyncAfter(deadline: .now() + tapHoldWindow) {
+                // A press started inside the window: it's a tap-hold, not a tap
+                guard pendingTapFeedback == token else { return }
+                pendingTapFeedback = nil
+                showTapFeedback()
             }
         }
-        // Hold to complete — the fill bar tracks the press; release early to cancel
+        // Hold to complete — the fill bar tracks the press; release early to cancel.
+        // Tap first, then hold, to fill in yesterday.
         .onLongPressGesture(minimumDuration: holdToCompleteDuration, maximumDistance: 40) {
             if isAnimatingCompletion {
                 finishCompletion()
             }
         } onPressingChanged: { pressing in
             if pressing {
-                if !habit.isCompletedToday && !isAnimatingCompletion {
+                let isTapHold = lastTapAt.map { Date().timeIntervalSince($0) < tapHoldWindow } ?? false
+                lastTapAt = nil
+                pendingTapFeedback = nil
+                guard !isAnimatingCompletion else { return }
+                if isTapHold, let yesterday = yesterdayIfMissed {
+                    startCompletion(backfilling: yesterday)
+                } else if !habit.isCompletedToday {
                     startCompletion()
                 }
             } else if isAnimatingCompletion {
@@ -213,6 +229,42 @@ struct HabitCardView: View {
                 onCompletion?(false)
             } else if !isAnimatingCompletion {
                 finishCompletion()
+            }
+        }
+        .accessibilityAction(named: "Complete yesterday") {
+            guard !isAnimatingCompletion, let yesterday = yesterdayIfMissed else { return }
+            backfillDate = yesterday
+            finishCompletion()
+        }
+    }
+
+    /// Yesterday, if it hasn't been marked done yet.
+    private var yesterdayIfMissed: Date? {
+        guard let yesterday = ContinuumDay.calendar.date(byAdding: .day, value: -1, to: Date()),
+              !habit.isCompleted(on: yesterday) else { return nil }
+        return yesterday
+    }
+
+    private func showTapFeedback() {
+        if habit.isCompletedToday {
+            SoundManager.shared.triggerSelectionHaptic()
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                showUndoConfirm = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showUndoConfirm = false
+                }
+            }
+        } else if !isAnimatingCompletion && !showHoldHint {
+            SoundManager.shared.triggerSelectionHaptic()
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                showHoldHint = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showHoldHint = false
+                }
             }
         }
     }
@@ -254,6 +306,12 @@ struct HabitCardView: View {
             color: themeColor.opacity(habit.isCompletedToday ? 0.35 : 0),
             radius: 10
         )
+        .overlay {
+            if habit.isCompletedToday {
+                TiltSheenBorder(cornerRadius: cornerRadius, lineWidth: 2.5)
+                    .transition(.opacity)
+            }
+        }
     }
 
     private var headerSection: some View {
@@ -278,10 +336,22 @@ struct HabitCardView: View {
                     .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(-90))
                     .shadow(color: themeColor.opacity(0.5), radius: 4)
+                    .animation(.easeOut(duration: 0.6), value: health)
+                    .overlay {
+                        TiltSheenFill(intensity: 0.7)
+                            .mask {
+                                Circle()
+                                    .trim(from: 0, to: health)
+                                    .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                                    .rotationEffect(.degrees(-90))
+                            }
+                    }
 
                 Text("\(healthPercentage)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(themeColor)
+                    .contentTransition(.numericText(value: Double(healthPercentage)))
+                    .animation(.snappy, value: healthPercentage)
             }
 
             // Options menu (was the long-press context menu — long press
@@ -374,12 +444,46 @@ struct HabitCardView: View {
                                             .stroke(color.opacity(0.5), lineWidth: 1)
                                     }
                                 }
+                                .keyframeAnimator(initialValue: RippleFrame(), trigger: rippleToken) { dot, frame in
+                                    dot.scaleEffect(frame.scale).brightness(filled ? frame.brightness : 0)
+                                } keyframes: { _ in
+                                    rippleKeyframes(for: idx)
+                                }
                         }
                     }
                     .drawingGroup() // Render as single layer for better performance
-                    .brightness(gridFlashProgress * 0.3) // Apply brightness to entire grid, not individual dots
+                    // Filled days catch the light as the phone tilts
+                    .overlay {
+                        if flags.contains(true) {
+                            TiltSheenFill()
+                                .mask {
+                                    LazyVGrid(columns: columns, spacing: spacing) {
+                                        ForEach(0..<habitFormationDays, id: \.self) { idx in
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(flags[idx] ? Color.white : Color.clear)
+                                                .frame(width: dotSize, height: dotSize)
+                                        }
+                                    }
+                                    .drawingGroup()
+                                }
+                        }
+                    }
                 }
             }
+    }
+
+    /// Each square swells and brightens once, delayed by its distance from
+    /// the day just marked, so the wave visibly rolls across the grid.
+    private func rippleKeyframes(for idx: Int) -> some Keyframes<RippleFrame> {
+        let dx = Double(idx % columnsCount - rippleOrigin % columnsCount)
+        let dy = Double(idx / columnsCount - rippleOrigin / columnsCount)
+        let delay = (dx * dx + dy * dy).squareRoot() * 0.045
+        return KeyframeTrack(\RippleFrame.self) {
+            // A zero-length keyframe yields NaN and the origin square vanishes
+            LinearKeyframe(RippleFrame(), duration: max(delay, 0.01))
+            SpringKeyframe(RippleFrame(scale: 1.35, brightness: 0.35), duration: 0.14, spring: .snappy)
+            SpringKeyframe(RippleFrame(), duration: 0.4, spring: .bouncy)
+        }
     }
 
     private func dotColor(filled: Bool, isToday: Bool, healthColor: Color) -> Color {
@@ -406,22 +510,32 @@ struct HabitCardView: View {
     private var completionProgressOverlay: some View {
         VStack {
             Spacer()
-            // Bottom progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.white.opacity(0.08))
-                        .frame(height: 3)
-
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(themeColor)
-                        .frame(width: geo.size.width * completionProgress, height: 3)
-                        .shadow(color: themeColor.opacity(0.6), radius: 4)
-                }
+            if backfillDate != nil {
+                Text("YESTERDAY")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundStyle(themeColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.black.opacity(0.75)))
+                    .padding(.bottom, 6)
             }
-            .frame(height: 3)
         }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            // Two strokes leave the top centre and meet at the bottom as the
+            // hold completes
+            let lineWidth: CGFloat = 2.5
+            let outline = CardOutline(cornerRadius: cornerRadius - lineWidth / 2)
+            ZStack {
+                outline.trim(from: 0, to: completionProgress / 2)
+                    .stroke(themeColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                outline.trim(from: 1 - completionProgress / 2, to: 1)
+                    .stroke(themeColor, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            }
+            .padding(lineWidth / 2)
+            .shadow(color: themeColor.opacity(0.7), radius: 6)
+        }
         .allowsHitTesting(false)
     }
 
@@ -576,9 +690,12 @@ struct HabitCardView: View {
 
     // MARK: - Hold-to-Complete
 
-    private func startCompletion() {
+    private func startCompletion(backfilling date: Date? = nil) {
         isAnimatingCompletion = true
+        backfillDate = date
         completionProgress = 0
+        showHoldHint = false
+        showUndoConfirm = false
 
         // A ladder of transients that tightens as the bar fills, instead of
         // one tick followed by 900ms of nothing
@@ -599,6 +716,7 @@ struct HabitCardView: View {
     /// Finger lifted before the hold completed — settle back to rest.
     private func cancelCompletion() {
         isAnimatingCompletion = false
+        backfillDate = nil
         // Rewind roughly 3x faster than it filled: the asymmetry is what makes
         // "nothing happened" legible
         withAnimation(.easeOut(duration: holdToCompleteDuration / 3)) {
@@ -631,11 +749,16 @@ struct HabitCardView: View {
             cardScale = reduceMotion ? 1.0 : (isRareCompletion ? 1.08 : 1.05)
             centerIconScale = 1.0
             centerIconOpacity = 1.0
-            gridFlashProgress = 1.0
             rippleScale = reduceMotion ? 1.0 : (isRareCompletion ? 11.0 : 8.0)
         }
 
-        if isRareCompletion {
+        // One bell per completion; the day's last habit gets the chord
+        let isBackfill = backfillDate != nil
+        let isLastOfDay = !isBackfill && habitCount > 1 && completedTodayCount + 1 >= habitCount
+        if isLastOfDay {
+            SoundManager.shared.playDayCompleteChord()
+            SoundManager.shared.triggerCompletionHaptic()
+        } else if isRareCompletion {
             SoundManager.shared.playRareCompletionSound()
             SoundManager.shared.triggerRareHaptic()
         } else {
@@ -643,10 +766,15 @@ struct HabitCardView: View {
             SoundManager.shared.triggerCompletionHaptic()
         }
 
+        if !reduceMotion {
+            // A swell rolls out through the grid from the day just marked
+            rippleOrigin = isBackfill ? 1 : 0
+            rippleToken += 1
+        }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation(.easeOut(duration: 0.4)) {
                 cardScale = 1.0
-                gridFlashProgress = 0
                 rippleOpacity = 0
                 centerIconOpacity = 0
             }
@@ -657,7 +785,13 @@ struct HabitCardView: View {
         }
 
         // Update data
-        habit.toggleCompletion()
+        let healthBefore = healthPercentage
+        if let backfillDate {
+            habit.setCompleted(true, on: backfillDate)
+            self.backfillDate = nil
+        } else {
+            habit.toggleCompletion()
+        }
 
         let habitData = HabitData(from: habit)
         Task.detached(priority: .background) {
@@ -665,7 +799,11 @@ struct HabitCardView: View {
             HabitDataManager.shared.updateWidgetTimeline()
         }
 
-        onCompletion?(habit.isCompletedToday)
+        // Health dial clicks over, one tick per point, after the hit lands
+        SoundManager.shared.triggerHealthTicks(healthPercentage - healthBefore, after: 0.3)
+
+        // A backfill can extend the streak, so it's a completion too
+        onCompletion?(true)
     }
 
     // MARK: - Context Menu
@@ -732,6 +870,79 @@ struct HabitCardView: View {
 }
 
 // MARK: - Supporting Types
+
+/// One grid square's state during the completion ripple.
+struct RippleFrame: Animatable {
+    var scale: CGFloat = 1
+    var brightness: Double = 0
+
+    var animatableData: AnimatablePair<CGFloat, Double> {
+        get { AnimatablePair(scale, brightness) }
+        set { scale = newValue.first; brightness = newValue.second }
+    }
+}
+
+/// The card's rounded rectangle, drawn clockwise from the top centre, so a
+/// trim from either end grows down both sides and meets at the bottom.
+struct CardOutline: Shape {
+    var cornerRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let r = min(cornerRadius, rect.width / 2, rect.height / 2)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.minY + r), radius: r,
+                    startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addArc(center: CGPoint(x: rect.maxX - r, y: rect.maxY - r), radius: r,
+                    startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addArc(center: CGPoint(x: rect.minX + r, y: rect.maxY - r), radius: r,
+                    startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addArc(center: CGPoint(x: rect.minX + r, y: rect.minY + r), radius: r,
+                    startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// A band of light that crosses the card when every habit is done for the
+/// day. Cards start in reading order, so the glint reads as one sweep
+/// across the whole screen.
+private struct PerfectDaySweep: View {
+    let trigger: Int
+    let cornerRadius: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var position: CGFloat = -0.5
+
+    var body: some View {
+        GeometryReader { geo in
+            LinearGradient(
+                colors: [.white.opacity(0), .white.opacity(0.35), .white.opacity(0)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: geo.size.width * 0.5, height: geo.size.height * 2)
+            .rotationEffect(.degrees(25))
+            .position(x: geo.size.width * position, y: geo.size.height / 2)
+            .onChange(of: trigger) {
+                guard !reduceMotion else { return }
+                let frame = geo.frame(in: .global)
+                let delay = Double(frame.minX / 1000 + frame.minY / 2500)
+                position = -0.5
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.7).delay(delay)) { position = 1.5 }
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
 
 enum HabitAction {
     case reset

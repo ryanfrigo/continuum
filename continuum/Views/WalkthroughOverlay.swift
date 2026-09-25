@@ -14,6 +14,11 @@ struct WalkthroughOverlay: View {
             description: "Press and hold a habit card to mark it done. The bar fills as you hold — release early to cancel."
         ),
         WalkthroughStep(
+            icon: "clock.arrow.circlepath",
+            title: "Forgot Yesterday?",
+            description: "Tap once, then press and hold. That fills in yesterday instead of today."
+        ),
+        WalkthroughStep(
             icon: "arrow.uturn.backward",
             title: "Tap to Undo",
             description: "Made a mistake? Tap a completed habit and confirm to undo it."
@@ -25,8 +30,8 @@ struct WalkthroughOverlay: View {
         ),
         WalkthroughStep(
             icon: "snowflake",
-            title: "Streak Freezes",
-            description: "Miss a day? Streak freezes protect your progress. You earn them at 7, 21, and 100-day milestones."
+            title: "Never Miss Twice",
+            description: "One missed day a week won't break your streak. Streak freezes, earned at 7, 21, and 100 days, cover the next one."
         ),
         WalkthroughStep(
             icon: "star.fill",

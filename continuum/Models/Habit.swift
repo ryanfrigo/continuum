@@ -313,23 +313,20 @@ final class Habit {
 
     /// Force the current streak (ending today) to be exactly `target` days long.
     /// This ensures all days in the last `target`-1 offsets are completed, and the
-    /// day at offset `target` is cleared to break any longer chain.
+    /// two days before the streak are cleared — one miss is a grace day, two
+    /// break the chain.
     func setCurrentStreak(_ target: Int, asOf date: Date = Date()) {
         let clamped = max(0, min(1000, target))
         let todayKey = ContinuumDay.key(for: date)
         var keys = completedDayKeys
 
-        if clamped > 0 {
-            for delta in 0..<clamped {
-                keys.insert(ContinuumDay.key(byAdding: -delta, to: todayKey))
-            }
-        } else {
-            // clamped == 0: make sure today is not completed
-            keys.remove(todayKey)
+        for delta in 0..<clamped {
+            keys.insert(ContinuumDay.key(byAdding: -delta, to: todayKey))
         }
 
-        // Break any longer chain by clearing the day just before the streak start
+        // Break any longer chain: two misses in a row, grace can't bridge them
         keys.remove(ContinuumDay.key(byAdding: -clamped, to: todayKey))
+        keys.remove(ContinuumDay.key(byAdding: -(clamped + 1), to: todayKey))
 
         setCompletedKeys(keys)
     }

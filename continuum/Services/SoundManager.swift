@@ -19,10 +19,16 @@ class SoundManager {
     // MARK: Audio
 
     private let engine = AVAudioEngine()
-    /// Two nodes: one beep must not cut off the previous one. A single node
-    /// with `.interrupts` truncated the first tone mid-cycle — an audible click.
-    private let playerNodes = [AVAudioPlayerNode(), AVAudioPlayerNode()]
+    /// One node per simultaneous voice (the day-complete chord needs four): one
+    /// beep must not cut off the previous one. A single node with
+    /// `.interrupts` truncated the first tone mid-cycle — an audible click.
+    private let playerNodes = (0..<4).map { _ in AVAudioPlayerNode() }
     private var nextNode = 0
+    /// Voices → bus → short echo → small room. A dry synthesized tone reads
+    /// as a beep; a little space makes it read as an instrument.
+    private let bus = AVAudioMixerNode()
+    private let echo = AVAudioUnitDelay()
+    private let room = AVAudioUnitReverb()
     private let sampleRate: Double = 44100
     private lazy var audioFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)
 
@@ -34,6 +40,7 @@ class SoundManager {
     private let impactRigid = UIImpactFeedbackGenerator(style: .rigid)
     private let impactLight = UIImpactFeedbackGenerator(style: .light)
     private let impactSoft = UIImpactFeedbackGenerator(style: .soft)
+    private let impactHeavy = UIImpactFeedbackGenerator(style: .heavy)
     private let notification = UINotificationFeedbackGenerator()
     private let selection = UISelectionFeedbackGenerator()
 
@@ -53,12 +60,22 @@ class SoundManager {
 
     private init() {
         setupAudioSession()
+        echo.delayTime = 0.16
+        echo.feedback = 20
+        echo.lowPassCutoff = 2500   // repeats come back darker, like a real room
+        echo.wetDryMix = 14
+        room.loadFactoryPreset(.mediumRoom)
+        room.wetDryMix = 22
+        for unit in [bus, echo, room] as [AVAudioNode] { engine.attach(unit) }
+        engine.connect(bus, to: echo, format: nil)
+        engine.connect(echo, to: room, format: nil)
+        engine.connect(room, to: engine.mainMixerNode, format: nil)
         for node in playerNodes {
             engine.attach(node)
             if let format = audioFormat {
                 // Connected once. Reconnecting per beep mutates the graph
                 // mid-playback, which is both expensive and glitchy.
-                engine.connect(node, to: engine.mainMixerNode, format: format)
+                engine.connect(node, to: bus, format: format)
             }
         }
         startEngine()
@@ -190,6 +207,22 @@ class SoundManager {
         }
     }
 
+    /// Every habit done today: one deep, round hit under the sweep.
+    func triggerPerfectDayHaptic() {
+        guard hapticsAllowed else { return }
+        impactHeavy.impactOccurred(intensity: 1.0)
+    }
+
+    /// Health went up: one light tick per point, like a dial clicking over.
+    func triggerHealthTicks(_ count: Int, after delay: Double) {
+        guard hapticsAllowed, count > 0 else { return }
+        for i in 0..<min(count, 5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay + Double(i) * 0.07) { [weak self] in
+                self?.impactLight.impactOccurred(intensity: 0.5)
+            }
+        }
+    }
+
     func triggerSelectionHaptic() {
         guard hapticsAllowed else { return }
         selection.selectionChanged()
@@ -203,10 +236,19 @@ class SoundManager {
 
     // MARK: - Sound
 
+    /// One warm, low bell — the same note every time. G4 sits inside the
+    /// day-complete chord, so the two sound like they belong together.
     func playCompletionBeep() {
         guard SoundManager.soundEnabled else { return }
-        playTone(frequency: 880, duration: 0.08)                     // A5
-        playTone(frequency: 1320, duration: 0.06, startOffset: 0.06) // E6
+        playTone(frequency: 392, duration: 0.7)      // G4
+    }
+
+    /// The last habit of the day: a low C major chord (C4–E4–G4–C5), strummed.
+    func playDayCompleteChord() {
+        guard SoundManager.soundEnabled else { return }
+        for (i, frequency) in [262.0, 330, 392, 523].enumerated() {
+            playTone(frequency: frequency, duration: 1.3, startOffset: Double(i) * 0.05)
+        }
     }
 
     func playSubtleClick() {
@@ -225,8 +267,8 @@ class SoundManager {
     func playRareCompletionSound() {
         guard SoundManager.soundEnabled else { return }
         let notes: [(Double, Double, Double)] = [
-            (659, 0.0, 0.10), (784, 0.07, 0.10), (988, 0.14, 0.10),
-            (1319, 0.21, 0.16), (1976, 0.30, 0.22),
+            (659, 0.0, 0.3), (784, 0.07, 0.3), (988, 0.14, 0.3),
+            (1319, 0.21, 0.45), (1568, 0.30, 0.7),
         ]
         for (frequency, offset, duration) in notes {
             playTone(frequency: frequency, duration: duration, startOffset: offset)
@@ -258,17 +300,24 @@ class SoundManager {
               let channel = buffer.floatChannelData?[0] else { return }
 
         buffer.frameLength = AVAudioFrameCount(samples)
-        // ~2ms attack, exponential decay. The old 20ms linear attack removed
-        // the transient entirely, which is what made a sine read "beepy".
-        let attack = max(1.0, sampleRate * 0.002)
+        // ~3ms attack, exponential decay. A 20ms linear attack removes the
+        // transient entirely, which is what makes a sine read "beepy".
+        let attack = max(1.0, sampleRate * 0.003)
+        let releaseSamples = max(1.0, sampleRate * 0.005)
         for i in 0..<samples {
             let time = Double(i) / sampleRate
             let rise = min(1.0, Double(i) / attack)
+            // The decay stops at ~4%, not zero; fade the tail or it clicks
+            let release = min(1.0, Double(samples - i) / releaseSamples)
             let decay = exp(-3.2 * time / duration)
-            let body = sin(2.0 * .pi * frequency * time)
-            // A touch of second harmonic: pure sines have no bite.
-            let harmonic = 0.18 * sin(4.0 * .pi * frequency * time)
-            channel[i] = Float((body + harmonic) * rise * decay * 0.28)
+            // Bell: a warm fundamental under a bright strike that dies fast.
+            // A steady harmonic is what made the old tone buzzy; the slightly
+            // detuned third partial adds shimmer.
+            let phase = 2.0 * .pi * frequency * time
+            let body = sin(phase)
+            let strike = 0.35 * sin(2.0 * phase) * exp(-14.0 * time)
+            let shimmer = 0.12 * sin(3.01 * phase) * exp(-22.0 * time)
+            channel[i] = Float((body + strike + shimmer) * rise * decay * release * 0.2)
         }
 
         let node = playerNodes[nextNode]

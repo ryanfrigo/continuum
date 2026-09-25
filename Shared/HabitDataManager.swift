@@ -120,35 +120,45 @@ enum ContinuumDay {
 // Shared between Habit (app) and HabitData (widget) so both always agree.
 enum HabitMath {
 
-    /// Current streak ending at `asOfKey`. Frozen days bridge AND count,
-    /// so a used streak freeze actually preserves the displayed streak.
+    /// Minimum spacing between grace days: one missed day per week is forgiven.
+    static let graceSpacingDays = 7
+
+    /// Current streak ending at `asOfKey` — "never miss twice". Completed and
+    /// frozen days count. A single missed day bridges the run without counting,
+    /// as long as the day before it counts and no other grace day falls within
+    /// `graceSpacingDays` of it; two misses in a row end the run.
+    ///
+    /// A miss AT `asOfKey` is a grace day too, so the result reads "the streak
+    /// that survives if the next day is done" — which is what the UI shows
+    /// before today is marked.
     static func currentStreak(completed: Set<Int>, frozen: Set<Int>, asOfKey: Int) -> Int {
         var count = 0
         var cursor = asOfKey
-        while completed.contains(cursor) || frozen.contains(cursor) {
-            count += 1
+        var step = 0
+        var lastGraceStep: Int?
+        while true {
+            if completed.contains(cursor) || frozen.contains(cursor) {
+                count += 1
+            } else {
+                let previous = ContinuumDay.key(byAdding: -1, to: cursor)
+                let spaced = lastGraceStep.map { step - $0 >= graceSpacingDays } ?? true
+                guard spaced, completed.contains(previous) || frozen.contains(previous) else { break }
+                lastGraceStep = step
+            }
             cursor = ContinuumDay.key(byAdding: -1, to: cursor)
+            step += 1
         }
         return count
     }
 
-    /// Longest streak anywhere in history (frozen days bridge and count).
+    /// Longest streak anywhere in history, by the same rule as `currentStreak`.
     static func longestStreak(completed: Set<Int>, frozen: Set<Int>) -> Int {
         let all = completed.union(frozen)
-        guard !all.isEmpty else { return 0 }
-        var longest = 0
-        for key in all {
-            // Only start counting at the beginning of a run
-            if all.contains(ContinuumDay.key(byAdding: -1, to: key)) { continue }
-            var length = 0
-            var cursor = key
-            while all.contains(cursor) {
-                length += 1
-                cursor = ContinuumDay.key(byAdding: 1, to: cursor)
-            }
-            longest = max(longest, length)
-        }
-        return longest
+        // Only a day that ends a run can end the longest one
+        return all
+            .filter { !all.contains(ContinuumDay.key(byAdding: 1, to: $0)) }
+            .map { currentStreak(completed: completed, frozen: frozen, asOfKey: $0) }
+            .max() ?? 0
     }
 
     /// Fraction of the last `daysBack` days (ending at `asOfKey`) completed.

@@ -27,6 +27,9 @@ struct ContentView: View {
     // the habit's own tile; only graduation and the app-wide moments take over
     // the screen.
     @State private var tileCelebrations: [UUID: TileCelebration] = [:]
+    /// Bumped when the day's last habit is done: every card sweeps a glint.
+    @State private var perfectDaySweep = 0
+    @State private var lastPerfectDaySweepKey: Int?
 
     // Reminder opt-in, asked once after the first completion
     @AppStorage("hasAskedForReminders") private var hasAskedForReminders = false
@@ -386,17 +389,15 @@ struct ContentView: View {
     private var habitGridView: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // Header section - no top spacing
-                headerSection
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 8)
-
                 // Habits grid
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(sortedHabits) { habit in
                         HabitCardView(
                             habit: habit,
                             refreshTrigger: refreshTrigger,
+                            completedTodayCount: completedTodayCount,
+                            habitCount: habits.count,
+                            perfectDaySweep: perfectDaySweep,
                             onAction: { action in
                                 handleHabitAction(action, for: habit)
                             },
@@ -415,10 +416,12 @@ struct ContentView: View {
                     }
                 }
                 .padding(.horizontal, 14)
+                .padding(.top, 8)
                 .padding(.bottom, 100) // Extra padding for tab bar safety
             }
         }
-        // Always allow scrolling — content height varies with device size and Dynamic Type
+        // Scroll (and bounce) only once the habits outgrow the screen
+        .scrollBounceBehavior(.basedOnSize)
         .scrollIndicators(.hidden)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
@@ -431,6 +434,7 @@ struct ContentView: View {
                         .foregroundStyle(Color.white.opacity(0.6))
                 }
             }
+            .hidingSharedBackground()
 
             ToolbarItem(placement: .principal) {
                 Text("Continuum")
@@ -451,79 +455,10 @@ struct ContentView: View {
                         .shadow(color: buttonColor.opacity(0.3), radius: 8)
                 }
             }
+            .hidingSharedBackground()
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.clear, for: .navigationBar)
-    }
-
-    // MARK: - Header Section
-
-    private var headerSection: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(greeting)
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
-
-                HStack(spacing: 8) {
-                    Text(dateString)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.5))
-
-                    if habitsFormedCount > 0 {
-                        HStack(spacing: 3) {
-                            Image(systemName: "star.fill")
-                                .font(.system(size: 8))
-                            Text("\(habitsFormedCount) formed")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
-                    }
-                }
-            }
-
-            Spacer()
-
-            // Today's progress + overall health
-            if !habits.isEmpty {
-                VStack(alignment: .trailing, spacing: 6) {
-                    // Overall health percentage
-                    Text("\(Int(overallHealth * 100))%")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .foregroundStyle(healthColor(for: overallHealth))
-
-                    // Today's completion count
-                    HStack(spacing: 3) {
-                        Text("\(completedTodayCount)/\(habits.count)")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.white.opacity(0.5))
-                        Text(allCompletedToday ? "perfect" : "today")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(allCompletedToday ? Color(hue: 0.12, saturation: 0.8, brightness: 0.95).opacity(0.7) : Color.white.opacity(0.35))
-                    }
-                }
-            }
-        }
-    }
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Good night"
-        }
-    }
-
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, MMMM d"
-        return f
-    }()
-
-    private var dateString: String {
-        Self.dateFormatter.string(from: Date())
     }
 
     private func healthColor(for health: Double) -> Color {
@@ -599,7 +534,8 @@ struct ContentView: View {
         syncNotifications()
 
         guard wasJustCompleted else {
-            previousStreaks[habit.id] = habit.currentStreak()
+            // Today is unmarked again: read the streak as the card shows it
+            previousStreaks[habit.id] = habit.displayStreak
             previousHealth[habit.id] = Int(habit.habitHealth() * 100)
             return
         }
@@ -676,6 +612,15 @@ struct ContentView: View {
         // With one habit every completion is "perfect" — the completion
         // animation is celebration enough, so these need 2+ habits.
         if wasJustCompleted && allCompletedToday && habits.count > 1 {
+            // Once a day: the glint crosses every card as the completion lands
+            if lastPerfectDaySweepKey != ContinuumDay.todayKey() {
+                lastPerfectDaySweepKey = ContinuumDay.todayKey()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    perfectDaySweep += 1
+                    SoundManager.shared.triggerPerfectDayHaptic()
+                }
+            }
+
             // A tile celebration is scheduled 0.8s out, so checking whether one
             // is on screen right now always says "no" — ask the events instead
             let delay: Double = showGraduation ? 3.0
@@ -859,6 +804,12 @@ struct ContentView: View {
             let frozen = habit.frozenDayKeys
             guard !completed.contains(yesterdayKey), !frozen.contains(yesterdayKey) else { continue }
 
+            // Spend a freeze only when the week's grace day can't cover the miss
+            // on its own — i.e. freezing keeps streak days that grace would lose.
+            let withGrace = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: yesterdayKey)
+            let withFreeze = HabitMath.currentStreak(completed: completed, frozen: frozen.union([yesterdayKey]), asOfKey: yesterdayKey)
+            guard withFreeze > withGrace + 1 else { continue }
+
             // Was there an active streak before yesterday?
             let streakBeforeYesterday = HabitMath.currentStreak(
                 completed: completed,
@@ -1001,4 +952,19 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+// MARK: - Toolbar
+
+private extension ToolbarContent {
+    /// iOS 26 wraps toolbar items in a Liquid Glass capsule; the icons read
+    /// cleaner bare.
+    @ToolbarContentBuilder
+    func hidingSharedBackground() -> some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
+    }
 }

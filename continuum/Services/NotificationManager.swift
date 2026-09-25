@@ -83,6 +83,9 @@ enum NotificationPlanner {
 
             if let streak = streakAtStake,
                streak >= minimumStreakForAlert,
+               // One miss a week is forgiven; only warn when missing this day
+               // would actually cost streak days.
+               HabitMath.currentStreak(completed: completed.subtracting([dayKey]), frozen: frozen, asOfKey: dayKey) < streak,
                // A freeze is applied automatically after a missed day, so the
                // streak does not actually end at midnight.
                habit.streakFreezeCount == 0,
