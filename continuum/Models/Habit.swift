@@ -16,7 +16,7 @@ final class Habit {
     var reminderEnabled: Bool = false
     var reminderHour: Int = 9  // 0-23, default 9am
     var reminderMinute: Int = 0  // 0-59
-    var streakFreezeCount: Int = 0  // Available streak freezes
+    var streakFreezeCount: Int = 0  // Retired in 3.8; kept because CloudKit fields can't be removed
     var freezeUsedDates: [Date]?  // Days where a freeze was used
     var graduatedAt: Date?  // Date when habit hit 66 days (nil if not yet graduated)
 
@@ -175,10 +175,21 @@ final class Habit {
         return ContinuumDay.storageDate(for: startKey)
     }
 
-    /// Returns the habit health as a percentage of the last 66 days completed (0.0 to 1.0)
-    func habitHealth(asOf date: Date = Date()) -> Double {
-        HabitMath.health(completed: completedDayKeys, asOfKey: ContinuumDay.key(for: date))
+    /// Consistency as every screen shows it (see HabitMath.tally).
+    var consistency: ConsistencyTally {
+        HabitMath.consistency(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
     }
+
+    /// Change in the shown percentage over the last 7 days; nil while too new.
+    var consistencyTrend: Int? {
+        let keys = completedDayKeys
+        let today = ContinuumDay.todayKey()
+        return HabitMath.trend(now: HabitMath.consistency(completed: keys, todayKey: today),
+                               weekAgo: HabitMath.consistencyWeekAgo(completed: keys, todayKey: today))
+    }
+
+    /// Every day ever marked done. Only goes up; a bad week can't take one back.
+    var daysDone: Int { completedDayKeys.count }
 
     func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {
         HabitMath.historyFlags(
@@ -188,55 +199,25 @@ final class Habit {
         )
     }
 
-    // MARK: - Streak Freeze
+    // MARK: - Streak Freeze (retired in 3.8)
+    // Nothing grants or spends freezes any more. Days frozen before 3.8 still
+    // bridge a run, and count as missed for consistency — they were.
 
     var freezeUsedDatesArray: [Date] {
         get { freezeUsedDates ?? [] }
         set { freezeUsedDates = newValue }
     }
 
-    /// Whether a streak freeze was used for yesterday (protecting today's streak)
-    var isFreezeActiveToday: Bool {
-        frozenDayKeys.contains(ContinuumDay.key(byAdding: -1, to: ContinuumDay.todayKey()))
-    }
+    // MARK: - Graduation
 
-    /// Use a streak freeze for yesterday (call when user opens app and yesterday was missed)
-    /// Returns true if freeze was successfully applied
-    @discardableResult
-    func useStreakFreeze() -> Bool {
-        guard streakFreezeCount > 0 else { return false }
-        let yesterdayKey = ContinuumDay.key(byAdding: -1, to: ContinuumDay.todayKey())
-
-        // Don't freeze if yesterday was completed or already frozen
-        guard !completedDayKeys.contains(yesterdayKey),
-              !frozenDayKeys.contains(yesterdayKey) else { return false }
-
-        streakFreezeCount -= 1
-        var keys = frozenDayKeys
-        keys.insert(yesterdayKey)
-        freezeUsedDatesArray = keys.sorted().map { ContinuumDay.storageDate(for: $0) }
-        return true
-    }
-
-    /// Grant a streak freeze (earned weekly or at milestones)
-    func grantStreakFreeze(count: Int = 1) {
-        streakFreezeCount = min(streakFreezeCount + count, 3) // Max 3 stored
-    }
-
-    /// Current streak counting freeze days as "completed".
-    /// (Now identical to `currentStreak` — kept for API compatibility.)
-    func currentStreakWithFreezes(asOf date: Date = Date()) -> Int {
-        currentStreak(asOf: date)
-    }
-
-    /// Whether this habit has been "graduated" (completed 66-day streak)
+    /// Whether this habit has been "graduated" (66 days done)
     var isGraduated: Bool {
         graduatedAt != nil
     }
 
-    /// Mark as graduated if streak >= 66 and not already graduated
+    /// Mark as graduated once 66 days are done, in any order
     func checkAndMarkGraduation() -> Bool {
-        guard graduatedAt == nil, currentStreak() >= 66 else { return false }
+        guard graduatedAt == nil, daysDone >= HabitMath.daysToForm else { return false }
         graduatedAt = Date()
         return true
     }

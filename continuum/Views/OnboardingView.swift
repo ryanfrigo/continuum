@@ -12,31 +12,31 @@ struct OnboardingView: View {
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
-            icon: "checkmark.circle.fill",
-            title: "Track Daily",
-            subtitle: "Build momentum",
-            description: "Press and hold a habit card to complete it. Watch the progress bar fill as your streak grows.",
+            icon: "percent",
+            title: "Consistency",
+            subtitle: "One number per habit",
+            description: "The share of days you showed up. Miss one and it dips a little. It never resets to zero.",
             color: .orange
         ),
         OnboardingPage(
-            icon: "flame.fill",
-            title: "66 Days",
-            subtitle: "Form habits",
-            description: "Science shows 66 days forms lasting habits. We'll guide you there.",
+            icon: "hand.tap.fill",
+            title: "Hold to Mark",
+            subtitle: "One hold a day",
+            description: "Press and hold a habit to mark today done. Let go early and nothing happens.",
             color: .orange
         ),
         OnboardingPage(
             icon: "square.grid.3x3.fill",
             title: "The Grid",
-            subtitle: "Your journey",
-            description: "Each square is a day. Top-left is today, filling in as you build your streak to 66 days.",
+            subtitle: "66 days at a glance",
+            description: "Each square is a day. Top-left is today. Filled squares are the days you showed up.",
             color: .orange
         ),
         OnboardingPage(
-            icon: "chart.line.uptrend.xyaxis",
-            title: "Health Score",
-            subtitle: "Track progress",
-            description: "Your percentage shows consistency over the last 66 days.",
+            icon: "star.fill",
+            title: "66 Days",
+            subtitle: "Not in a row",
+            description: "Habits take about 66 days of practice to stick. Mark 66 days done, in any order, and the habit is formed.",
             color: .orange
         )
     ]

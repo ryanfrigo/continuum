@@ -42,11 +42,13 @@ struct ToggleHabitIntent: AppIntent {
         // completed from the lock screen at 9am gets notifications disabled.
         // IDs are keyed by date, so this hits today's requests even if the app
         // hasn't run today. An un-complete is restored when the app next syncs.
+        // Today done also means tomorrow doesn't follow a miss.
         if nowCompleted {
             let todayKey = ContinuumDay.todayKey()
             UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [
                 NotificationID.reminder(habitId: habitId, dayKey: todayKey),
-                NotificationID.streakAlert(habitId: habitId, dayKey: todayKey),
+                NotificationID.missAlert(habitId: habitId, dayKey: todayKey),
+                NotificationID.missAlert(habitId: habitId, dayKey: ContinuumDay.key(byAdding: 1, to: todayKey)),
             ])
         }
         return .result()
@@ -58,26 +60,21 @@ struct ToggleHabitIntent: AppIntent {
 struct HabitEntry: TimelineEntry {
     let date: Date
     let habits: [HabitData]
-    let overallHealth: Double
 }
 
 // MARK: - Widget Timeline Provider
 
 struct HabitProvider: TimelineProvider {
     func placeholder(in context: Context) -> HabitEntry {
-        HabitEntry(date: Date(), habits: [], overallHealth: 0.0)
+        HabitEntry(date: Date(), habits: [])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (HabitEntry) -> Void) {
-        let habits = HabitDataManager.shared.loadAllHabitData()
-        let health = habits.isEmpty ? 0.0 : habits.reduce(0.0) { $0 + $1.habitHealth } / Double(habits.count)
-        completion(HabitEntry(date: Date(), habits: habits, overallHealth: health))
+        completion(HabitEntry(date: Date(), habits: HabitDataManager.shared.loadAllHabitData()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<HabitEntry>) -> Void) {
-        let habits = HabitDataManager.shared.loadAllHabitData()
-        let health = habits.isEmpty ? 0.0 : habits.reduce(0.0) { $0 + $1.habitHealth } / Double(habits.count)
-        let entry = HabitEntry(date: Date(), habits: habits, overallHealth: health)
+        let entry = HabitEntry(date: Date(), habits: HabitDataManager.shared.loadAllHabitData())
         // "Now + 24h" lands in the PAST hour on a 25-hour DST-fall day;
         // stepping a calendar day from today's start is always tomorrow.
         let todayStart = Calendar.current.startOfDay(for: Date())
@@ -133,9 +130,8 @@ struct CompleteButton: View {
 struct SmallWidgetView: View {
     let habit: HabitData?
 
-    private var health: Double { habit?.habitHealth ?? 0.0 }
-    private var streak: Int { habit?.displayStreak ?? 0 }
-    private var color: Color { healthColor(health) }
+    private var consistency: ConsistencyTally { habit?.consistency ?? ConsistencyTally() }
+    private var color: Color { healthColor(consistency.fraction) }
 
     private var flags: [Bool] {
         guard let h = habit else { return Array(repeating: false, count: 66) }
@@ -147,44 +143,26 @@ struct SmallWidgetView: View {
     var body: some View {
         if let habit {
             VStack(alignment: .leading, spacing: 0) {
-                // Name + health
-                HStack(alignment: .top) {
-                    Text(habit.name)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                Text(habit.name)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
 
-                    ZStack {
-                        Circle()
-                            .stroke(Color.white.opacity(0.08), lineWidth: 2.5)
-                        Circle()
-                            .trim(from: 0, to: health)
-                            .stroke(color, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                            .shadow(color: color.opacity(0.4), radius: 3)
-                        Text("\(Int(health * 100))")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                // The number, and which way it moved this week
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    if let percent = consistency.percent {
+                        Text("\(percent)%")
+                            .font(.system(size: 20, weight: .heavy, design: .monospaced))
                             .foregroundStyle(color)
-                    }
-                    .frame(width: 28, height: 28)
-                }
-
-                // Streak
-                HStack(spacing: 3) {
-                    if streak > 0 {
-                        Circle().fill(color).frame(width: 4, height: 4)
-                            .shadow(color: color, radius: 2)
-                        Text("\(streak)d streak")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.45))
+                        if let trend = habit.consistencyTrend, trend != 0 {
+                            TrendLabel(trend: trend, color: color, size: 10)
+                        }
                     } else {
                         Text("Tap to start")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.3))
                     }
                 }
-                .padding(.top, 2)
 
                 Spacer(minLength: 4)
 
@@ -224,9 +202,9 @@ struct MediumWidgetView: View {
 
     private var completedCount: Int { habits.filter { $0.isCompletedToday }.count }
     private var allDone: Bool { !habits.isEmpty && completedCount == habits.count }
-    private var overallHealth: Double {
-        guard !habits.isEmpty else { return 0.0 }
-        return habits.reduce(0.0) { $0 + $1.habitHealth } / Double(habits.count)
+    /// Every habit pooled, the same way as the app's header.
+    private var overall: ConsistencyTally {
+        habits.reduce(ConsistencyTally()) { $0 + $1.consistency }
     }
 
     var body: some View {
@@ -248,7 +226,7 @@ struct MediumWidgetView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(completedCount)")
                             .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(allDone ? goldColor : healthColor(overallHealth))
+                            .foregroundStyle(allDone ? goldColor : healthColor(overall.fraction))
                         Text("/\(habits.count)")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.25))
@@ -260,23 +238,16 @@ struct MediumWidgetView: View {
 
                     Spacer()
 
-                    // Health: ring + label side by side. A percentage inside a
-                    // 28pt ring is unreadable, and the ring alone got clipped
-                    // by the widget's own corner radius.
-                    HStack(spacing: 4) {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.white.opacity(0.08), lineWidth: 2)
-                            Circle()
-                                .trim(from: 0, to: overallHealth)
-                                .stroke(healthColor(overallHealth), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
+                    // Consistency across every habit, as the app's header shows it
+                    if let percent = overall.percent {
+                        HStack(alignment: .firstTextBaseline, spacing: 3) {
+                            Text("\(percent)%")
+                                .font(.system(size: 15, weight: .heavy, design: .monospaced))
+                                .foregroundStyle(healthColor(overall.fraction))
+                            Text("consistent")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.3))
                         }
-                        .frame(width: 14, height: 14)
-
-                        Text("\(Int(overallHealth * 100))%")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(healthColor(overallHealth))
                     }
                 }
                 .padding(.horizontal, 6)
@@ -305,9 +276,8 @@ struct MediumWidgetView: View {
 private struct MediumHabitCard: View {
     let habit: HabitData
 
-    private var health: Double { habit.habitHealth }
-    private var color: Color { healthColor(health) }
-    private var streak: Int { habit.displayStreak }
+    private var consistency: ConsistencyTally { habit.consistency }
+    private var color: Color { healthColor(consistency.fraction) }
 
     private var flags: [Bool] {
         var r = habit.historyCompletionFlags(daysBack: 66)
@@ -330,9 +300,9 @@ private struct MediumHabitCard: View {
 
             // Always rendered: an if here makes one card's grid sit higher
             // than its neighbour's, which is what made the widget look broken.
-            Text(streak > 0 ? "\(streak)d" : "start today")
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                .foregroundStyle(streak > 0 ? color.opacity(0.7) : .white.opacity(0.25))
+            Text(consistency.percent.map { "\($0)%" } ?? "start today")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(consistency.percent != nil ? color.opacity(0.8) : .white.opacity(0.25))
 
             Spacer(minLength: 2)
 
@@ -362,24 +332,25 @@ struct AccessoryCircularView: View {
             ZStack {
                 AccessoryWidgetBackground()
                 Circle()
-                    .trim(from: 0, to: max(0.04, habit.habitHealth))
+                    .trim(from: 0, to: max(0.04, habit.consistency.fraction))
                     .stroke(.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .padding(3)
 
+                let percent = habit.consistency.percent.map(String.init) ?? "–"
                 if habit.isCompletedToday {
                     VStack(spacing: 0) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
-                        Text("\(habit.displayStreak)")
+                        Text("\(percent)%")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                     }
                 } else {
                     VStack(spacing: 0) {
-                        Text("\(habit.displayStreak)")
+                        Text(percent)
                             .font(.system(size: 16, weight: .bold, design: .rounded))
-                        Text("DAYS")
-                            .font(.system(size: 7, weight: .semibold, design: .rounded))
+                        Text("%")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
                             .opacity(0.7)
                     }
                 }
@@ -408,9 +379,14 @@ struct AccessoryRectangularView: View {
                         .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
                 }
-                Text("\(first.displayStreak)-day streak")
-                    .font(.system(size: 11, weight: .medium))
-                    .opacity(0.8)
+                HStack(spacing: 4) {
+                    Text(first.consistency.percent.map { "\($0)% consistent" } ?? "Not started")
+                    if let trend = first.consistencyTrend, trend != 0 {
+                        Text(trend > 0 ? "↑\(trend)" : "↓\(-trend)")
+                    }
+                }
+                .font(.system(size: 11, weight: .medium))
+                .opacity(0.8)
                 if habits.count > 1 {
                     Text("\(completedCount)/\(habits.count) done today")
                         .font(.system(size: 10, weight: .medium))
@@ -463,7 +439,7 @@ struct ContinuumWidget: Widget {
             ContinuumWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("Continuum")
-        .description("Track your daily habit streaks")
+        .description("Your consistency at a glance, and a button to mark today done.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }
@@ -523,8 +499,7 @@ private func healthColor(_ health: Double) -> Color {
                 createdAt: Date().addingTimeInterval(-30 * 86400),
                 completedDates: (0..<20).map { Date().addingTimeInterval(-Double($0) * 86400) }
             )
-        ],
-        overallHealth: 0.65
+        ]
     )
 }
 
@@ -540,7 +515,6 @@ private func healthColor(_ health: Double) -> Color {
                       completedDates: (0..<8).map { Date().addingTimeInterval(-Double($0) * 86400) }),
             HabitData(id: UUID(), name: "Run 5K", createdAt: Date(),
                       completedDates: [Date()])
-        ],
-        overallHealth: 0.45
+        ]
     )
 }

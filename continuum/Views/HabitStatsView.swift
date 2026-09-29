@@ -1,8 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// Full-year stats for a single habit: GitHub-style heatmap of the last 365
-/// days plus headline numbers. The screen long-term users screenshot.
+/// Stats for a single habit: its consistency and which way it's moving, a
+/// week-by-week chart, headline numbers, and a GitHub-style heatmap of the
+/// last 365 days. The screen long-term users screenshot.
 struct HabitStatsView: View {
     @Bindable var habit: Habit
     @Environment(\.dismiss) private var dismiss
@@ -14,14 +15,16 @@ struct HabitStatsView: View {
     // MARK: - Derived data
 
     private var completedKeys: Set<Int> { habit.completedDayKeys }
-    private var frozenKeys: Set<Int> { habit.frozenDayKeys }
-    private var health: Double { habit.habitHealth() }
+    private var consistency: ConsistencyTally { habit.consistency }
+
+    /// Bars in the week-by-week chart.
+    private let chartWeeks = 12
 
     private var themeColor: Color {
         let hueOrange: Double = 30.0 / 360.0
         let hueGreen: Double = 140.0 / 360.0
         let hueCyan: Double = 175.0 / 360.0
-        let clamped = max(0, min(1, health))
+        let clamped = max(0, min(1, consistency.fraction))
         if clamped <= 0.5 {
             let t = clamped / 0.5
             return Color(hue: hueOrange + (hueGreen - hueOrange) * t, saturation: 0.85, brightness: 0.95)
@@ -42,6 +45,8 @@ struct HabitStatsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     headerSection
+                    heroSection
+                    weeklySection
                     statTiles
                     heatmapSection
                     footerSection
@@ -120,18 +125,101 @@ struct HabitStatsView: View {
         }
     }
 
+    // MARK: - The number
+
+    private var heroSection: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(consistency.percent.map(String.init) ?? "–")
+                        .font(.system(size: 64, weight: .heavy, design: .monospaced))
+                    Text("%")
+                        .font(.system(size: 30, weight: .heavy, design: .monospaced))
+                }
+                .foregroundStyle(themeColor)
+                .shadow(color: themeColor.opacity(0.3), radius: 14)
+
+                Text("CONSISTENT · LAST 66 DAYS")
+                    .font(.system(size: 10, weight: .semibold).monospaced())
+                    .foregroundStyle(.white.opacity(0.4))
+                    .tracking(1)
+            }
+
+            Spacer()
+
+            if let trend = habit.consistencyTrend, trend != 0 {
+                TrendLabel(trend: trend, color: themeColor, size: 13, suffix: " this week")
+                    .padding(.bottom, 4)
+            }
+        }
+    }
+
+    // MARK: - Week by week
+
+    /// Each bar is one 7-day block, so a rising row of bars is you getting
+    /// more consistent — the thing the app is for, drawn.
+    private var weeklySection: some View {
+        let blocks = HabitMath.weeklyBlocks(completed: completedKeys, todayKey: ContinuumDay.todayKey(), weeks: chartWeeks)
+        let chartHeight: CGFloat = 72
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("LAST \(chartWeeks) WEEKS")
+                    .font(.system(size: 10, weight: .semibold).monospaced())
+                    .foregroundStyle(.white.opacity(0.4))
+                    .tracking(1)
+                Spacer()
+                if let percent = blocks.last?.percent {
+                    Text("THIS WEEK \(percent)%")
+                        .font(.system(size: 10, weight: .bold).monospaced())
+                        .foregroundStyle(themeColor)
+                }
+            }
+
+            HStack(alignment: .bottom, spacing: 5) {
+                ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in
+                    ZStack(alignment: .bottom) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.white.opacity(0.05))
+                        if block.counted > 0 {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(themeColor.opacity(index == blocks.count - 1 ? 1 : 0.55))
+                                .frame(height: max(3, chartHeight * block.fraction))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: chartHeight)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Weekly consistency, last \(chartWeeks) weeks: "
+                + blocks.compactMap { $0.percent.map { "\($0)%" } }.joined(separator: ", "))
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(red: 0.10, green: 0.11, blue: 0.13))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(themeColor.opacity(0.22), lineWidth: 1)
+        )
+    }
+
     // MARK: - Stat tiles
 
     private var statTiles: some View {
         let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
         let perfectWeeks = weekColumns.filter(\.isPerfect).count
+        let daysDone = habit.daysDone
+        let allTime = HabitMath.allTime(completed: completedKeys, todayKey: ContinuumDay.todayKey())
         let current = habit.displayStreak
         let longest = habit.longestStreak()
         return LazyVGrid(columns: columns, spacing: 10) {
-            statTile(value: "\(current)", unit: current == 1 ? "day" : "days", label: "CURRENT STREAK", color: themeColor)
-            statTile(value: "\(longest)", unit: longest == 1 ? "day" : "days", label: "LONGEST STREAK", color: themeColor)
-            statTile(value: "\(completedKeys.count)", unit: "total", label: "DAYS COMPLETED", color: themeColor)
-            statTile(value: "\(Int(health * 100))", unit: "%", label: "HEALTH · 66 DAYS", color: themeColor)
+            statTile(value: "\(daysDone)", unit: daysDone == 1 ? "day" : "days", label: "DAYS DONE", color: themeColor)
+            statTile(value: allTime.percent.map(String.init) ?? "–", unit: "%", label: "ALL-TIME", color: themeColor)
+            statTile(value: "\(current)", unit: current == 1 ? "day" : "days", label: "CURRENT RUN", color: themeColor)
+            statTile(value: "\(longest)", unit: longest == 1 ? "day" : "days", label: "BEST RUN", color: themeColor)
             statTile(value: "\(perfectWeeks)", unit: perfectWeeks == 1 ? "week" : "weeks", label: "PERFECT WEEKS", color: goldColor)
         }
     }
@@ -218,6 +306,8 @@ struct HabitStatsView: View {
     private var heatmapSection: some View {
         let columns = weekColumns
         let todayKey = ContinuumDay.todayKey()
+        let completed = completedKeys
+        let firstKey = completed.min()
         let cell: CGFloat = 9
         let spacing: CGFloat = 2.5
 
@@ -247,7 +337,8 @@ struct HabitStatsView: View {
                         ForEach(columns) { col in
                             VStack(spacing: spacing) {
                                 ForEach(0..<7, id: \.self) { row in
-                                    heatCell(for: col.dayKeys[row], todayKey: todayKey, size: cell)
+                                    heatCell(for: col.dayKeys[row], todayKey: todayKey,
+                                             completed: completed, firstKey: firstKey, size: cell)
                                 }
                             }
                         }
@@ -271,9 +362,8 @@ struct HabitStatsView: View {
             // Legend
             HStack(spacing: 12) {
                 legendDot(color: themeColor, label: "done")
-                legendDot(color: .cyan.opacity(0.7), label: "freeze")
-                legendDot(color: goldColor, label: "perfect week")
                 legendDot(color: Color.white.opacity(0.08), label: "missed")
+                legendDot(color: goldColor, label: "perfect week")
                 Spacer()
             }
         }
@@ -289,17 +379,18 @@ struct HabitStatsView: View {
     }
 
     @ViewBuilder
-    private func heatCell(for key: Int?, todayKey: Int, size: CGFloat) -> some View {
+    private func heatCell(for key: Int?, todayKey: Int, completed: Set<Int>, firstKey: Int?, size: CGFloat) -> some View {
         if let key {
-            let completed = completedKeys.contains(key)
-            let frozen = frozenKeys.contains(key)
+            let isDone = completed.contains(key)
             let isToday = key == todayKey
+            // Before the first done day: not a miss, so fainter than one
+            let notStarted = firstKey.map { key < $0 } ?? true
 
             RoundedRectangle(cornerRadius: 2)
-                .fill(completed ? themeColor : (frozen ? Color.cyan.opacity(0.55) : Color.white.opacity(0.07)))
+                .fill(isDone ? themeColor : Color.white.opacity(notStarted ? 0.03 : 0.07))
                 .frame(width: size, height: size)
                 .overlay {
-                    if isToday && !completed {
+                    if isToday && !isDone {
                         RoundedRectangle(cornerRadius: 2)
                             .stroke(themeColor.opacity(0.6), lineWidth: 1)
                     }
@@ -324,18 +415,16 @@ struct HabitStatsView: View {
 
     private var footerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if habit.streakFreezeCount > 0 {
-                HStack(spacing: 5) {
-                    Image(systemName: "snowflake")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.cyan.opacity(0.7))
-                    Text("\(habit.streakFreezeCount) streak freeze\(habit.streakFreezeCount == 1 ? "" : "s") available")
-                        .font(.system(size: 11, weight: .medium).monospaced())
-                        .foregroundStyle(.white.opacity(0.5))
-                }
+            if !habit.isGraduated {
+                let left = HabitMath.daysToForm - habit.daysDone
+                Text(left > 0
+                     ? "\(left) more day\(left == 1 ? "" : "s") done and it's formed. In any order."
+                     : "66 days done. It's formed on your next check-in.")
+                    .font(.system(size: 11, weight: .medium).monospaced())
+                    .foregroundStyle(.white.opacity(0.5))
             }
 
-            Text("66 consecutive days forms a habit. Frozen days protect your streak when life happens.")
+            Text("Consistency is the share of the last 66 days you showed up, counted from your first. A missed day dents it. Nothing resets it.")
                 .font(.system(size: 10).monospaced())
                 .foregroundStyle(.white.opacity(0.25))
                 .lineSpacing(3)

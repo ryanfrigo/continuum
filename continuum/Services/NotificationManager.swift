@@ -22,8 +22,8 @@ enum NotificationPlanner {
     /// Short horizon: content is computed now, and only the next day or two can
     /// be worded truthfully. The app re-plans on every activation and day change.
     static let daysAhead = 3
-    static let streakAlertHour = 20
-    static let minimumStreakForAlert = 3
+    /// The never-miss-twice alert, on the evening after a missed day.
+    static let missAlertHour = 20
     /// iOS keeps at most 64 pending requests per app and silently drops the rest.
     static let systemPendingLimit = 64
 
@@ -36,37 +36,26 @@ enum NotificationPlanner {
 
     static func plan(for habit: Habit, todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
         // The per-habit reminder toggle is the one switch for everything this
-        // habit sends, streak alerts included.
+        // habit sends, the evening alert included.
         guard habit.reminderEnabled else { return [] }
 
         let completed = habit.completedDayKeys
-        let frozen = habit.frozenDayKeys
-        let doneToday = completed.contains(todayKey) || frozen.contains(todayKey)
+        let doneToday = completed.contains(todayKey)
         let yesterdayKey = ContinuumDay.key(byAdding: -1, to: todayKey)
-        // "Day one" copy is only true for an empty grid. A streak of 0 also
-        // means "missed yesterday", and a habit with 40 days behind it should
-        // never be told it has never started. Day keys are yyyymmdd, so the
-        // window is a plain integer comparison.
-        let windowStartKey = ContinuumDay.key(byAdding: -(65), to: todayKey)
+        // "Day one" copy is only true for an empty grid; a habit with 40 days
+        // behind it should never be told it has never started. Day keys are
+        // yyyymmdd, so the window is a plain integer comparison.
+        let windowStartKey = ContinuumDay.key(byAdding: -(HabitMath.gridDays - 1), to: todayKey)
         let hasRecentHistory = completed.contains { $0 >= windowStartKey && $0 <= todayKey }
-            || frozen.contains { $0 >= windowStartKey && $0 <= todayKey }
         var result: [PlannedNotification] = []
 
         for offset in 0..<daysAhead {
             if offset == 0 && doneToday { continue }
             let dayKey = ContinuumDay.key(byAdding: offset, to: todayKey)
 
-            // The streak riding on a day is only known once every day before it
-            // is settled. currentStreak(asOf: today) is 0 until today is marked,
-            // which is how 40-day streaks used to get "Day one is waiting."
-            let streakAtStake: Int?
-            if offset == 0 {
-                streakAtStake = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: yesterdayKey)
-            } else if offset == 1 && doneToday {
-                streakAtStake = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: todayKey)
-            } else {
-                streakAtStake = nil
-            }
+            // A day's numbers are only known once every day before it is
+            // settled: today always, tomorrow only if today is already done.
+            let settled = offset == 0 || (offset == 1 && doneToday)
 
             let reminderPassed = offset == 0
                 && habit.reminderHour * 100 + habit.reminderMinute <= hour * 100 + minute
@@ -74,34 +63,42 @@ enum NotificationPlanner {
                 result.append(PlannedNotification(
                     identifier: NotificationID.reminder(habitId: habit.id, dayKey: dayKey),
                     title: "Time for \(habit.name)",
-                    body: reminderBody(streak: streakAtStake, hasRecentHistory: hasRecentHistory, dayKey: dayKey),
+                    body: settled
+                        ? reminderBody(completed: completed, dayKey: dayKey, hasRecentHistory: hasRecentHistory)
+                        : pick(neutralLines, dayKey: dayKey),
                     dayKey: dayKey,
                     hour: habit.reminderHour,
                     minute: habit.reminderMinute
                 ))
             }
 
-            if let streak = streakAtStake,
-               streak >= minimumStreakForAlert,
-               // One miss a week is forgiven; only warn when missing this day
-               // would actually cost streak days.
-               HabitMath.currentStreak(completed: completed.subtracting([dayKey]), frozen: frozen, asOfKey: dayKey) < streak,
-               // A freeze is applied automatically after a missed day, so the
-               // streak does not actually end at midnight.
-               habit.streakFreezeCount == 0,
+            // Never miss twice: the evening after a miss, when the day before
+            // that was done. Tomorrow's is planned while today is still open;
+            // marking today (app or widget) removes it.
+            let followsOneMiss: Bool
+            switch offset {
+            case 0:
+                followsOneMiss = !completed.contains(yesterdayKey)
+                    && completed.contains(ContinuumDay.key(byAdding: -2, to: todayKey))
+            case 1:
+                followsOneMiss = !doneToday && completed.contains(yesterdayKey)
+            default:
+                followsOneMiss = false
+            }
+            if followsOneMiss,
                // An evening reminder already covers it; two pings is a nag.
-               habit.reminderHour < streakAlertHour,
-               offset > 0 || hour < streakAlertHour {
+               habit.reminderHour < missAlertHour,
+               offset > 0 || hour < missAlertHour {
                 result.append(PlannedNotification(
-                    identifier: NotificationID.streakAlert(habitId: habit.id, dayKey: dayKey),
-                    title: "\(streak)-day \(habit.name) streak ends at midnight",
+                    identifier: NotificationID.missAlert(habitId: habit.id, dayKey: dayKey),
+                    title: "\(habit.name): never miss twice",
                     body: pick([
-                        "A one-second hold keeps it alive.",
-                        "Four hours left. You've done harder things.",
-                        "\(streak) days of work. One hold protects it.",
+                        "One miss is a blip. Two is a pattern.",
+                        "Yesterday slipped. Tonight's still open.",
+                        "Four hours left. One hold does it.",
                     ], dayKey: dayKey),
                     dayKey: dayKey,
-                    hour: streakAlertHour,
+                    hour: missAlertHour,
                     minute: 0
                 ))
             }
@@ -109,55 +106,45 @@ enum NotificationPlanner {
         return result
     }
 
+    /// For days whose numbers aren't known yet.
+    private static let neutralLines = [
+        "Show up today.",
+        "One hold. That's the whole ask.",
+        "The grid is waiting.",
+    ]
+
     // Brand voice: dry, confident, zero guilt.
-    static func reminderBody(streak: Int?, hasRecentHistory: Bool = false, dayKey: Int) -> String {
-        guard let streak else {
+    static func reminderBody(completed: Set<Int>, dayKey: Int, hasRecentHistory: Bool) -> String {
+        guard hasRecentHistory else {
             return pick([
-                "Show up today.",
-                "One hold. That's the whole ask.",
-                "The grid is waiting.",
-            ], dayKey: dayKey)
-        }
-        let lines: [String]
-        if streak == 0 && hasRecentHistory {
-            // The run broke, but the grid is not empty. No guilt, no "day one".
-            lines = [
-                "Yesterday's gone. Today's open.",
-                "Start the next run.",
-                "The grid's still yours. Pick it back up.",
-            ]
-        } else if streak == 0 {
-            lines = [
                 "Day one is waiting.",
                 "The grid wants its first mark.",
-                "Every streak starts with a single dot.",
-            ]
-        } else if streak < 7 {
-            lines = [
-                "\(streak) down. Show up again today.",
-                "\(streak)-day streak. Keep the chain alive.",
-                "Day \(streak + 1) is right there.",
-            ]
-        } else if streak < 21 {
-            lines = [
-                "\(streak) days strong. Machines don't miss days.",
-                "\(streak) days. Momentum is a habit too.",
-                "Day \(streak + 1). Showing up is the brand.",
-            ]
-        } else if streak < 66 {
-            lines = [
-                "\(streak) days. Only \(66 - streak) to formed.",
-                "\(streak)-day streak — the hard part is behind you.",
-                "Still perfect at \(streak). Keep it boring.",
-            ]
-        } else {
-            lines = [
-                "\(streak) days. This is who you are now.",
-                "Day \(streak + 1). Legacy streak.",
-                "\(streak) days deep. The habit is you.",
-            ]
+                "Every habit starts with a single dot.",
+            ], dayKey: dayKey)
         }
-        return pick(lines, dayKey: dayKey)
+        if !completed.contains(ContinuumDay.key(byAdding: -1, to: dayKey)) {
+            // A miss, but the grid is not empty. No guilt, no "day one".
+            return pick([
+                "Yesterday's gone. Today's open.",
+                "Missed one. Don't miss two.",
+                "The grid's still yours. Pick it back up.",
+            ], dayKey: dayKey)
+        }
+        // What today does to the number: the reason to show up, in digits
+        let now = HabitMath.consistency(completed: completed, todayKey: dayKey).percent ?? 0
+        let ifDone = HabitMath.consistency(completed: completed.union([dayKey]), todayKey: dayKey).percent ?? 0
+        guard ifDone > now else {
+            return pick([
+                "\(now)% consistent. Keep it there.",
+                "Still \(now)%. One hold keeps it.",
+                "\(now)% of days. Today's one of them.",
+            ], dayKey: dayKey)
+        }
+        return pick([
+            "\(now)% consistent. Today makes it \(ifDone).",
+            "One hold takes you to \(ifDone)%.",
+            "\(ifDone)% is one hold away.",
+        ], dayKey: dayKey)
     }
 
     /// Varies by day but is deterministic, so re-planning doesn't reshuffle text.

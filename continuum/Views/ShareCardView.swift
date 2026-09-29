@@ -30,20 +30,12 @@ struct ShareCardView: View {
 
     // MARK: - Computed Properties
 
-    private var health: Double {
-        habit.habitHealth()
-    }
-
-    private var healthPercentage: Int {
-        Int(health * 100)
-    }
-
-    private var streak: Int {
-        habit.displayStreak
+    private var consistency: ConsistencyTally {
+        habit.consistency
     }
 
     private var themeColor: Color {
-        healthColor(for: health)
+        healthColor(for: consistency.fraction)
     }
 
     private var gridFlags: [Bool] {
@@ -98,8 +90,8 @@ struct ShareCardView: View {
                 Spacer()
                     .frame(height: cardSize.height * 0.04)
 
-                // Streak number - the hero element
-                streakSection
+                // Consistency - the hero element
+                heroSection
 
                 Spacer()
                     .frame(height: cardSize.height * 0.05)
@@ -111,8 +103,8 @@ struct ShareCardView: View {
                 Spacer()
                     .frame(height: cardSize.height * 0.04)
 
-                // Health ring and percentage
-                healthSection
+                // Days done, and whether it's formed
+                daysSection
 
                 Spacer()
 
@@ -217,30 +209,38 @@ struct ShareCardView: View {
             .minimumScaleFactor(0.5)
     }
 
-    // MARK: - Streak Section
+    // MARK: - Consistency
 
-    private var streakSection: some View {
-        VStack(spacing: 12) {
-            // Large streak number
-            Text("\(streak)")
-                .font(.system(size: 160, weight: .black, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            .white,
-                            themeColor.opacity(0.9)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+    private var heroSection: some View {
+        VStack(spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(consistency.percent.map(String.init) ?? "0")
+                    .font(.system(size: 170, weight: .heavy, design: .monospaced))
+                Text("%")
+                    .font(.system(size: 80, weight: .heavy, design: .monospaced))
+            }
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        .white,
+                        themeColor.opacity(0.9)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
-                .shadow(color: themeColor.opacity(0.4), radius: 30, x: 0, y: 10)
+            )
+            .shadow(color: themeColor.opacity(0.4), radius: 30, x: 0, y: 10)
 
             // Label
-            Text("DAY STREAK")
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .tracking(4)
+            Text("CONSISTENT")
+                .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                .tracking(6)
                 .foregroundStyle(Color.white.opacity(0.5))
+
+            if let trend = habit.consistencyTrend, trend != 0 {
+                TrendLabel(trend: trend, color: themeColor, size: 22, suffix: " THIS WEEK")
+                    .padding(.top, 4)
+            }
         }
     }
 
@@ -253,14 +253,14 @@ struct ShareCardView: View {
         return VStack(spacing: 0) {
             // Grid label
             HStack {
-                Text("66-DAY FORMATION")
+                Text("LAST 66 DAYS")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .tracking(2)
                     .foregroundStyle(Color.white.opacity(0.35))
 
                 Spacer()
 
-                Text("\(completedCount)/66")
+                Text("\(consistency.done)/\(consistency.counted)")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(color.opacity(0.7))
             }
@@ -318,10 +318,6 @@ struct ShareCardView: View {
         return width / height
     }
 
-    private var completedCount: Int {
-        gridFlags.filter { $0 }.count
-    }
-
     private func gridDotColor(filled: Bool, isToday: Bool, healthColor: Color) -> Color {
         if filled {
             return healthColor
@@ -332,76 +328,30 @@ struct ShareCardView: View {
         }
     }
 
-    // MARK: - Health Section
+    // MARK: - Days Done
 
-    private var healthSection: some View {
-        HStack(spacing: 32) {
-            // Progress ring
-            ZStack {
-                // Track
-                Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 8)
+    private var daysSection: some View {
+        VStack(spacing: 8) {
+            Text("\(habit.daysDone)")
+                .font(.system(size: 64, weight: .heavy, design: .monospaced))
+                .foregroundStyle(.white)
 
-                // Progress arc
-                Circle()
-                    .trim(from: 0, to: health)
-                    .stroke(
-                        AngularGradient(
-                            colors: [themeColor, themeColor.opacity(0.6), themeColor],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
+            Text(habit.daysDone == 1 ? "DAY DONE" : "DAYS DONE")
+                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                .tracking(4)
+                .foregroundStyle(Color.white.opacity(0.4))
 
-                // Glow on progress
-                Circle()
-                    .trim(from: 0, to: health)
-                    .stroke(themeColor, lineWidth: 8)
-                    .rotationEffect(.degrees(-90))
-                    .blur(radius: 8)
-                    .opacity(0.5)
-
-                // Percentage inside ring
-                Text("\(healthPercentage)%")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 100, height: 100)
-
-            // Health label
-            VStack(alignment: .leading, spacing: 6) {
-                Text("HABIT HEALTH")
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .tracking(2)
-                    .foregroundStyle(Color.white.opacity(0.4))
-
-                Text(healthDescription)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(themeColor)
-
-                if streak >= 66 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 12))
-                        Text("HABIT FORMED")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .tracking(1)
-                    }
-                    .foregroundStyle(themeColor)
-                    .padding(.top, 4)
+            if habit.isGraduated {
+                HStack(spacing: 6) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 16))
+                    Text("HABIT FORMED")
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .tracking(2)
                 }
+                .foregroundStyle(themeColor)
+                .padding(.top, 8)
             }
-        }
-    }
-
-    private var healthDescription: String {
-        switch healthPercentage {
-        case 90...100: return "Excellent"
-        case 75..<90:  return "Strong"
-        case 50..<75:  return "Building"
-        case 25..<50:  return "Growing"
-        default:       return "Starting"
         }
     }
 
@@ -449,7 +399,7 @@ final class ShareCardGenerator {
 
 // MARK: - Share Sheet
 
-/// Where a shared streak card should send people. Shared by every share
+/// Where a shared habit card should send people. Shared by every share
 /// entry point so a card never goes out without a way to get the app.
 enum AppStoreLink {
     static let url = URL(string: "https://apps.apple.com/app/id6754441151")!

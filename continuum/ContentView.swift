@@ -54,28 +54,14 @@ struct ContentView: View {
     @State private var showPerfectWeek = false
     @State private var perfectWeekCount = 0
 
-    // Freeze save state (a freeze rescued a streak overnight)
-    struct FreezeSave: Identifiable {
-        let id = UUID()
-        let habitName: String
-        let streak: Int
-        let freezesLeft: Int
-    }
-    @State private var freezeSave: FreezeSave? = nil
-
-
-    // Track previous streaks/health to detect milestone crossings
-    @State private var previousStreaks: [UUID: Int] = [:]
-    @State private var previousHealth: [UUID: Int] = [:]
-    @State private var previousBest: [UUID: Int] = [:]   // all-time longest, for records
-
     @AppStorage("hasCompletedOnboarding") private var onboardingCompleted = false
     @AppStorage("hasCompletedWalkthrough") private var walkthroughCompleted = false
     @AppStorage("habitsFormedCount") private var habitsFormedCount = 0
     @AppStorage("reviewRequestedForMilestone") private var reviewRequestedForMilestone = 0
     // Frequency gates so celebrations stay special instead of daily nags
     @AppStorage("lastPerfectDayCelebrationKey") private var lastPerfectDayCelebrationKey = 0
-    @AppStorage("lastMinorMilestoneCelebrationKey") private var lastMinorMilestoneCelebrationKey = 0
+    /// Minor milestones and comebacks: at most one a day across every habit.
+    @AppStorage("lastMinorMilestoneCelebrationKey") private var lastSmallMomentKey = 0
     // Defer the StoreKit review sheet until the 21-day celebration is dismissed
     @State private var pendingReviewRequest = false
     @State private var showWalkthrough = false
@@ -106,11 +92,19 @@ struct ContentView: View {
         hasHabits && completedTodayCount == habits.count
     }
 
-    // Calculate overall health for ambient background
+    /// Every habit pooled: total days done over total days counted, so a
+    /// two-day-old habit at 100% can't outvote a year-old one.
+    private var overall: (now: ConsistencyTally, weekAgo: ConsistencyTally) {
+        let today = ContinuumDay.todayKey()
+        return habits.reduce((ConsistencyTally(), ConsistencyTally())) { sum, habit in
+            let keys = habit.completedDayKeys
+            return (sum.0 + HabitMath.consistency(completed: keys, todayKey: today),
+                    sum.1 + HabitMath.consistencyWeekAgo(completed: keys, todayKey: today))
+        }
+    }
+
     private var overallHealth: Double {
-        guard !habits.isEmpty else { return 0 }
-        let total = habits.reduce(0.0) { $0 + $1.habitHealth() }
-        return total / Double(habits.count)
+        overall.now.fraction
     }
 
     var body: some View {
@@ -178,7 +172,7 @@ struct ContentView: View {
                     if showGraduation {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
-                            accent: healthColor(for: graduationHabit?.habitHealth() ?? 1.0),
+                            accent: healthColor(for: graduationHabit?.consistency.fraction ?? 1.0),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showGraduation = false
@@ -211,21 +205,6 @@ struct ContentView: View {
                         )
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         .zIndex(98)
-                    }
-
-                    if let save = freezeSave {
-                        FreezeSaveOverlay(
-                            habitName: save.habitName,
-                            streak: save.streak,
-                            freezesLeft: save.freezesLeft,
-                            onDismiss: {
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    freezeSave = nil
-                                }
-                            }
-                        )
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                        .zIndex(102)
                     }
 
                 }
@@ -283,11 +262,8 @@ struct ContentView: View {
             reconcileCompletions()      // per-day ledger → arrays (after dedupe)
             applyPendingWidgetToggles() // reconcile completions made from the widget
             initializeHabitOrders()
-            initializeMilestoneTracking()
             syncAllHabitsToWidget()
-            autoApplyStreakFreezes()
-            grantWeeklyStreakFreezes()
-            syncNotifications()         // after freezes: they change what's at stake
+            syncNotifications()
             NotificationManager.shared.clearBadge()
             refreshTrigger.toggle()
         }
@@ -295,10 +271,6 @@ struct ContentView: View {
             applyPendingWidgetToggles()
             dedupeHabits()
             reconcileCompletions()
-            // iOS keeps apps suspended for days — a missed day must be
-            // rescued here too, not just on cold launch (onAppear)
-            autoApplyStreakFreezes()
-            grantWeeklyStreakFreezes()
             syncAllHabitsToWidget()
             refreshTrigger.toggle()
             syncNotifications()
@@ -319,7 +291,6 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: DispatchQueue.main)) { _ in
             // App sitting open across midnight: refresh "today" everywhere
-            autoApplyStreakFreezes()
             refreshTrigger.toggle()
             syncNotifications()
             syncAllHabitsToWidget()
@@ -387,8 +358,20 @@ struct ContentView: View {
     // MARK: - Habit Grid
 
     private var habitGridView: some View {
-        ScrollView {
+        let overall = self.overall
+        return ScrollView {
             VStack(spacing: 0) {
+                ConsistencyHeader(
+                    tally: overall.now,
+                    trend: HabitMath.trend(now: overall.now, weekAgo: overall.weekAgo),
+                    doneToday: completedTodayCount,
+                    habitCount: habits.count,
+                    accent: healthColor(for: overall.now.fraction)
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+                .padding(.bottom, 14)
+
                 // Habits grid
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(sortedHabits) { habit in
@@ -401,8 +384,8 @@ struct ContentView: View {
                             onAction: { action in
                                 handleHabitAction(action, for: habit)
                             },
-                            onCompletion: { completed in
-                                checkForMilestones(habit: habit, wasJustCompleted: completed)
+                            onCompletion: { completed, dayKey in
+                                checkForMilestones(habit: habit, completed: completed, dayKey: dayKey)
                             },
                             celebration: tileCelebrations[habit.id],
                             onCelebrationTap: {
@@ -520,66 +503,47 @@ struct ContentView: View {
         modelContext.insert(habit)
         try? modelContext.save()
         syncHabitToWidget(habit)
-        previousStreaks[habit.id] = 0
-        previousHealth[habit.id] = 0
     }
 
-    private func checkForMilestones(habit: Habit, wasJustCompleted: Bool) {
-        let previousStreak = previousStreaks[habit.id] ?? 0
-        let previousHealthValue = previousHealth[habit.id] ?? 0
-
-        // Completion silences today's nudges and arms tomorrow's safety net;
-        // undo restores them, or the streak dies silently on a day the user
-        // showed intent. The planner derives both from the new state.
+    private func checkForMilestones(habit: Habit, completed: Bool, dayKey: Int) {
+        // Completion silences today's nudges and disarms tomorrow's evening
+        // alert; undo restores them. The planner derives both from the new state.
         syncNotifications()
 
-        guard wasJustCompleted else {
-            // Today is unmarked again: read the streak as the card shows it
-            previousStreaks[habit.id] = habit.displayStreak
-            previousHealth[habit.id] = Int(habit.habitHealth() * 100)
-            return
-        }
+        guard completed else { return }
 
-        let newStreak = habit.currentStreak()
-        let newHealth = Int(habit.habitHealth() * 100)
-        let allTimeBest = previousBest[habit.id] ?? 0
-
+        // Diff the habit either side of this mark: no remembered "previous"
+        // values to go stale overnight or across launches
+        let todayKey = ContinuumDay.todayKey()
+        let after = habit.completedDayKeys
         let events = MilestoneDetector.events(
-            previousStreak: previousStreak,
-            newStreak: newStreak,
+            before: after.subtracting([dayKey]),
+            after: after,
+            markedKey: dayKey,
+            todayKey: todayKey,
             isAlreadyGraduated: habit.isGraduated,
-            allTimeBest: allTimeBest,
-            previousHealth: previousHealthValue,
-            newHealth: newHealth,
-            minorAlreadyShownToday: lastMinorMilestoneCelebrationKey == ContinuumDay.todayKey()
+            smallMomentShownToday: lastSmallMomentKey == todayKey
         )
 
-        let hasTileCelebration = events.contains { TileCelebration($0) != nil }
-
-        for event in events {
-            switch event {
-            case .graduation:
-                if habit.checkAndMarkGraduation() {
-                    habitsFormedCount += 1
-                    try? modelContext.save()
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    graduationHabitName = habit.name
-                    graduationHabit = habit
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        showGraduation = true
-                    }
-                }
-            case .milestone(let milestone):
-                // Day 1/3/5 fire at most once a day — a new user with several
-                // habits gets one card, not a queue.
-                if milestone.isMinor {
-                    lastMinorMilestoneCelebrationKey = ContinuumDay.todayKey()
-                }
-                showTileCelebration(event, for: habit)
-            case .personalRecord, .health:
-                showTileCelebration(event, for: habit)
+        if events.contains(.graduation) {
+            if habit.checkAndMarkGraduation() {
+                habitsFormedCount += 1
+                try? modelContext.save()
             }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                graduationHabitName = habit.name
+                graduationHabit = habit
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showGraduation = true
+                }
+            }
+        }
+
+        // One tile moment per completion; the detector lists them highest first
+        let tileEvent = events.first { TileCelebration($0) != nil }
+        if let tileEvent {
+            if tileEvent.isSmallMoment { lastSmallMomentKey = todayKey }
+            showTileCelebration(tileEvent, for: habit)
         }
 
         // First completion ever: this is the moment to offer reminders, while
@@ -587,31 +551,18 @@ struct ContentView: View {
         considerReminderPrompt()
 
         // StoreKit review prompt, fired once a celebration has cleared so the
-        // sheet never covers the moment. Ask at 7 days first: a 21-day streak
-        // is rare by definition, so waiting for one meant almost nobody was
-        // ever asked. iOS caps this at 3 prompts a year and ignores the rest.
-        for milestone in [7, 21] where newStreak >= milestone && reviewRequestedForMilestone < milestone {
+        // sheet never covers the moment. Ask at 7 days done first, then 21.
+        // iOS caps this at 3 prompts a year and ignores the rest.
+        for milestone in [7, 21] where after.count >= milestone && reviewRequestedForMilestone < milestone {
             reviewRequestedForMilestone = milestone
             pendingReviewRequest = true
             break
         }
 
-        // Grant a streak freeze at milestone achievements
-        if newStreak == 7 || newStreak == 21 || newStreak == 100 {
-            if previousStreak < newStreak {
-                habit.grantStreakFreeze()
-                try? modelContext.save()
-            }
-        }
-
-        previousStreaks[habit.id] = newStreak
-        previousHealth[habit.id] = newHealth
-        previousBest[habit.id] = max(allTimeBest, newStreak)
-
         // Check for perfect day / perfect week (all habits complete).
         // With one habit every completion is "perfect" — the completion
         // animation is celebration enough, so these need 2+ habits.
-        if wasJustCompleted && allCompletedToday && habits.count > 1 {
+        if allCompletedToday && habits.count > 1 {
             // Once a day: the glint crosses every card as the completion lands
             if lastPerfectDaySweepKey != ContinuumDay.todayKey() {
                 lastPerfectDaySweepKey = ContinuumDay.todayKey()
@@ -624,7 +575,7 @@ struct ContentView: View {
             // A tile celebration is scheduled 0.8s out, so checking whether one
             // is on screen right now always says "no" — ask the events instead
             let delay: Double = showGraduation ? 3.0
-                : (hasTileCelebration ? 0.8 + TileCelebration.duration + 0.4 : 1.2)
+                : (tileEvent != nil ? 0.8 + TileCelebration.duration + 0.4 : 1.2)
 
             // 7, 14, 21... consecutive perfect days = perfect week(s)
             let perfectRun = HabitMath.consecutivePerfectDays(
@@ -664,26 +615,12 @@ struct ContentView: View {
         if needsSave { try? modelContext.save() }
     }
 
-    private func initializeMilestoneTracking() {
-        // As of YESTERDAY: currentStreak() is 0 until today is marked, so
-        // seeding from it made every formed habit look like it crossed 66
-        // again on the next completion — a graduation card every single day.
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        for habit in habits {
-            previousStreaks[habit.id] = habit.currentStreak(asOf: yesterday)
-            previousHealth[habit.id] = Int(habit.habitHealth() * 100)
-            previousBest[habit.id] = habit.longestStreak()
-        }
-    }
-
     private func createSelectedHabits(_ habitNames: [String]) {
         guard !habitNames.isEmpty else { return }
         for (index, name) in habitNames.enumerated() {
             let habit = Habit(name: name, order: index)
             modelContext.insert(habit)
             syncHabitToWidget(habit)
-            previousStreaks[habit.id] = 0
-            previousHealth[habit.id] = 0
         }
         try? modelContext.save()
     }
@@ -788,66 +725,6 @@ struct ContentView: View {
         NotificationManager.shared.sync(habits: habits)
     }
 
-    private func autoApplyStreakFreezes() {
-        let todayKey = ContinuumDay.todayKey()
-        let yesterdayKey = ContinuumDay.key(byAdding: -1, to: todayKey)
-        let twoDaysAgoKey = ContinuumDay.key(byAdding: -2, to: todayKey)
-        var didApply = false
-
-        var firstSave: FreezeSave? = nil
-
-        for habit in habits {
-            guard habit.streakFreezeCount > 0 else { continue }
-
-            // Check: yesterday was NOT completed/frozen, but the day before had a streak
-            let completed = habit.completedDayKeys
-            let frozen = habit.frozenDayKeys
-            guard !completed.contains(yesterdayKey), !frozen.contains(yesterdayKey) else { continue }
-
-            // Spend a freeze only when the week's grace day can't cover the miss
-            // on its own — i.e. freezing keeps streak days that grace would lose.
-            let withGrace = HabitMath.currentStreak(completed: completed, frozen: frozen, asOfKey: yesterdayKey)
-            let withFreeze = HabitMath.currentStreak(completed: completed, frozen: frozen.union([yesterdayKey]), asOfKey: yesterdayKey)
-            guard withFreeze > withGrace + 1 else { continue }
-
-            // Was there an active streak before yesterday?
-            let streakBeforeYesterday = HabitMath.currentStreak(
-                completed: completed,
-                frozen: frozen,
-                asOfKey: twoDaysAgoKey
-            )
-            if streakBeforeYesterday >= 3 {
-                habit.useStreakFreeze()
-                didApply = true
-
-                // Surface the save — this is the moment freezes earn their keep
-                if firstSave == nil {
-                    let savedStreak = HabitMath.currentStreak(
-                        completed: habit.completedDayKeys,
-                        frozen: habit.frozenDayKeys,
-                        asOfKey: yesterdayKey
-                    )
-                    firstSave = FreezeSave(
-                        habitName: habit.name,
-                        streak: savedStreak,
-                        freezesLeft: habit.streakFreezeCount
-                    )
-                }
-            }
-        }
-
-        if didApply {
-            try? modelContext.save()
-            if let save = firstSave {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        freezeSave = save
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: - Data Integrity
 
     /// One-time (idempotent) migration of legacy midnight-local dates to
@@ -925,7 +802,7 @@ struct ContentView: View {
 
             // Surface celebrations/graduation for today's completions
             if toggle.completed && toggle.dayKey == ContinuumDay.todayKey() {
-                checkForMilestones(habit: habit, wasJustCompleted: true)
+                checkForMilestones(habit: habit, completed: true, dayKey: toggle.dayKey)
             }
         }
 
@@ -933,20 +810,6 @@ struct ContentView: View {
             try? modelContext.save()
         }
         HabitDataManager.shared.requeuePendingToggles(unapplied)
-    }
-
-    private func grantWeeklyStreakFreezes() {
-        let lastGrantKey = "lastStreakFreezeGrantDate"
-        let lastGrant = UserDefaults.standard.object(forKey: lastGrantKey) as? Date ?? .distantPast
-        let daysSinceGrant = Calendar.current.dateComponents([.day], from: lastGrant, to: Date()).day ?? 999
-
-        if daysSinceGrant >= 7 {
-            for habit in habits where habit.displayStreak >= 7 {
-                habit.grantStreakFreeze()
-            }
-            UserDefaults.standard.set(Date(), forKey: lastGrantKey)
-            try? modelContext.save()
-        }
     }
 }
 

@@ -1,80 +1,12 @@
 import SwiftUI
 
-// MARK: - Milestone Definitions
-
-enum StreakMilestone: Int, CaseIterable {
-    // Dense rewards early (days 1–7 decide retention), scarce later.
-    case dayOne = 1
-    case dayThree = 3
-    case dayFive = 5
-    case week = 7
-    case threeWeeks = 21
-    case habitFormed = 66
-    case hundred = 100
-    case year = 365
-
-    var title: String {
-        switch self {
-        case .dayOne: return "1"
-        case .dayThree: return "3"
-        case .dayFive: return "5"
-        case .week: return "7"
-        case .threeWeeks: return "21"
-        case .habitFormed: return "66"
-        case .hundred: return "100"
-        case .year: return "365"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .dayOne: return "day"
-        default: return "days"
-        }
-    }
-
-    var message: String {
-        switch self {
-        case .dayOne: return "The first mark is on the grid"
-        case .dayThree: return "Three days. It's becoming real"
-        case .dayFive: return "Five days. Momentum is yours"
-        case .week: return "One week. You're someone who shows up"
-        case .threeWeeks: return "21 days. This is becoming you"
-        case .habitFormed: return "Habit formed"
-        case .hundred: return "100 days. Few people get here"
-        case .year: return "One year. This is who you are"
-        }
-    }
-
-    /// Early milestones get a lighter celebration (no full takeover fatigue).
-    var isMinor: Bool {
-        switch self {
-        case .dayOne, .dayThree, .dayFive: return true
-        default: return false
-        }
-    }
-
-    /// Celebration weight scales with how rare the milestone is.
-    var intensity: CelebrationIntensity {
-        switch self {
-        case .dayOne, .dayThree, .dayFive: return .subtle
-        case .week, .threeWeeks: return .strong
-        case .habitFormed, .hundred, .year: return .full
-        }
-    }
-
-    static func milestone(for streak: Int) -> StreakMilestone? {
-        return StreakMilestone(rawValue: streak)
-    }
-}
-
 // MARK: - Shared Celebration Design System
 //
 // Every celebration is the SAME card: dark fill, 1px accent border with a
 // soft glow, identical typography scale and spacing. Only the accent color
 // and content change. The accent follows the habit's progress color
-// (orange → green → cyan) for habit moments; gold and ice are reserved for
-// graduation/perfect/record and freeze moments.
+// (orange → green → cyan) for habit moments; gold is the fallback for
+// graduation and perfect days.
 
 enum CelebrationVisual {
     case value(String, unit: String)   // big number + unit ("7" / "DAYS")
@@ -89,14 +21,12 @@ enum CelebrationSound {
 // MARK: - Intensity
 //
 // Celebration weight scales with rarity so the moments you hit daily stay
-// quiet and the rare ones land. Day 1/3/5 are `subtle`; a 66-day graduation
-// or personal record gets `full`.
+// quiet and the rare ones land. A graduation or perfect week gets `full`.
 
 enum CelebrationIntensity {
-    case subtle    // day 1, 3, 5 — no ignition, minimal glow
-    case medium    // perfect day, health milestones
-    case strong    // day 7, 21, freeze save
-    case full      // graduation, perfect week, personal record
+    case subtle    // no ignition, minimal glow
+    case medium    // perfect day
+    case full      // graduation, perfect week
 
     /// Brightness of the grid ignition wave (0 = no ignition at all).
     /// The wave always travels clear off-screen; only its intensity varies,
@@ -105,7 +35,6 @@ enum CelebrationIntensity {
         switch self {
         case .subtle: return 0
         case .medium: return 0.5
-        case .strong: return 0.75
         case .full:   return 1.0
         }
     }
@@ -114,7 +43,7 @@ enum CelebrationIntensity {
         switch self {
         case .subtle: return 1
         case .medium: return 1.5
-        case .strong, .full: return 2
+        case .full: return 2
         }
     }
 
@@ -122,7 +51,6 @@ enum CelebrationIntensity {
         switch self {
         case .subtle: return 0.45
         case .medium: return 0.65
-        case .strong: return 0.8
         case .full:   return 0.95
         }
     }
@@ -131,7 +59,6 @@ enum CelebrationIntensity {
         switch self {
         case .subtle: return 18
         case .medium: return 28
-        case .strong: return 38
         case .full:   return 52
         }
     }
@@ -596,7 +523,6 @@ struct CelebrationCard: View {
 
 enum CelebrationPalette {
     static let gold = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
-    static let ice = Color(hue: 0.52, saturation: 0.55, brightness: 0.95)
 }
 
 
@@ -612,16 +538,16 @@ struct HabitGraduationOverlay: View {
     var body: some View {
         CelebrationCard(
             accent: accent,
-            visual: .value("66", unit: "days"),
+            visual: .value("66", unit: "days done"),
             title: "HABIT FORMED",
-            message: "This isn't something you do anymore.\nIt's who you are.",
+            message: "Not in a row.\nYou just kept coming back.",
             subject: habitName,
             intensity: .full,
             primaryAction: ("Share Achievement", "square.and.arrow.up", onShare),
             secondaryActionLabel: "Continue",
             onDismiss: onDismiss
         )
-        .accessibilityLabel("Habit graduation. \(habitName) has been formed after 66 days.")
+        .accessibilityLabel("Habit formed. \(habitName) has 66 days done.")
     }
 }
 
@@ -668,30 +594,6 @@ struct PerfectWeekOverlay: View {
         .accessibilityLabel("Perfect week. All \(habitCount) habits completed every day for 7 days.")
     }
 }
-
-// MARK: - Streak Saved (Freeze) Overlay
-
-struct FreezeSaveOverlay: View {
-    let habitName: String
-    let streak: Int
-    let freezesLeft: Int
-    let onDismiss: () -> Void
-
-    var body: some View {
-        CelebrationCard(
-            accent: CelebrationPalette.ice,
-            visual: .icon("snowflake"),
-            title: "STREAK SAVED",
-            message: "A freeze protected your \(streak)-day streak",
-            subject: habitName,
-            meta: freezesLeft > 0 ? "\(freezesLeft) freeze\(freezesLeft == 1 ? "" : "s") left" : nil,
-            intensity: .strong,
-            onDismiss: onDismiss
-        )
-        .accessibilityLabel("Streak saved. A freeze protected your \(streak)-day streak for \(habitName).")
-    }
-}
-
 
 // MARK: - Supporting Shapes
 
@@ -755,10 +657,6 @@ struct CornerBracket: Shape {
 
 #Preview("Perfect Week") {
     PerfectWeekOverlay(habitCount: 4, weekCount: 2, onDismiss: {})
-}
-
-#Preview("Streak Saved") {
-    FreezeSaveOverlay(habitName: "Meditate", streak: 23, freezesLeft: 2, onDismiss: {})
 }
 
 #Preview("Record") {

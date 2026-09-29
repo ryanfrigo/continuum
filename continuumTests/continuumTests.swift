@@ -318,12 +318,6 @@ struct FreezeTests {
 
     init() { ContinuumDay.calendar = utc }
 
-    @Test func grantIsCappedAtThree() {
-        let habit = Habit(name: "Test")
-        habit.grantStreakFreeze(count: 5)
-        #expect(habit.streakFreezeCount == 3)
-    }
-
     @Test func frozenDayPreservesAndCountsInStreak() {
         let habit = Habit(name: "Test")
         // Completed two days ago and today; frozen yesterday
@@ -331,29 +325,17 @@ struct FreezeTests {
         habit.setCompleted(true, forDayKey: 20260612)
         habit.freezeUsedDatesArray = [ContinuumDay.storageDate(for: 20260611)]
 
-        // The freeze bridges the gap — streak is 3, not 1
+        // A freeze from before 3.8 still bridges the gap — streak is 3, not 1
         #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 3)
-        #expect(habit.currentStreakWithFreezes(asOf: date(2026, 6, 12)) == 3)
     }
 
-    @Test func cannotFreezeCompletedDay() {
+    @Test func frozenDaysCountAsMissedForConsistency() {
         let habit = Habit(name: "Test")
-        habit.grantStreakFreeze()
-        // "Yesterday" relative to the real clock — complete it, then try to freeze
-        let yesterdayKey = ContinuumDay.key(byAdding: -1, to: ContinuumDay.todayKey())
-        habit.setCompleted(true, forDayKey: yesterdayKey)
-        #expect(habit.useStreakFreeze() == false)
-        #expect(habit.streakFreezeCount == 1)
-    }
-
-    @Test func useFreezeConsumesOneAndMarksYesterday() {
-        let habit = Habit(name: "Test")
-        habit.grantStreakFreeze()
-        #expect(habit.useStreakFreeze() == true)
-        #expect(habit.streakFreezeCount == 0)
-        #expect(habit.isFreezeActiveToday)
-        // Second use fails — none left and yesterday already frozen
-        #expect(habit.useStreakFreeze() == false)
+        habit.setCompleted(true, forDayKey: 20260610)
+        habit.setCompleted(true, forDayKey: 20260612)
+        habit.freezeUsedDatesArray = [ContinuumDay.storageDate(for: 20260611)]
+        #expect(HabitMath.consistency(completed: habit.completedDayKeys, todayKey: 20260612)
+                == ConsistencyTally(done: 2, counted: 3))
     }
 }
 }
@@ -366,12 +348,14 @@ struct GraduationTests {
 
     init() { ContinuumDay.calendar = utc }
 
-    @Test func graduatesAtSixtySixConsecutiveDays() {
+    @Test func graduatesAtSixtySixDaysDoneInAnyOrder() {
         let habit = Habit(name: "Test")
         let todayKey = ContinuumDay.todayKey()
-        for offset in 0..<66 {
-            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -offset, to: todayKey))
+        // Every other day: 66 days done across 131, never two in a row
+        for n in 0..<66 {
+            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -2 * n, to: todayKey))
         }
+        #expect(habit.daysDone == 66)
         #expect(habit.checkAndMarkGraduation() == true)
         #expect(habit.isGraduated)
         // Only marks once
@@ -508,16 +492,14 @@ struct WidgetParityTests {
 
     @Test func widgetSnapshotAgreesWithApp() {
         let habit = Habit(name: "Test")
-        habit.setCompleted(true, forDayKey: 20260610)
-        habit.setCompleted(true, forDayKey: 20260612)
-        habit.freezeUsedDatesArray = [ContinuumDay.storageDate(for: 20260611)]
-
+        let today = ContinuumDay.todayKey()
+        for back in [20, 18, 15, 9, 8, 7, 3, 1] {
+            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
+        }
         let data = HabitData(from: habit)
-        let asOf = date(2026, 6, 12)
-        // Freeze bridging must match between app and widget
-        #expect(data.currentStreak(asOf: asOf) == habit.currentStreak(asOf: asOf))
-        #expect(data.currentStreak(asOf: asOf) == 3)
-        #expect(abs(data.habitHealth(asOf: asOf) - habit.habitHealth(asOf: asOf)) < 0.0001)
+        #expect(data.consistency == habit.consistency)
+        #expect(data.consistency == ConsistencyTally(done: 8, counted: 20))
+        #expect(data.consistencyTrend == habit.consistencyTrend)
     }
 
     @Test func togglingTodayProducesCanonicalDatesAndQueueState() {
@@ -615,16 +597,12 @@ struct NotificationPlannerTests {
 
     private let today = 20260914
 
-    /// A habit with a reminder at `hour`:00 and a run of `streak` days ending yesterday.
-    /// `graceUsed` spends the week's grace day two days ago (still `streak` days),
-    /// so missing today or tomorrow would really cost the streak.
-    private func habit(streak: Int, reminderHour: Int = 9, doneToday: Bool = false, graceUsed: Bool = false) -> Habit {
+    /// A habit with a reminder at `hour`:00, done on the given days back.
+    private func habit(done backs: [Int], reminderHour: Int = 9) -> Habit {
         let h = Habit(name: "Read", reminderEnabled: true, reminderHour: reminderHour)
-        let span = graceUsed ? streak + 1 : streak
-        for back in 1...max(span, 1) where streak > 0 && !(graceUsed && back == 2) {
+        for back in backs {
             h.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
         }
-        if doneToday { h.setCompleted(true, forDayKey: today) }
         return h
     }
 
@@ -632,73 +610,72 @@ struct NotificationPlannerTests {
         NotificationPlanner.plan(for: h, todayKey: today, hour: hour, minute: minute)
     }
 
-    @Test func disabledReminderSchedulesNothingIncludingStreakAlerts() {
-        let h = habit(streak: 30)
+    private func alerts(_ items: [PlannedNotification]) -> [PlannedNotification] {
+        items.filter { $0.identifier.hasPrefix(NotificationID.missAlertPrefix) }
+    }
+
+    @Test func disabledReminderSchedulesNothingIncludingAlerts() {
+        let h = habit(done: [5, 4, 3, 2])
         h.reminderEnabled = false
         #expect(plan(h).isEmpty)
     }
 
-    @Test func morningReminderUsesTheStreakAtStakeNotZero() {
-        let h = habit(streak: 40)
-        let reminder = plan(h).first { $0.identifier == NotificationID.reminder(habitId: h.id, dayKey: today) }
-        #expect(reminder != nil)
-        #expect(reminder!.body.contains("40"))
-        #expect(!reminder!.body.contains("Day one"))
+    @Test func morningReminderSaysWhatTodayDoesToTheNumber() {
+        // 21 of 40 days, today open: 52% now, 22 of 41 = 53 if done
+        let h = habit(done: Array(stride(from: 2, through: 40, by: 2)) + [1])
+        let body = plan(h).first { $0.identifier == NotificationID.reminder(habitId: h.id, dayKey: today) }?.body
+        #expect(body?.contains("53") == true)
+        #expect(body?.contains("Day one") == false)
     }
 
-    @Test func completedTodaySilencesTodayAndArmsTomorrow() {
-        let h = habit(streak: 5, doneToday: true, graceUsed: true)
-        let items = plan(h)
-        #expect(!items.contains { $0.dayKey == today })
+    @Test func completedTodaySilencesToday() {
+        #expect(!plan(habit(done: [2, 1, 0])).contains { $0.dayKey == today })
+    }
 
+    @Test func dayAfterAMissGetsTheNeverMissTwiceAlert() {
+        let items = alerts(plan(habit(done: [5, 4, 3, 2])))
+        #expect(items.map(\.dayKey) == [today])
+        #expect(items.first?.hour == 20)
+        #expect(items.first?.title == "Read: never miss twice")
+    }
+
+    @Test func twoMissesInARowGetNoAlert() {
+        #expect(alerts(plan(habit(done: [5, 4, 3]))).isEmpty)
+    }
+
+    @Test func openTodayArmsTomorrowsAlertAndDoneTodayDisarmsIt() {
         let tomorrow = ContinuumDay.key(byAdding: 1, to: today)
-        let alert = items.first { $0.identifier == NotificationID.streakAlert(habitId: h.id, dayKey: tomorrow) }
-        #expect(alert?.title == "6-day Read streak ends at midnight")
-        #expect(alert?.hour == 20)
+        #expect(alerts(plan(habit(done: [3, 2, 1]))).map(\.dayKey) == [tomorrow])
+        #expect(alerts(plan(habit(done: [3, 2, 1, 0]))).isEmpty)
     }
 
-    @Test func daysWhoseStreakIsUnknownGetNeutralText() {
-        let h = habit(streak: 12)   // today not done: tomorrow's streak depends on today
-        let later = plan(h).filter { $0.dayKey != today }
-        #expect(!later.isEmpty)
-        #expect(later.allSatisfy { !$0.body.contains("12") && !$0.body.contains("13") })
-        #expect(!later.contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    @Test func eveningReminderReplacesTheAlert() {
+        let items = plan(habit(done: [5, 4, 3, 2], reminderHour: 21))
+        #expect(alerts(items).isEmpty)
+        #expect(items.contains { $0.dayKey == today && $0.hour == 21 })
     }
 
-    @Test func availableFreezeSuppressesStreakAlert() {
-        let h = habit(streak: 10)
-        h.streakFreezeCount = 1
-        #expect(!plan(h).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    @Test func pastEightNoAlertTonight() {
+        #expect(alerts(plan(habit(done: [5, 4, 3, 2]), hour: 20, minute: 30)).isEmpty)
     }
 
-    @Test func shortStreaksGetNoAlert() {
-        #expect(!plan(habit(streak: 2, graceUsed: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
-        #expect(plan(habit(streak: 3, graceUsed: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
-    }
-
-    @Test func unusedGraceDaySuppressesStreakAlert() {
-        // One miss a week is forgiven, so tonight's midnight isn't a deadline
-        #expect(!plan(habit(streak: 10)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
-        #expect(!plan(habit(streak: 5, doneToday: true)).contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
+    @Test func daysNotYetKnownGetNeutralText() {
+        // Today open: tomorrow's number depends on today
+        let later = plan(habit(done: [3, 2, 1])).filter {
+            $0.dayKey != today && $0.identifier.hasPrefix(NotificationID.reminderPrefix)
+        }
+        #expect(later.count == 2)
+        #expect(later.allSatisfy { !$0.body.contains("%") })
     }
 
     @Test func pastTimesTodayAreSkipped() {
-        let h = habit(streak: 10)
-        let items = plan(h, hour: 20, minute: 30)
-        #expect(!items.contains { $0.dayKey == today })
+        #expect(!plan(habit(done: [3, 2, 1]), hour: 20, minute: 30).contains { $0.dayKey == today })
     }
 
     @Test func reminderAtTheExactCurrentMinuteIsSkipped() {
-        let h = habit(streak: 0)
+        let h = habit(done: [])
         #expect(!plan(h, hour: 9, minute: 0).contains { $0.dayKey == today })
         #expect(plan(h, hour: 8, minute: 59).contains { $0.dayKey == today })
-    }
-
-    @Test func eveningReminderReplacesTheStreakAlert() {
-        let h = habit(streak: 10, reminderHour: 21, graceUsed: true)
-        let items = plan(h)
-        #expect(!items.contains { $0.identifier.hasPrefix(NotificationID.streakAlertPrefix) })
-        #expect(items.contains { $0.dayKey == today && $0.hour == 21 })
     }
 
     @Test func horizonCrossesMonthBoundaryWithDateKeyedIds() {
@@ -708,11 +685,11 @@ struct NotificationPlannerTests {
     }
 
     @Test func manyHabitsCapAtSystemLimitKeepingSoonest() {
-        let habits = (0..<20).map { _ in habit(streak: 5, graceUsed: true) }
+        let habits = (0..<20).map { _ in habit(done: [5, 4, 3, 2]) }
         let items = NotificationPlanner.plan(for: habits, todayKey: today, hour: 7, minute: 0)
         #expect(items.count == NotificationPlanner.systemPendingLimit)
         #expect(items.map(\.fireOrder) == items.map(\.fireOrder).sorted())
-        // Every habit keeps today's reminder and today's streak alert
+        // Every habit keeps today's reminder and today's alert
         #expect(items.filter { $0.dayKey == today }.count == 40)
     }
 
@@ -721,6 +698,7 @@ struct NotificationPlannerTests {
         #expect(NotificationID.isOwned("habit-reminder-\(id.uuidString)-day3"))
         #expect(NotificationID.isOwned("streak-risk-\(id.uuidString)-next"))
         #expect(NotificationID.isOwned(NotificationID.reminder(habitId: id, dayKey: today)))
+        #expect(NotificationID.isOwned(NotificationID.missAlert(habitId: id, dayKey: today)))
         #expect(!NotificationID.isOwned("something-else"))
     }
 }
@@ -824,55 +802,81 @@ extension ContinuumSerializedTests {
 @Suite(.serialized)
 struct MilestoneDetectorTests {
 
-    private func events(
-        previous: Int, new: Int, graduated: Bool = false, best: Int = 0,
-        previousHealth: Int = 100, newHealth: Int = 100, minorShown: Bool = false
-    ) -> [CelebrationEvent] {
-        MilestoneDetector.events(
-            previousStreak: previous, newStreak: new, isAlreadyGraduated: graduated,
-            allTimeBest: best, previousHealth: previousHealth, newHealth: newHealth,
-            minorAlreadyShownToday: minorShown
+    init() { ContinuumDay.calendar = utc }
+
+    private let today = 20260929
+
+    private func keys(_ backs: [Int]) -> Set<Int> {
+        Set(backs.map { ContinuumDay.key(byAdding: -$0, to: today) })
+    }
+
+    /// Events for marking `mark` days back on top of `history`.
+    private func events(_ history: [Int], mark: Int = 0, graduated: Bool = false, smallShown: Bool = false) -> [CelebrationEvent] {
+        let before = keys(history)
+        let marked = ContinuumDay.key(byAdding: -mark, to: today)
+        return MilestoneDetector.events(
+            before: before, after: before.union([marked]), markedKey: marked, todayKey: today,
+            isAlreadyGraduated: graduated, smallMomentShownToday: smallShown
         )
     }
 
-    @Test func graduationFiresOnceAndNeverAgain() {
-        #expect(events(previous: 65, new: 66, best: 65) == [.graduation])
-        // The bug: a stale previousStreak of 0 on a formed habit re-fired this daily
-        #expect(!events(previous: 0, new: 120, graduated: true, best: 200).contains(.graduation))
-        #expect(events(previous: 0, new: 66, graduated: true, best: 200).isEmpty)
+    private func isMilestone(_ e: CelebrationEvent) -> Bool { if case .milestone = e { return true }; return false }
+    private func isLevel(_ e: CelebrationEvent) -> Bool { if case .level = e { return true }; return false }
+    private func isComeback(_ e: CelebrationEvent) -> Bool { if case .comeback = e { return true }; return false }
+
+    @Test func daysDoneMilestonesCountAnyOrder() {
+        // 6 days scattered over two weeks, the 7th today
+        #expect(events([12, 10, 8, 6, 4, 2]).contains(.milestone(.seven)))
+        #expect(!events([12, 10, 8, 6, 4, 2, 1]).contains(where: isMilestone))
     }
 
-    @Test func streakMilestonesFireOnTheirExactDay() {
-        #expect(events(previous: 6, new: 7, best: 6) == [.milestone(.week)])
-        #expect(events(previous: 7, new: 8, best: 8) == [])
+    @Test func graduationAtSixtySixDoneEvenWithoutAStreak() {
+        let every2nd = (1...65).map { $0 * 2 }
+        #expect(events(every2nd) == [.graduation])
+        #expect(!events(every2nd, graduated: true).contains(.graduation))
     }
 
-    @Test func minorMilestonesFireOncePerDayAcrossHabits() {
-        #expect(events(previous: 0, new: 3, best: 0) == [.milestone(.dayThree)])
-        #expect(events(previous: 0, new: 3, best: 0, minorShown: true).isEmpty)
-        // A major one still fires even if a minor already showed today
-        #expect(events(previous: 6, new: 7, best: 6, minorShown: true) == [.milestone(.week)])
+    @Test func alreadyPastSixtySixGraduatesOnTheNextCompletion() {
+        // Never had a 66-day streak, but 80 days done: formed on the next mark
+        #expect(events(Array(1...80)) == [.graduation])
     }
 
-    @Test func personalRecordNeedsAnEstablishedBestAndNoMilestone() {
-        #expect(events(previous: 9, new: 10, best: 9) == [.personalRecord(10)])
-        #expect(events(previous: 3, new: 4, best: 3).isEmpty)          // best below the floor
-        #expect(events(previous: 20, new: 21, best: 20) == [.milestone(.threeWeeks)])  // not also a record
+    @Test func minorMilestonesAndComebacksShareOneSlotADay() {
+        #expect(events([2, 1]) == [.milestone(.three)])
+        #expect(events([2, 1], smallShown: true).isEmpty)
+        // A major one still fires after a small moment today
+        #expect(events([12, 10, 8, 6, 4, 2], smallShown: true) == [.milestone(.seven)])
+        #expect(!events([6, 5, 4, 3, 2], smallShown: true).contains(where: isComeback))
     }
 
-    @Test func healthMilestoneCrossingIsReportedOnce() {
-        // A plain day (no milestone, no new best) that crosses 75% health
-        #expect(events(previous: 9, new: 10, best: 10, previousHealth: 74, newHealth: 76) == [.health(75)])
-        #expect(events(previous: 9, new: 10, best: 10, previousHealth: 76, newHealth: 78).isEmpty)
+    @Test func levelNeedsFourteenCountedDays() {
+        // 11 of 15 counted (73%) → 12 of 16 (75%)
+        #expect(events([15, 14, 13, 12, 11, 10, 8, 6, 4, 2, 1]) == [.level(75)])
+        // 3 of 4 → 4 of 5 moves the number, but 5 days is too young to mean it
+        #expect(!events([4, 3, 1]).contains(where: isLevel))
     }
 
-    @Test func graduationHasNoTileCardButOthersDo() {
+    @Test func comebackAfterOneMiss() {
+        #expect(events([6, 5, 4, 3, 2]) == [.comeback(gap: 1)])
+    }
+
+    @Test func comebackAtMostOnceAWeekPerHabit() {
+        // Came back 3 days ago (done 7,6,5 · missed 4 · done 3), so not again today
+        #expect(!events([7, 6, 5, 3, 2]).contains(where: isComeback))
+    }
+
+    @Test func backfillingYesterdayIsNotAComeback() {
+        #expect(!events([5, 4, 3], mark: 1).contains(where: isComeback))
+    }
+
+    @Test func tileCopy() {
         #expect(TileCelebration(.graduation) == nil)
-        let week = TileCelebration(.milestone(.week))
-        #expect(week?.value == "7")
-        #expect(week?.isShareable == true)
-        #expect(TileCelebration(.milestone(.dayOne))?.isShareable == false)
-        #expect(TileCelebration(.health(50))?.unit == "%")
+        #expect(TileCelebration(.milestone(.seven))?.value == "7")
+        #expect(TileCelebration(.milestone(.seven))?.isShareable == true)
+        #expect(TileCelebration(.milestone(.one))?.isShareable == false)
+        #expect(TileCelebration(.level(90))?.value == "90%")
+        #expect(TileCelebration(.comeback(gap: 1))?.caption == "didn't miss twice")
+        #expect(TileCelebration(.comeback(gap: 4))?.caption == "picked it back up")
     }
 }
 }
@@ -904,15 +908,6 @@ struct DisplayStreakTests {
         // Last completed three days ago: the chain is genuinely gone
         habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -3, to: today))
         #expect(habit.displayStreak == 0)
-    }
-
-    @Test func appAndWidgetAgree() {
-        let habit = Habit(name: "Run")
-        let today = ContinuumDay.todayKey()
-        for back in 1...4 {
-            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today))
-        }
-        #expect(HabitData(from: habit).displayStreak == habit.displayStreak)
     }
 }
 }
@@ -947,8 +942,8 @@ struct ReminderPromptTests {
                                           anyReminderEnabled: true, totalCompletions: 1))
     }
 
-    @Test func defaultTimeAvoidsTheEveningStreakAlert() {
-        #expect(ReminderPrompt.defaultHour < NotificationPlanner.streakAlertHour)
+    @Test func defaultTimeAvoidsTheEveningAlert() {
+        #expect(ReminderPrompt.defaultHour < NotificationPlanner.missAlertHour)
     }
 }
 }
@@ -979,11 +974,11 @@ struct ReminderCopyTests {
     @Test func emptyGridGetsDayOneCopy() {
         let text = body(habit(completing: []))
         #expect(["Day one is waiting.", "The grid wants its first mark.",
-                 "Every streak starts with a single dot."].contains(text))
+                 "Every habit starts with a single dot."].contains(text))
     }
 
-    @Test func brokenStreakIsNotToldItNeverStarted() {
-        // 40 days on the grid, missed yesterday: streak is 0 but the grid is full
+    @Test func missedYesterdayIsNotToldItNeverStarted() {
+        // 40 days on the grid, missed yesterday
         let text = body(habit(completing: Array(2...41)))
         #expect(!text.contains("Day one"))
         #expect(!text.contains("first mark"))
@@ -994,7 +989,7 @@ struct ReminderCopyTests {
         // The card shows 66 days; anything older isn't on it
         let text = body(habit(completing: [80, 81, 82]))
         #expect(["Day one is waiting.", "The grid wants its first mark.",
-                 "Every streak starts with a single dot."].contains(text))
+                 "Every habit starts with a single dot."].contains(text))
     }
 
     @Test func aSingleDotOnTheGridIsStillHistory() {
@@ -1127,22 +1122,22 @@ extension ContinuumSerializedTests {
 struct ReviewPromptTests {
 
     /// Mirrors ContentView's rule so the milestone ladder is pinned by a test.
-    private func asked(streak: Int, alreadyAskedAt: Int) -> Int? {
-        for milestone in [7, 21] where streak >= milestone && alreadyAskedAt < milestone {
+    private func asked(daysDone: Int, alreadyAskedAt: Int) -> Int? {
+        for milestone in [7, 21] where daysDone >= milestone && alreadyAskedAt < milestone {
             return milestone
         }
         return nil
     }
 
     @Test func asksAtSevenDaysNotOnlyAtTwentyOne() {
-        #expect(asked(streak: 7, alreadyAskedAt: 0) == 7)
-        #expect(asked(streak: 6, alreadyAskedAt: 0) == nil)
+        #expect(asked(daysDone: 7, alreadyAskedAt: 0) == 7)
+        #expect(asked(daysDone: 6, alreadyAskedAt: 0) == nil)
     }
 
     @Test func asksAgainAtTwentyOneButNeverTwiceForTheSameMilestone() {
-        #expect(asked(streak: 21, alreadyAskedAt: 7) == 21)
-        #expect(asked(streak: 30, alreadyAskedAt: 21) == nil)
-        #expect(asked(streak: 9, alreadyAskedAt: 7) == nil)
+        #expect(asked(daysDone: 21, alreadyAskedAt: 7) == 21)
+        #expect(asked(daysDone: 30, alreadyAskedAt: 21) == nil)
+        #expect(asked(daysDone: 9, alreadyAskedAt: 7) == nil)
     }
 }
 }

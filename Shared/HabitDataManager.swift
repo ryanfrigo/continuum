@@ -247,18 +247,6 @@ enum HabitMath {
             .max() ?? 0
     }
 
-    /// Fraction of the last `daysBack` days (ending at `asOfKey`) completed.
-    static func health(completed: Set<Int>, asOfKey: Int, daysBack: Int = 66) -> Double {
-        guard daysBack > 0 else { return 0 }
-        var done = 0
-        var cursor = asOfKey
-        for _ in 0..<daysBack {
-            if completed.contains(cursor) { done += 1 }
-            cursor = ContinuumDay.key(byAdding: -1, to: cursor)
-        }
-        return Double(done) / Double(daysBack)
-    }
-
     /// Consecutive "perfect days" ending at `asOfKey`. A day is perfect when
     /// every habit that already existed on that day completed it. Days before
     /// the first habit existed end the run.
@@ -295,19 +283,21 @@ enum HabitMath {
 // so the widget could never tell which request was today's.
 enum NotificationID {
     static let reminderPrefix = "habit-reminder-"
-    static let streakAlertPrefix = "streak-risk-"
+    /// The evening never-miss-twice alert. The prefix is the old streak
+    /// alert's, kept so requests left pending by 3.7 are still recognized.
+    static let missAlertPrefix = "streak-risk-"
 
     static func reminder(habitId: UUID, dayKey: Int) -> String {
         "\(reminderPrefix)\(habitId.uuidString)-\(dayKey)"
     }
 
-    static func streakAlert(habitId: UUID, dayKey: Int) -> String {
-        "\(streakAlertPrefix)\(habitId.uuidString)-\(dayKey)"
+    static func missAlert(habitId: UUID, dayKey: Int) -> String {
+        "\(missAlertPrefix)\(habitId.uuidString)-\(dayKey)"
     }
 
     /// Everything the app has ever scheduled, including pre-3.4 offset-style IDs.
     static func isOwned(_ identifier: String) -> Bool {
-        identifier.hasPrefix(reminderPrefix) || identifier.hasPrefix(streakAlertPrefix)
+        identifier.hasPrefix(reminderPrefix) || identifier.hasPrefix(missAlertPrefix)
     }
 }
 
@@ -501,43 +491,23 @@ struct HabitData: Codable {
         ContinuumDay.keys(fromStorage: completedDates)
     }
 
-    var frozenKeys: Set<Int> {
-        ContinuumDay.keys(fromStorage: freezeUsedDates ?? [])
-    }
-
     // MARK: - Computed Properties
 
     var isCompletedToday: Bool {
         completedKeys.contains(ContinuumDay.todayKey())
     }
 
-    var currentStreak: Int {
-        currentStreak(asOf: Date())
+    /// Same numbers as Habit.consistency / consistencyTrend in the app.
+    var consistency: ConsistencyTally {
+        HabitMath.consistency(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
 
-    /// The streak to show. `currentStreak` counts back from today and so reads
-    /// 0 until today is marked — showing that would blank out a 40-day streak
-    /// every morning. Matches HabitCardView.displayStreak in the app.
-    var displayStreak: Int {
-        if isCompletedToday { return currentStreak }
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        return currentStreak(asOf: yesterday)
+    var consistencyWeekAgo: ConsistencyTally {
+        HabitMath.consistencyWeekAgo(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
 
-    func currentStreak(asOf date: Date = Date()) -> Int {
-        HabitMath.currentStreak(
-            completed: completedKeys,
-            frozen: frozenKeys,
-            asOfKey: ContinuumDay.key(for: date)
-        )
-    }
-
-    var habitHealth: Double {
-        habitHealth(asOf: Date())
-    }
-
-    func habitHealth(asOf date: Date = Date()) -> Double {
-        HabitMath.health(completed: completedKeys, asOfKey: ContinuumDay.key(for: date))
+    var consistencyTrend: Int? {
+        HabitMath.trend(now: consistency, weekAgo: consistencyWeekAgo)
     }
 
     func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {

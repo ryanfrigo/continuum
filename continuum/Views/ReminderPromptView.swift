@@ -8,7 +8,7 @@ import UserNotifications
 /// Settings. This asks once, after the first completion, when the app has just
 /// proved it does something.
 enum ReminderPrompt {
-    /// Default reminder time. Stays clear of the 8pm streak-at-risk alert so a
+    /// Default reminder time. Stays clear of the 8pm never-miss-twice alert so a
     /// habit never pings twice in one evening.
     static let defaultHour = 9
     static let defaultMinute = 0

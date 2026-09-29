@@ -65,7 +65,7 @@ struct SettingsView: View {
                         Text("Daily Reminders")
                             .foregroundStyle(.gray)
                     } footer: {
-                        Text("Set a daily reminder time for each habit. You'll get a notification only if it isn't done yet, plus an 8pm heads-up when a 3+ day streak is at risk.")
+                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus one 8pm nudge the day after a miss. Never miss twice.")
                             .foregroundStyle(.gray.opacity(0.7))
                     }
 
@@ -78,7 +78,7 @@ struct SettingsView: View {
                                 Text(habit.name)
                                     .foregroundStyle(.white)
                                 Spacer()
-                                Text("\(habit.displayStreak) days")
+                                Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                                     .font(.caption)
                                     .foregroundStyle(.gray)
                             }
@@ -414,7 +414,7 @@ struct AboutView: View {
                                 .foregroundStyle(.white)
                                 .tracking(6)
 
-                            Text("HABIT FORMATION SYSTEM")
+                            Text("CONSISTENCY SYSTEM")
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.orange)
                                 .tracking(2)
@@ -433,24 +433,24 @@ struct AboutView: View {
                         // Info Cards
                         VStack(spacing: 16) {
                             AboutCard(
-                                icon: "waveform.path.ecg",
-                                code: "SYS.PROTOCOL.066",
-                                title: "66 DAY PROTOCOL",
-                                description: "Neural pathway research indicates 66 days to encode permanent behavioral patterns. System monitors progression toward permanence."
+                                icon: "percent",
+                                code: "SYS.CONSISTENCY.IDX",
+                                title: "CONSISTENCY INDEX",
+                                description: "Share of the last 66 days you showed up, counted from your first. A miss dents it. Nothing resets it."
                             )
 
                             AboutCard(
-                                icon: "chart.line.uptrend.xyaxis",
-                                code: "SYS.INTEGRITY.IDX",
-                                title: "INTEGRITY INDEX",
-                                description: "Real-time calculation of your 66-day completion percentage. Optimal performance achieved at maximum integrity."
+                                icon: "waveform.path.ecg",
+                                code: "SYS.PROTOCOL.066",
+                                title: "66 DAY PROTOCOL",
+                                description: "Lally et al. (2009) put automaticity at a median of 66 days of practice, and found one missed day didn't set it back. System counts days done, in any order."
                             )
 
                             AboutCard(
                                 icon: "diamond.fill",
                                 code: "SYS.MILESTONE.TRK",
                                 title: "MILESTONE EVENTS",
-                                description: "System triggers at 1, 3, 5, 7, 21, 66, 100, and 365 day thresholds. Each milestone signifies deeper neural encoding."
+                                description: "System triggers at 1, 3, 5, 7, 21, 66, 100 and 365 days done. Consecutive not required."
                             )
                         }
                         .padding(.horizontal)

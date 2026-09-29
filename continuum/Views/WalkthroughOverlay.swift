@@ -11,7 +11,7 @@ struct WalkthroughOverlay: View {
         WalkthroughStep(
             icon: "hand.tap.fill",
             title: "Hold to Complete",
-            description: "Press and hold a habit card to mark it done. The bar fills as you hold — release early to cancel."
+            description: "Press and hold a habit card to mark it done. The border traces itself as you hold — release early to cancel."
         ),
         WalkthroughStep(
             icon: "clock.arrow.circlepath",
@@ -24,19 +24,19 @@ struct WalkthroughOverlay: View {
             description: "Made a mistake? Tap a completed habit and confirm to undo it."
         ),
         WalkthroughStep(
+            icon: "percent",
+            title: "Your Number",
+            description: "The big number is your consistency over the last 66 days, and the arrow is this week's change. Miss a day and it dips a little. Just don't miss twice."
+        ),
+        WalkthroughStep(
             icon: "ellipsis.circle",
             title: "The ⋯ Menu",
             description: "Tap ⋯ on any card to view stats, edit, share, or delete your habit."
         ),
         WalkthroughStep(
-            icon: "snowflake",
-            title: "Never Miss Twice",
-            description: "One missed day a week won't break your streak. Streak freezes, earned at 7, 21, and 100 days, cover the next one."
-        ),
-        WalkthroughStep(
             icon: "star.fill",
-            title: "66-Day Goal",
-            description: "Science shows 66 days forms a lasting habit. Hit that mark and your habit graduates — permanently formed."
+            title: "66 Days",
+            description: "Mark 66 days done, in a row or not, and the habit is formed."
         ),
     ]
 

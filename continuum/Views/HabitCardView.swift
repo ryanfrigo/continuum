@@ -10,8 +10,9 @@ struct HabitCardView: View {
     /// Bumped by ContentView when the day's last habit is done.
     var perfectDaySweep: Int = 0
     var onAction: ((HabitAction) -> Void)? = nil
-    var onCompletion: ((Bool) -> Void)? = nil
-    /// Milestone/record/health celebration shown inside this tile. Full-screen
+    /// (completed, day key marked) — the day is today, or yesterday on a backfill.
+    var onCompletion: ((Bool, Int) -> Void)? = nil
+    /// Milestone, level or comeback celebration shown inside this tile. Full-screen
     /// takeovers are reserved for graduation and the app-wide moments.
     var celebration: TileCelebration? = nil
     var onCelebrationTap: (() -> Void)? = nil
@@ -72,18 +73,18 @@ struct HabitCardView: View {
 
     // MARK: - Computed Properties
 
-    private var health: Double {
-        habit.habitHealth()
+    private var consistency: ConsistencyTally {
+        habit.consistency
     }
-
-    private var healthPercentage: Int {
-        Int(health * 100)
-    }
-
-    private var displayStreak: Int { habit.displayStreak }
 
     private var themeColor: Color {
-        healthColor(for: health)
+        healthColor(for: consistency.fraction)
+    }
+
+    /// Days back to the first done day. Older cells aren't misses — the habit
+    /// hadn't started — so they draw fainter. Nil when nothing's done yet.
+    private var daysSinceStart: Int? {
+        habit.completedDayKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
     }
 
     private var paddedFlags: [Bool] {
@@ -226,7 +227,7 @@ struct HabitCardView: View {
                     HabitDataManager.shared.saveHabitData(habitData)
                     HabitDataManager.shared.updateWidgetTimeline()
                 }
-                onCompletion?(false)
+                onCompletion?(false, ContinuumDay.todayKey())
             } else if !isAnimatingCompletion {
                 finishCompletion()
             }
@@ -271,7 +272,10 @@ struct HabitCardView: View {
 
     private var accessibilitySummary: String {
         var parts = [habit.name]
-        if displayStreak > 0 { parts.append("\(displayStreak) day streak") }
+        if let percent = consistency.percent { parts.append("\(percent) percent consistent") }
+        if let trend = habit.consistencyTrend, trend != 0 {
+            parts.append(trend > 0 ? "up \(trend) this week" : "down \(-trend) this week")
+        }
         parts.append(habit.isCompletedToday ? "completed today" : "not completed today")
         if habit.isGraduated { parts.append("habit formed") }
         return parts.joined(separator: ", ")
@@ -281,11 +285,11 @@ struct HabitCardView: View {
 
     private var cardContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Header with name and health
+            // Name and options
             headerSection
 
-            // Streak information
-            streakSection
+            // The number: consistency over the grid, and this week's change
+            consistencySection
 
             // 66-day grid — hero visual, gets remaining space
             historyGridSection
@@ -324,36 +328,6 @@ struct HabitCardView: View {
                 .minimumScaleFactor(0.75)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Health ring
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 2.5)
-                    .frame(width: 32, height: 32)
-
-                Circle()
-                    .trim(from: 0, to: health)
-                    .stroke(themeColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .frame(width: 32, height: 32)
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: themeColor.opacity(0.5), radius: 4)
-                    .animation(.easeOut(duration: 0.6), value: health)
-                    .overlay {
-                        TiltSheenFill(intensity: 0.7)
-                            .mask {
-                                Circle()
-                                    .trim(from: 0, to: health)
-                                    .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                                    .rotationEffect(.degrees(-90))
-                            }
-                    }
-
-                Text("\(healthPercentage)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(themeColor)
-                    .contentTransition(.numericText(value: Double(healthPercentage)))
-                    .animation(.snappy, value: healthPercentage)
-            }
-
             // Options menu (was the long-press context menu — long press
             // now completes the habit)
             Menu {
@@ -369,30 +343,19 @@ struct HabitCardView: View {
         }
     }
 
-    private var streakSection: some View {
-        HStack(spacing: 4) {
-            if !habit.completedDatesArray.isEmpty {
-                Circle()
-                    .fill(themeColor)
-                    .frame(width: 5, height: 5)
-                    .shadow(color: themeColor, radius: 2)
-                    .opacity(displayStreak > 0 ? 1 : 0)
+    private var consistencySection: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            if let percent = consistency.percent {
+                percentText(percent)
+                    .foregroundStyle(themeColor)
+                    // The number catches the light as the phone tilts
+                    .overlay {
+                        TiltSheenFill(intensity: 0.6)
+                            .mask { percentText(percent) }
+                    }
 
-                Text("\(displayStreak)d")
-                    .contentTransition(.numericText())
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-
-                if habit.isCompletedToday {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 7, weight: .heavy))
-                        .foregroundStyle(themeColor)
-                }
-
-                if habit.isGraduated {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 7))
-                        .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
+                if let trend = habit.consistencyTrend, trend != 0 {
+                    TrendLabel(trend: trend, color: themeColor)
                 }
             } else {
                 Text("Hold to start")
@@ -400,17 +363,26 @@ struct HabitCardView: View {
                     .foregroundStyle(Color.white.opacity(0.35))
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            if habit.streakFreezeCount > 0 && !habit.isCompletedToday {
-                HStack(spacing: 2) {
-                    Image(systemName: "snowflake")
-                        .font(.system(size: 6, weight: .bold))
-                    Text("\(habit.streakFreezeCount)")
-                        .font(.system(size: 7, weight: .bold, design: .rounded))
-                }
-                .foregroundStyle(.cyan.opacity(0.7))
+            if habit.isGraduated {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
             }
+        }
+        // Same height with or without a number, so neighbouring cards line up
+        .frame(height: 30, alignment: .bottom)
+    }
+
+    private func percentText(_ percent: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text("\(percent)")
+                .font(.system(size: 28, weight: .heavy))
+                .contentTransition(.numericText(value: Double(percent)))
+                .animation(.snappy, value: percent)
+            Text("%")
+                .font(.system(size: 15, weight: .heavy))
         }
     }
 
@@ -420,6 +392,7 @@ struct HabitCardView: View {
         let gridAspectRatio: CGFloat = 1.85
         let flags = paddedFlags // Cache computed property
         let color = themeColor // Cache computed property
+        let startIndex = daysSinceStart
 
         return Color.clear
             .aspectRatio(gridAspectRatio, contentMode: .fit)
@@ -436,7 +409,9 @@ struct HabitCardView: View {
                             let isToday = idx == 0
 
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(dotColor(filled: filled, isToday: isToday, healthColor: color))
+                                .fill(dotColor(filled: filled, isToday: isToday,
+                                               notStarted: startIndex.map { idx > $0 } ?? true,
+                                               healthColor: color))
                                 .frame(width: dotSize, height: dotSize)
                                 .overlay {
                                     if isToday && !filled {
@@ -486,11 +461,14 @@ struct HabitCardView: View {
         }
     }
 
-    private func dotColor(filled: Bool, isToday: Bool, healthColor: Color) -> Color {
+    private func dotColor(filled: Bool, isToday: Bool, notStarted: Bool, healthColor: Color) -> Color {
         if filled {
             return healthColor
         } else if isToday {
             return Color.white.opacity(0.12)
+        } else if notStarted {
+            // Before the first done day: not a miss, so fainter than one
+            return Color.white.opacity(0.035)
         } else {
             return Color.white.opacity(0.08)
         }
@@ -663,7 +641,7 @@ struct HabitCardView: View {
                     HabitDataManager.shared.saveHabitData(habitData)
                     HabitDataManager.shared.updateWidgetTimeline()
                 }
-                onCompletion?(false)
+                onCompletion?(false, ContinuumDay.todayKey())
                 withAnimation(.easeOut(duration: 0.2)) {
                     showUndoConfirm = false
                 }
@@ -785,7 +763,8 @@ struct HabitCardView: View {
         }
 
         // Update data
-        let healthBefore = healthPercentage
+        let percentBefore = consistency.percent ?? 0
+        let markedKey = ContinuumDay.key(for: backfillDate ?? Date())
         if let backfillDate {
             habit.setCompleted(true, on: backfillDate)
             self.backfillDate = nil
@@ -799,11 +778,11 @@ struct HabitCardView: View {
             HabitDataManager.shared.updateWidgetTimeline()
         }
 
-        // Health dial clicks over, one tick per point, after the hit lands
-        SoundManager.shared.triggerHealthTicks(healthPercentage - healthBefore, after: 0.3)
+        // The number clicks over, one tick per point, after the hit lands
+        SoundManager.shared.triggerHealthTicks((consistency.percent ?? 0) - percentBefore, after: 0.3)
 
-        // A backfill can extend the streak, so it's a completion too
-        onCompletion?(true)
+        // A backfill moves the number and the days done, so it's a completion too
+        onCompletion?(true, markedKey)
     }
 
     // MARK: - Context Menu
@@ -818,7 +797,7 @@ struct HabitCardView: View {
         Button {
             onAction?(.share)
         } label: {
-            Label("Share Streak", systemImage: "square.and.arrow.up")
+            Label("Share", systemImage: "square.and.arrow.up")
         }
         Divider()
         Button("Reset Progress", role: .destructive) { showingResetConfirmation = true }
