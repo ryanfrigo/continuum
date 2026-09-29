@@ -1,5 +1,45 @@
 # App Store listing
 
+## 3.8: the consistency rebrand (2026-09-29)
+
+The app stopped being about streaks, so the listing had to stop saying
+"Habit Streak Grid". A continuum is a range and a streak is on or off, so the
+name was arguing with the app all along.
+
+| Field | Value | Chars |
+|---|---|---|
+| Name | Continuum: Consistency Tracker | 30/30 |
+| Subtitle | Daily habits, no streak resets | 30/30 |
+| Keywords | percent,score,minimal,dark,widget,66,discipline,routine,progress,heatmap,checklist,ritual,goal,dot | 98/100 |
+
+"Consistency tracker" is a query with clear intent and almost no competition.
+"Streak" stays in the subtitle on purpose: the people most likely to want this
+app are searching for streak trackers after one of them reset on them.
+"Consistency" left the keyword field because it's in the name now.
+
+Screenshots (`AppStoreScreenshots/3.8/`, five, 1320x2868):
+
+1. `01_consistency.png`: home with the pooled 82%. "Miss a day. / Nothing resets."
+2. `02_never_miss_twice.png`: a comeback in its card. "Missed yesterday? / Don't miss twice."
+3. `03_week_by_week.png`: stats, 12 bars climbing. "12 weeks. / Watch it climb."
+4. `04_66_days.png`: graduation. "66 days. / Not in a row."
+5. `05_hold.png`: mid-hold, magnified. "Hold to mark / the day."
+
+To rebuild them: run `seedForScreenshots()` (or `seedForGraduationScreenshot()`)
+from `continuumTests/SeedShots.swift` on the iPhone 16 Pro Max simulator,
+capture with a 9:41 status bar, then
+`python3 scripts/caption-screenshots.py <raw dir> AppStoreScreenshots/3.8`.
+The raw captures are in `AppStoreScreenshots/3.8/raw/`. Xcode 27 has no
+Simulator.app; DeviceHub shows the screen and takes clicks, but roughly one in
+two gets dropped, so check every capture.
+
+Apply with `node scripts/asc-metadata.mjs --apply` and
+`node scripts/asc-screenshots.mjs AppStoreScreenshots/3.8 --replace` while 3.8
+is PREPARE_FOR_SUBMISSION, before it goes to review — screenshots are locked
+once it's waiting.
+
+## 3.5 listing (2026-09-21)
+
 Researched 2026-09-21, against real numbers: 83 first-time downloads lifetime,
 14 in the last 30 days, 4 ratings at 5.0. The listing had never been optimised.
 

@@ -1,7 +1,9 @@
-Miss a day and your streak survives now. One missed day a week is forgiven; two in a row still breaks it, so the number still means something. Old streaks that a single miss broke are back.
+Continuum runs on one number now. Your consistency, the share of the last 66 days you showed up, sits on every card in big type with an arrow for how it moved this week. The home screen pools every habit into one figure.
 
-Forgot yesterday? Tap a habit once, then hold.
+I built this app around streaks for a year, freezes included. That was the wrong number. A streak turns one bad day into zero; consistency turns it into a dip. Freezes are gone. So is the 8pm "streak ends at midnight" alert, replaced by a single nudge on the evening after a miss. Never miss twice.
 
-Completed habits catch the light as you tilt your phone. Small things, mostly: the border traces itself while you hold, the grid ripples when a day lands, and your last habit of the day plays a low chord that took me far too long to tune. The greeting header is gone (less to read, more grid).
+A habit is formed at 66 days done, in any order. Already past 66? Your next check-in does it.
 
-The completion sound is softer too. The old two-tone beep sounded glitchy — I should have caught that sooner.
+New habits don't start near zero any more: the number counts from your first day, so 20 days out of 20 reads 100% (it used to read 30%).
+
+The stats screen shows your last 12 weeks as bars. Watch them climb.
