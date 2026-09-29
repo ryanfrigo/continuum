@@ -76,8 +76,11 @@ It needs 7 counted days at the comparison point, so it appears from a habit's
   in any order. A count that only goes up can't be lost.
 - **Habit formed** at 66 days done. Habits already past 66 that never had a
   66-day streak get their graduation on the next completion after updating.
-- **Consistency levels.** Crossing 50, 75, 90 or 100% upward, once a habit has
-  14 counted days.
+- **Consistency levels.** Reaching 50, 75, 90 or 100%, once a habit has 14
+  counted days. Each fires once per habit: the highest level celebrated is
+  kept per habit on the device. (The first build looked for a crossing, which
+  re-fired every time the denominator wobbled over a line and could never
+  reach 100.)
 - **Comeback.** Marking today after missing yesterday, on a habit with 3+ days
   done before the gap: "BACK / ON IT". At most once a day across habits and
   once a week per habit, computed from history.
@@ -92,9 +95,10 @@ Reminder text uses the number and what today does to it ("81%. One hold takes
 it to 82."). A habit that missed yesterday gets the existing no-guilt lines.
 
 The 8pm alert becomes **never miss twice**. It fires only on the day after a
-miss, when the day before that was done, and never on top of an evening
-reminder. Tomorrow's alert is planned while today is still open and removed the
-moment today is marked, from the app or the widget. It's far rarer than the
+miss, when the day before that was done, and not when the habit's reminder is
+at 5pm or later. Tomorrow's alert is planned while today is still open; with
+today done, the day after tomorrow's is planned instead. Either is removed the
+moment its previous day is marked, from the app or the widget. It's far rarer than the
 streak alert it replaces, which went off every evening for any 3+ day streak.
 
 ## Freezes
