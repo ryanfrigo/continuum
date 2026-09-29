@@ -180,7 +180,7 @@ The manual equivalent, step by step:
 ```bash
 # 1. Preflight
 xcodebuild test -scheme continuum -testPlan continuum \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # 66 tests as of 3.5
+  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # 90 tests as of 3.8 (incl. 2 screenshot seeds)
 
 # 2. Bump version — 8 occurrences each, app + widget + test targets.
 #    Widget Info.plist already tracks $(MARKETING_VERSION)/$(CURRENT_PROJECT_VERSION).
@@ -317,6 +317,31 @@ cliclick dd:1311,559; sleep 2; cliclick du:1311,559   # hold-to-complete gesture
 Gotchas: clicks are silently dropped unless the window was just activated, and
 `kp:esc` does **not** dismiss a SwiftUI context menu — tap empty space instead.
 
+### Xcode 27: no Simulator.app, use DeviceHub (2026-09-29)
+
+Xcode 27 (installed locally, macOS 26.6) ships `DeviceHub.app` in
+`/Applications/Xcode.app/Contents/Applications/` instead of Simulator.app.
+Booted simulators run headless — `simctl io … screenshot` and `simctl launch`
+work without it — but to tap you open DeviceHub, select the device in its
+sidebar, and click the live screen it shows. `xcodebuild` wants the device by
+id (`-destination 'platform=iOS Simulator,id=…'`); the name alone was
+ambiguous across the iOS 18.6 and 27.0 runtimes.
+
+With the window at (314,175) 1100x800 and the 16 Pro Max at DeviceHub's
+default zoom: `screen_x = 838.4 + 0.681 * pt_x`, `screen_y = 253.8 + 0.682 * pt_y`.
+Re-measure from a `screencapture` of the window if it moves.
+
+Roughly one click in two is dropped, most often the first after a relaunch or
+an `activate`. A tap on empty space first helps, but check every step with a
+screenshot. Menus (the card's ⋯, the share sheet) often need the item tapped
+twice. The home-screen widget gallery never accepted the "Add Widget" tap;
+it's easier to check widget layout another way.
+
+Mid-hold captures: press, `sleep 0.45`, screenshot, release. Any later and the
+screenshot's own latency pushes the release past the 0.9s hold and completes
+the habit, so reseed afterwards. The screenshot seed and the caption pipeline
+are described in `docs/ASO.md`.
+
 ### Screenshotting transient overlays
 
 Screenshots take ~1s, so you cannot catch a 2.4s auto-dismissing celebration by
@@ -358,6 +383,6 @@ Back up the file first and **revert it before committing**; verify with
 
 ## Test suite
 
-66 tests as of 3.5, and they **must stay serialized** — the suite was flaky from
+90 tests as of 3.8 (two of them are the screenshot seeds), and they **must stay serialized** — the suite was flaky from
 parallel-execution races. Canonical day storage is **12:00:30 UTC**; the `:30`
 is load-bearing (a UTC+12 collision), so never "simplify" it to noon.
