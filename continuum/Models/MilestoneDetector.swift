@@ -52,6 +52,12 @@ enum MilestoneDetector {
     /// Below this many counted days the percentage swings too much to celebrate.
     static let levelMinimumCounted = 14
 
+    /// The highest level a tally has reached, once it has the history to mean it.
+    static func level(of tally: ConsistencyTally) -> Int? {
+        guard tally.counted >= levelMinimumCounted, let percent = tally.percent else { return nil }
+        return levels.last { $0 <= percent }
+    }
+
     /// Everything marking `markedKey` earned, highest first.
     static func events(
         before: Set<Int>,
@@ -59,7 +65,8 @@ enum MilestoneDetector {
         markedKey: Int,
         todayKey: Int,
         isAlreadyGraduated: Bool,
-        smallMomentShownToday: Bool
+        smallMomentShownToday: Bool,
+        highestLevelCelebrated: Int
     ) -> [CelebrationEvent] {
         // Once per habit. No crossing required, so anyone already past 66 when
         // this rule arrived graduates on their next completion.
@@ -75,11 +82,11 @@ enum MilestoneDetector {
             events.append(.milestone(milestone))
         }
 
-        let now = HabitMath.consistency(completed: after, todayKey: todayKey)
-        let then = HabitMath.consistency(completed: before, todayKey: todayKey)
-        if now.counted >= levelMinimumCounted,
-           let newPercent = now.percent, let oldPercent = then.percent,
-           let level = levels.last(where: { oldPercent < $0 && $0 <= newPercent }) {
+        // Each level once per habit. Looking for a crossing instead re-fired
+        // whenever the denominator wobbled across a threshold, and never
+        // reached 100: marking today adds a day to both sides of the fraction.
+        if let level = level(of: HabitMath.consistency(completed: after, todayKey: todayKey)),
+           level > highestLevelCelebrated {
             events.append(.level(level))
         }
 

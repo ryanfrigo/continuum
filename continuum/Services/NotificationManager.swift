@@ -82,12 +82,16 @@ enum NotificationPlanner {
                     && completed.contains(ContinuumDay.key(byAdding: -2, to: todayKey))
             case 1:
                 followsOneMiss = !doneToday && completed.contains(yesterdayKey)
+            case 2:
+                // With today done, only tomorrow can go missing before this.
+                // Without it, a miss on a day the app isn't opened goes unnoticed.
+                followsOneMiss = doneToday
             default:
                 followsOneMiss = false
             }
             if followsOneMiss,
-               // An evening reminder already covers it; two pings is a nag.
-               habit.reminderHour < missAlertHour,
+               // A reminder from 5pm on already covers the evening; two pings is a nag.
+               habit.reminderHour < missAlertHour - 3,
                offset > 0 || hour < missAlertHour {
                 result.append(PlannedNotification(
                     identifier: NotificationID.missAlert(habitId: habit.id, dayKey: dayKey),

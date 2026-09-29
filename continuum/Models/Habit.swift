@@ -155,7 +155,7 @@ final class Habit {
 
     /// The streak to SHOW. `currentStreak()` counts back from today and so
     /// reads 0 until today is marked — displaying it blanks out a live streak
-    /// every morning. Matches HabitData.displayStreak in the widget.
+    /// every morning. Shown as the current run on the stats screen.
     var displayStreak: Int {
         if isCompletedToday { return currentStreak() }
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()

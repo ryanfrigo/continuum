@@ -24,7 +24,6 @@ enum CelebrationSound {
 // quiet and the rare ones land. A graduation or perfect week gets `full`.
 
 enum CelebrationIntensity {
-    case subtle    // no ignition, minimal glow
     case medium    // perfect day
     case full      // graduation, perfect week
 
@@ -33,7 +32,6 @@ enum CelebrationIntensity {
     /// so cells never freeze mid-flash.
     var ignitionStrength: Double {
         switch self {
-        case .subtle: return 0
         case .medium: return 0.5
         case .full:   return 1.0
         }
@@ -41,32 +39,15 @@ enum CelebrationIntensity {
 
     var borderWidth: CGFloat {
         switch self {
-        case .subtle: return 1
         case .medium: return 1.5
         case .full: return 2
         }
     }
 
-    var borderOpacity: Double {
-        switch self {
-        case .subtle: return 0.45
-        case .medium: return 0.65
-        case .full:   return 0.95
-        }
-    }
-
     var glowRadius: CGFloat {
         switch self {
-        case .subtle: return 18
         case .medium: return 28
         case .full:   return 52
-        }
-    }
-
-    var showsBrackets: Bool {
-        switch self {
-        case .subtle: return false
-        default: return true
         }
     }
 
@@ -371,25 +352,14 @@ struct CelebrationCard: View {
                         .fill(Color(red: 0.07, green: 0.08, blue: 0.10))
                 )
                 .overlay(
-                    // Geometric dashed frame with a tracing segment. Subtle
-                    // moments get a plain clean border instead.
-                    Group {
-                        if intensity.showsBrackets {
-                            GeometricFrame(
-                                accent: accent,
-                                cornerRadius: 20,
-                                lineWidth: intensity.borderWidth,
-                                tracing: true
-                            )
-                            .opacity(textOpacity)
-                        } else {
-                            RoundedRectangle(cornerRadius: 20)
-                                .strokeBorder(
-                                    accent.opacity(intensity.borderOpacity),
-                                    lineWidth: intensity.borderWidth
-                                )
-                        }
-                    }
+                    // Geometric dashed frame with a tracing segment
+                    GeometricFrame(
+                        accent: accent,
+                        cornerRadius: 20,
+                        lineWidth: intensity.borderWidth,
+                        tracing: true
+                    )
+                    .opacity(textOpacity)
                 )
                 .shadow(color: accent.opacity(0.3), radius: intensity.glowRadius, y: 4)
                 .scaleEffect(cardScale)

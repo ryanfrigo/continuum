@@ -465,14 +465,12 @@ struct HabitData: Codable {
     let name: String
     let createdAt: Date
     let completedDates: [Date]
-    let freezeUsedDates: [Date]?   // optional: older saved JSON won't have it
 
-    init(id: UUID, name: String, createdAt: Date, completedDates: [Date], freezeUsedDates: [Date]? = nil) {
+    init(id: UUID, name: String, createdAt: Date, completedDates: [Date]) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.completedDates = completedDates
-        self.freezeUsedDates = freezeUsedDates
     }
 
     #if !WIDGET_EXTENSION
@@ -481,7 +479,6 @@ struct HabitData: Codable {
         self.name = habit.name
         self.createdAt = habit.createdAt
         self.completedDates = habit.completedDatesArray
-        self.freezeUsedDates = habit.freezeUsedDatesArray
     }
     #endif
 
@@ -537,8 +534,7 @@ struct HabitData: Codable {
             id: id,
             name: name,
             createdAt: createdAt,
-            completedDates: dates,
-            freezeUsedDates: freezeUsedDates
+            completedDates: dates
         )
         return (updated, nowCompleted)
     }

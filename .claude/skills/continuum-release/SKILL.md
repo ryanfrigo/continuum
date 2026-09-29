@@ -180,7 +180,7 @@ The manual equivalent, step by step:
 ```bash
 # 1. Preflight
 xcodebuild test -scheme continuum -testPlan continuum \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # 90 tests as of 3.8 (incl. 2 screenshot seeds)
+  -destination 'platform=iOS Simulator,name=iPhone 16 Plus'   # 93 tests as of 3.8 (incl. 2 screenshot seeds)
 
 # 2. Bump version — 8 occurrences each, app + widget + test targets.
 #    Widget Info.plist already tracks $(MARKETING_VERSION)/$(CURRENT_PROJECT_VERSION).
@@ -383,6 +383,6 @@ Back up the file first and **revert it before committing**; verify with
 
 ## Test suite
 
-90 tests as of 3.8 (two of them are the screenshot seeds), and they **must stay serialized** — the suite was flaky from
+93 tests as of 3.8 (two of them are the screenshot seeds), and they **must stay serialized** — the suite was flaky from
 parallel-execution races. Canonical day storage is **12:00:30 UTC**; the `:30`
 is load-bearing (a UTC+12 collision), so never "simplify" it to noon.

@@ -271,8 +271,12 @@ struct HabitStatsView: View {
         let lead = (startWeekday - firstWeekday + 7) % 7
         let gridStart = ContinuumDay.key(byAdding: -lead, to: windowStart)
 
-        // The user's calendar: the locale-less UTC one names months "M03"
-        let monthSymbols = ContinuumDay.calendar.shortMonthSymbols
+        // Day keys are Gregorian, so Gregorian month names, in the user's
+        // language. The locale-less UTC calendar names them "M03"; a Persian
+        // or Islamic device calendar would name the wrong months.
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.locale = .current
+        let monthSymbols = gregorian.shortMonthSymbols
 
         var columns: [WeekColumn] = []
         var cursor = gridStart

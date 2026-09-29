@@ -643,16 +643,25 @@ struct NotificationPlannerTests {
         #expect(alerts(plan(habit(done: [5, 4, 3]))).isEmpty)
     }
 
-    @Test func openTodayArmsTomorrowsAlertAndDoneTodayDisarmsIt() {
+    @Test func openTodayArmsTomorrowsAlert() {
         let tomorrow = ContinuumDay.key(byAdding: 1, to: today)
         #expect(alerts(plan(habit(done: [3, 2, 1]))).map(\.dayKey) == [tomorrow])
-        #expect(alerts(plan(habit(done: [3, 2, 1, 0]))).isEmpty)
+    }
+
+    @Test func doneTodayArmsTheDayAfterTomorrowInstead() {
+        // Tomorrow is the only day that can still go missing before it; if the
+        // app isn't opened again, this is the alert that catches the miss
+        let dayAfter = ContinuumDay.key(byAdding: 2, to: today)
+        #expect(alerts(plan(habit(done: [3, 2, 1, 0]))).map(\.dayKey) == [dayAfter])
     }
 
     @Test func eveningReminderReplacesTheAlert() {
         let items = plan(habit(done: [5, 4, 3, 2], reminderHour: 21))
         #expect(alerts(items).isEmpty)
         #expect(items.contains { $0.dayKey == today && $0.hour == 21 })
+        // An hour before the alert is still one evening, two pings
+        #expect(alerts(plan(habit(done: [5, 4, 3, 2], reminderHour: 19))).isEmpty)
+        #expect(!alerts(plan(habit(done: [5, 4, 3, 2], reminderHour: 16))).isEmpty)
     }
 
     @Test func pastEightNoAlertTonight() {
@@ -811,12 +820,13 @@ struct MilestoneDetectorTests {
     }
 
     /// Events for marking `mark` days back on top of `history`.
-    private func events(_ history: [Int], mark: Int = 0, graduated: Bool = false, smallShown: Bool = false) -> [CelebrationEvent] {
+    private func events(_ history: [Int], mark: Int = 0, graduated: Bool = false,
+                        smallShown: Bool = false, celebrated: Int = 0) -> [CelebrationEvent] {
         let before = keys(history)
         let marked = ContinuumDay.key(byAdding: -mark, to: today)
         return MilestoneDetector.events(
             before: before, after: before.union([marked]), markedKey: marked, todayKey: today,
-            isAlreadyGraduated: graduated, smallMomentShownToday: smallShown
+            isAlreadyGraduated: graduated, smallMomentShownToday: smallShown, highestLevelCelebrated: celebrated
         )
     }
 
@@ -854,6 +864,19 @@ struct MilestoneDetectorTests {
         #expect(events([15, 14, 13, 12, 11, 10, 8, 6, 4, 2, 1]) == [.level(75)])
         // 3 of 4 → 4 of 5 moves the number, but 5 days is too young to mean it
         #expect(!events([4, 3, 1]).contains(where: isLevel))
+    }
+
+    @Test func aLevelFiresOnceNotEachTimeTheDenominatorWobbles() {
+        // Every other day for months: 32/65 (49%) becomes 33/66 (50%) on every done day
+        let alternating = (1...60).map { $0 * 2 }
+        #expect(events(alternating) == [.level(50)])
+        #expect(!events(alternating, celebrated: 50).contains(where: isLevel))
+    }
+
+    @Test func aHundredIsReachable() {
+        // Every day done: the number is 100 before and after today's mark, so a
+        // rule looking for a crossing never fired it
+        #expect(events(Array(1...22), celebrated: 90) == [.level(100)])
     }
 
     @Test func comebackAfterOneMiss() {

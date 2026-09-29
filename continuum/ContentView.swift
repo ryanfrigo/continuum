@@ -516,13 +516,24 @@ struct ContentView: View {
         // values to go stale overnight or across launches
         let todayKey = ContinuumDay.todayKey()
         let after = habit.completedDayKeys
+        let before = after.subtracting([dayKey])
+
+        // Levels fire once per habit. A habit seen for the first time starts
+        // from where it already is, so updating doesn't set off a tile for
+        // every habit at once.
+        let levelKey = "celebratedLevel.\(habit.id.uuidString)"
+        let celebratedLevel = UserDefaults.standard.object(forKey: levelKey) as? Int
+            ?? MilestoneDetector.level(of: HabitMath.consistency(completed: before, todayKey: todayKey))
+            ?? 0
+
         let events = MilestoneDetector.events(
-            before: after.subtracting([dayKey]),
+            before: before,
             after: after,
             markedKey: dayKey,
             todayKey: todayKey,
             isAlreadyGraduated: habit.isGraduated,
-            smallMomentShownToday: lastSmallMomentKey == todayKey
+            smallMomentShownToday: lastSmallMomentKey == todayKey,
+            highestLevelCelebrated: celebratedLevel
         )
 
         if events.contains(.graduation) {
@@ -545,17 +556,29 @@ struct ContentView: View {
             if tileEvent.isSmallMoment { lastSmallMomentKey = todayKey }
             showTileCelebration(tileEvent, for: habit)
         }
+        if case .level(let level)? = tileEvent {
+            UserDefaults.standard.set(level, forKey: levelKey)
+        } else if UserDefaults.standard.object(forKey: levelKey) == nil {
+            UserDefaults.standard.set(celebratedLevel, forKey: levelKey)
+        }
 
         // First completion ever: this is the moment to offer reminders, while
         // the app has just visibly worked. Nothing else brings people back.
         considerReminderPrompt()
 
-        // StoreKit review prompt, fired once a celebration has cleared so the
-        // sheet never covers the moment. Ask at 7 days done first, then 21.
-        // iOS caps this at 3 prompts a year and ignores the rest.
+        // StoreKit review prompt, never over a celebration. Ask at 7 days done
+        // first, then 21. With a tile, ask once it clears; with nothing on
+        // screen, ask shortly after; under a full-screen card, wait for a
+        // quieter completion. iOS caps this at 3 prompts a year.
+        let fullScreenComing = events.contains(.graduation) || (allCompletedToday && habits.count > 1)
         for milestone in [7, 21] where after.count >= milestone && reviewRequestedForMilestone < milestone {
-            reviewRequestedForMilestone = milestone
-            pendingReviewRequest = true
+            if tileEvent != nil {
+                reviewRequestedForMilestone = milestone
+                pendingReviewRequest = true
+            } else if !fullScreenComing {
+                reviewRequestedForMilestone = milestone
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { requestReview() }
+            }
             break
         }
 
