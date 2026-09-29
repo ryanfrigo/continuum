@@ -271,7 +271,8 @@ struct HabitStatsView: View {
         let lead = (startWeekday - firstWeekday + 7) % 7
         let gridStart = ContinuumDay.key(byAdding: -lead, to: windowStart)
 
-        let monthSymbols = ContinuumDay.utcCalendar.shortMonthSymbols
+        // The user's calendar: the locale-less UTC one names months "M03"
+        let monthSymbols = ContinuumDay.calendar.shortMonthSymbols
 
         var columns: [WeekColumn] = []
         var cursor = gridStart
