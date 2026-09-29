@@ -194,14 +194,6 @@ struct StreakTests {
         #expect(habit.currentStreak(asOf: date(2026, 6, 12)) == 3)
     }
 
-    @Test func healthIsFractionOfLast66Days() {
-        let habit = Habit(name: "Test")
-        for offset in 0..<33 {
-            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -offset, to: 20260612))
-        }
-        #expect(abs(habit.habitHealth(asOf: date(2026, 6, 12)) - 0.5) < 0.001)
-    }
-
     @Test func historyFlagsEndWithToday() {
         let habit = Habit(name: "Test")
         habit.setCompleted(true, forDayKey: 20260612)
@@ -209,6 +201,111 @@ struct StreakTests {
         #expect(flags.count == 66)
         #expect(flags.last == true)
         #expect(flags.dropLast().allSatisfy { $0 == false })
+    }
+}
+}
+
+// MARK: - Consistency (the number every screen shows)
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+struct ConsistencyTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private let today = 20260929
+
+    private func keys(_ backs: [Int]) -> Set<Int> {
+        Set(backs.map { ContinuumDay.key(byAdding: -$0, to: today) })
+    }
+
+    @Test func nothingDoneMeansNoNumber() {
+        let t = HabitMath.consistency(completed: [], todayKey: today)
+        #expect(t.percent == nil)
+        #expect(t.fraction == 0)
+    }
+
+    @Test func firstDayDoneIsAHundred() {
+        #expect(HabitMath.consistency(completed: keys([0]), todayKey: today).percent == 100)
+    }
+
+    @Test func countsFromTheFirstDoneDayNotFromDayOneOfTheWindow() {
+        // 20 of the last 20 days: the old health maths read 30%
+        let t = HabitMath.consistency(completed: keys(Array(0..<20)), todayKey: today)
+        #expect(t == ConsistencyTally(done: 20, counted: 20))
+    }
+
+    @Test func todayCountsOnlyOnceDone() {
+        // Started 3 days ago, done 2 of them, today still open
+        let t = HabitMath.consistency(completed: keys([3, 1]), todayKey: today)
+        #expect(t == ConsistencyTally(done: 2, counted: 3))
+        #expect(t.percent == 66)
+    }
+
+    @Test func windowIsTheSixtySixDayGrid() {
+        // Done every day for 100 days: only the grid's 66 count
+        let t = HabitMath.consistency(completed: keys(Array(0..<100)), todayKey: today)
+        #expect(t == ConsistencyTally(done: 66, counted: 66))
+        // Same, today open: 65 counted
+        let open = HabitMath.consistency(completed: keys(Array(1..<100)), todayKey: today)
+        #expect(open == ConsistencyTally(done: 65, counted: 65))
+    }
+
+    @Test func percentRoundsDownSoNothingImperfectReadsAHundred() {
+        #expect(ConsistencyTally(done: 395, counted: 396).percent == 99)
+        #expect(ConsistencyTally(done: 2, counted: 3).percent == 66)
+    }
+
+    @Test func tallyAddsForPooling() {
+        let sum = ConsistencyTally(done: 1, counted: 2) + ConsistencyTally(done: 3, counted: 4)
+        #expect(sum == ConsistencyTally(done: 4, counted: 6))
+    }
+
+    @Test func trendIsTheChangeInTheShownNumberOverAWeek() {
+        // 20 days in: missed 4 of the first 13, then perfect for 7
+        let done = keys(Array(0..<20)).subtracting(keys([17, 15, 13, 11]))
+        let now = HabitMath.consistency(completed: done, todayKey: today)          // 16/20 = 80
+        let then = HabitMath.consistencyWeekAgo(completed: done, todayKey: today)  // 9/13 = 69
+        #expect(now.percent == 80)
+        #expect(then.percent == 69)
+        #expect(HabitMath.trend(now: now, weekAgo: then) == 11)
+    }
+
+    @Test func trendWaitsForSevenCountedDaysAWeekAgo() {
+        let young = keys(Array(0..<13))   // a week ago it had 6 counted days
+        #expect(HabitMath.trend(
+            now: HabitMath.consistency(completed: young, todayKey: today),
+            weekAgo: HabitMath.consistencyWeekAgo(completed: young, todayKey: today)) == nil)
+        let older = keys(Array(0..<14))
+        #expect(HabitMath.trend(
+            now: HabitMath.consistency(completed: older, todayKey: today),
+            weekAgo: HabitMath.consistencyWeekAgo(completed: older, todayKey: today)) == 0)
+    }
+
+    @Test func allTimeCountsEveryDaySinceTheFirst() {
+        let t = HabitMath.allTime(completed: keys([199, 100, 0]), todayKey: today)
+        #expect(t == ConsistencyTally(done: 3, counted: 200))
+    }
+
+    @Test func weeklyBlocksAreOldestFirstAndEmptyBeforeTheStart() {
+        let blocks = HabitMath.weeklyBlocks(completed: keys(Array(1..<10)), todayKey: today, weeks: 3)
+        #expect(blocks.count == 3)
+        #expect(blocks[0] == ConsistencyTally())                        // 14–20 days back: not started
+        #expect(blocks[1] == ConsistencyTally(done: 3, counted: 3))    // 7–13 back: started 9 back
+        #expect(blocks[2] == ConsistencyTally(done: 6, counted: 6))    // 0–6 back, today open
+    }
+
+    @Test func comebackIsADayDoneAfterAMissOnAHabitWithARhythm() {
+        // done 4, 3, 2 back · missed yesterday · done today
+        #expect(HabitMath.comebackGap(completed: keys([4, 3, 2, 0]), dayKey: today) == 1)
+        // three missed days
+        #expect(HabitMath.comebackGap(completed: keys([6, 5, 4, 0]), dayKey: today) == 3)
+        // no miss
+        #expect(HabitMath.comebackGap(completed: keys([3, 2, 1, 0]), dayKey: today) == nil)
+        // too little history to come back to
+        #expect(HabitMath.comebackGap(completed: keys([3, 2, 0]), dayKey: today) == nil)
+        // today not done
+        #expect(HabitMath.comebackGap(completed: keys([4, 3, 2]), dayKey: today) == nil)
     }
 }
 }

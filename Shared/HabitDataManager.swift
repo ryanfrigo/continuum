@@ -116,9 +116,95 @@ enum ContinuumDay {
     }
 }
 
+// MARK: - Consistency
+// The number the app is about: of the days a habit has been going, the share
+// you showed up. Pure and shared, so the app and the widget always agree.
+
+/// Days shown up over days counted.
+struct ConsistencyTally: Equatable {
+    var done = 0
+    var counted = 0
+
+    /// Whole percent, rounded down so an imperfect record never reads 100.
+    /// Nil until a day has been counted.
+    var percent: Int? { counted > 0 ? done * 100 / counted : nil }
+
+    /// 0...1 for colours and rings; 0 until a day has been counted.
+    var fraction: Double { counted > 0 ? Double(done) / Double(counted) : 0 }
+
+    static func + (a: ConsistencyTally, b: ConsistencyTally) -> ConsistencyTally {
+        ConsistencyTally(done: a.done + b.done, counted: a.counted + b.counted)
+    }
+}
+
 // MARK: - Streak / history math over day keys
 // Shared between Habit (app) and HabitData (widget) so both always agree.
 enum HabitMath {
+
+    /// Days on the card's grid, and the window consistency is measured over.
+    static let gridDays = 66
+    /// Days done, in any order, that form a habit.
+    static let daysToForm = 66
+
+    /// Consistency over the `window` days ending at `endKey`, counted from the
+    /// first completed day — a habit added Monday and started Thursday isn't
+    /// three days behind. With `endInProgress`, the end day counts only once
+    /// it's done: a day that isn't over isn't a miss yet.
+    static func tally(completed: Set<Int>, endKey: Int, window: Int = gridDays, endInProgress: Bool) -> ConsistencyTally {
+        guard window > 0, let first = completed.min(), first <= endKey else { return ConsistencyTally() }
+        // Day keys are yyyymmdd, so plain integer comparison orders them
+        let start = max(first, ContinuumDay.key(byAdding: -(window - 1), to: endKey))
+        var counted = ContinuumDay.daysBetween(start, endKey) + 1
+        if endInProgress && !completed.contains(endKey) { counted -= 1 }
+        let done = completed.filter { $0 >= start && $0 <= endKey }.count
+        return ConsistencyTally(done: done, counted: counted)
+    }
+
+    /// The number every screen shows: the grid window, today counting once done.
+    static func consistency(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
+        tally(completed: completed, endKey: todayKey, endInProgress: true)
+    }
+
+    /// The same number as it stood a week ago, that whole day counted.
+    static func consistencyWeekAgo(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
+        tally(completed: completed, endKey: ContinuumDay.key(byAdding: -7, to: todayKey), endInProgress: false)
+    }
+
+    /// Change in the shown percentage over 7 days. Nil until the week-ago
+    /// number had 7 counted days behind it; before that it's noise.
+    static func trend(now: ConsistencyTally, weekAgo: ConsistencyTally) -> Int? {
+        guard weekAgo.counted >= 7, let a = now.percent, let b = weekAgo.percent else { return nil }
+        return a - b
+    }
+
+    /// Every day since the first completion, today counting once done.
+    static func allTime(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
+        guard let first = completed.min(), first <= todayKey else { return ConsistencyTally() }
+        let window = ContinuumDay.daysBetween(first, todayKey) + 1
+        return tally(completed: completed, endKey: todayKey, window: window, endInProgress: true)
+    }
+
+    /// Consecutive 7-day blocks, oldest first, the last ending today (today
+    /// counting once done). Empty before the habit's first day.
+    static func weeklyBlocks(completed: Set<Int>, todayKey: Int, weeks: Int) -> [ConsistencyTally] {
+        (0..<weeks).reversed().map { back in
+            tally(completed: completed,
+                  endKey: ContinuumDay.key(byAdding: -7 * back, to: todayKey),
+                  window: 7,
+                  endInProgress: back == 0)
+        }
+    }
+
+    /// Days missed right before `dayKey`, if marking it is a comeback: done,
+    /// the day before missed, and 3+ days done before the gap, so there's a
+    /// rhythm to come back to. Nil otherwise.
+    static func comebackGap(completed: Set<Int>, dayKey: Int) -> Int? {
+        let dayBefore = ContinuumDay.key(byAdding: -1, to: dayKey)
+        guard completed.contains(dayKey), !completed.contains(dayBefore) else { return nil }
+        let prior = completed.filter { $0 < dayBefore }
+        guard prior.count >= 3, let last = prior.max() else { return nil }
+        return ContinuumDay.daysBetween(last, dayKey) - 1
+    }
 
     /// Minimum spacing between grace days: one missed day per week is forgiven.
     static let graceSpacingDays = 7
