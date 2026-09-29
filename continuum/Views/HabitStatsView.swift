@@ -322,11 +322,13 @@ struct HabitStatsView: View {
                     // Month labels
                     HStack(alignment: .bottom, spacing: spacing) {
                         ForEach(columns) { col in
+                            // Natural width first, then the 9pt column: the label
+                            // overflows into the next columns instead of truncating
                             Text(col.monthLabel ?? " ")
                                 .font(.system(size: 7, weight: .semibold).monospaced())
                                 .foregroundStyle(.white.opacity(0.35))
-                                .frame(width: cell, alignment: .leading)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .frame(width: cell, alignment: .leading)
                         }
                     }
                     .frame(height: 10, alignment: .bottom)

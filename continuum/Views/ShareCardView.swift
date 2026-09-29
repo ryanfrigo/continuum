@@ -249,6 +249,8 @@ struct ShareCardView: View {
     private var gridSection: some View {
         let flags = gridFlags
         let color = themeColor
+        // Days back to the first done day; older cells weren't misses
+        let startIndex = habit.completedDayKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
 
         return VStack(spacing: 0) {
             // Grid label
@@ -279,7 +281,9 @@ struct ShareCardView: View {
                         let isToday = idx == 0
 
                         RoundedRectangle(cornerRadius: dotSize * 0.2)
-                            .fill(gridDotColor(filled: filled, isToday: isToday, healthColor: color))
+                            .fill(gridDotColor(filled: filled, isToday: isToday,
+                                               notStarted: startIndex.map { idx > $0 } ?? true,
+                                               healthColor: color))
                             .frame(width: dotSize, height: dotSize)
                             .overlay {
                                 if filled {
@@ -318,11 +322,14 @@ struct ShareCardView: View {
         return width / height
     }
 
-    private func gridDotColor(filled: Bool, isToday: Bool, healthColor: Color) -> Color {
+    private func gridDotColor(filled: Bool, isToday: Bool, notStarted: Bool, healthColor: Color) -> Color {
         if filled {
             return healthColor
         } else if isToday {
             return Color.white.opacity(0.12)
+        } else if notStarted {
+            // Before the first done day: not a miss, so fainter than one
+            return Color.white.opacity(0.035)
         } else {
             return Color.white.opacity(0.08)
         }

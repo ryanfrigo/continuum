@@ -305,6 +305,9 @@ struct CelebrationCard: View {
                                 .foregroundStyle(Color.white.opacity(0.6))
                                 .multilineTextAlignment(.center)
                                 .lineSpacing(3)
+                                // Take the height it needs: the card was clipping
+                                // two-line messages to one line and an ellipsis
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         if let subject {
