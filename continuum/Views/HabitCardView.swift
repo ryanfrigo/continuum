@@ -188,10 +188,10 @@ struct HabitCardView: View {
             Button("Delete", role: .destructive) { onAction?(.delete) }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Are you sure you want to delete \"\(habit.name)\"? This action cannot be undone.")
+            Text("Delete \"\(habit.name)\" and its history? This can't be undone.")
         }
-        .confirmationDialog("Reset Progress", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
-            Button("Reset", role: .destructive) { onAction?(.reset) }
+        .confirmationDialog("Erase History", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
+            Button("Erase", role: .destructive) { onAction?(.reset) }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("Erase all history for \"\(habit.name)\"? This cannot be undone.")
@@ -199,7 +199,7 @@ struct HabitCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: habit.isCompletedToday ? "Undo today's completion" : "Complete today") {
+        .accessibilityAction(named: habit.isCompletedToday ? "Undo today" : "Mark today done") {
             if habit.isCompletedToday {
                 habit.toggleCompletion()
                 let habitData = HabitData(from: habit)
@@ -212,7 +212,7 @@ struct HabitCardView: View {
                 finishCompletion()
             }
         }
-        .accessibilityAction(named: "Complete yesterday") {
+        .accessibilityAction(named: "Mark yesterday done") {
             guard !isAnimatingCompletion, let yesterday = yesterdayIfMissed else { return }
             backfillDate = yesterday
             finishCompletion()
@@ -254,9 +254,9 @@ struct HabitCardView: View {
         var parts = [habit.name]
         if let percent = consistency.percent { parts.append("\(percent) percent consistent") }
         if let trend = habit.consistencyTrend, trend != 0 {
-            parts.append(trend > 0 ? "up \(trend) this week" : "down \(-trend) this week")
+            parts.append(trend > 0 ? "up \(trend) points this week" : "down \(-trend) points this week")
         }
-        parts.append(habit.isCompletedToday ? "completed today" : "not completed today")
+        parts.append(habit.isCompletedToday ? "done today" : "not done today")
         if habit.isGraduated { parts.append("habit formed") }
         return parts.joined(separator: ", ")
     }
@@ -587,7 +587,7 @@ struct HabitCardView: View {
             HStack(spacing: 5) {
                 Image(systemName: "hand.tap.fill")
                     .font(.system(size: 10, weight: .semibold))
-                Text("Hold to complete")
+                Text("Hold to mark done")
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundStyle(.white)
@@ -777,7 +777,7 @@ struct HabitCardView: View {
             Label("Share", systemImage: "square.and.arrow.up")
         }
         Divider()
-        Button("Reset Progress", role: .destructive) { showingResetConfirmation = true }
+        Button("Erase History", role: .destructive) { showingResetConfirmation = true }
         Divider()
         Button("Edit Name") {
             newHabitName = habit.name

@@ -108,7 +108,7 @@ struct HabitStatsView: View {
                 }
             }
 
-            Text("STARTED \(Self.startedFormatter.string(from: habit.createdAt).uppercased())")
+            Text("ADDED \(Self.startedFormatter.string(from: habit.createdAt).uppercased())")
                 .font(.system(size: 10, weight: .medium).monospaced())
                 .foregroundStyle(.white.opacity(0.35))
                 .tracking(1)
@@ -155,7 +155,7 @@ struct HabitStatsView: View {
                     .tracking(1)
                 Spacer()
                 if let percent = blocks.last?.percent {
-                    Text("THIS WEEK \(percent)%")
+                    Text("LAST 7 DAYS \(percent)%")
                         .font(.system(size: 10, weight: .bold).monospaced())
                         .foregroundStyle(themeColor)
                 }
@@ -205,7 +205,7 @@ struct HabitStatsView: View {
             statTile(value: allTime.percent.map(String.init) ?? "–", unit: "%", label: "ALL-TIME", color: themeColor)
             statTile(value: "\(current)", unit: current == 1 ? "day" : "days", label: "CURRENT RUN", color: themeColor)
             statTile(value: "\(longest)", unit: longest == 1 ? "day" : "days", label: "BEST RUN", color: themeColor)
-            statTile(value: "\(perfectWeeks)", unit: perfectWeeks == 1 ? "week" : "weeks", label: "PERFECT WEEKS", color: goldColor)
+            statTile(value: "\(perfectWeeks)", unit: perfectWeeks == 1 ? "week" : "weeks", label: "FULL WEEKS", color: goldColor)
         }
     }
 
@@ -355,7 +355,7 @@ struct HabitStatsView: View {
             HStack(spacing: 12) {
                 legendDot(color: themeColor, label: "done")
                 legendDot(color: Color.white.opacity(0.08), label: "missed")
-                legendDot(color: goldColor, label: "perfect week")
+                legendDot(color: goldColor, label: "full week")
                 Spacer()
             }
         }
@@ -416,7 +416,7 @@ struct HabitStatsView: View {
         } else if percent < HabitMath.formedPercent {
             return "Formed once 80% of your last 66 days are done. You're at \(percent)%."
         } else {
-            return "80% of your last 66 days are done. It's formed on your next check-in."
+            return "80% of your last 66 days are done. It's formed the next time you mark it done."
         }
     }
 
@@ -428,7 +428,7 @@ struct HabitStatsView: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
 
-            Text("Consistency is the share of the last 66 days you showed up, counted from your first. A missed day dents it. Nothing resets it.")
+            Text("Consistency is the share of the last 66 days you showed up, counted from your first day done. A missed day dents it. Nothing resets it.")
                 .font(.system(size: 10).monospaced())
                 .foregroundStyle(.white.opacity(0.25))
                 .lineSpacing(3)

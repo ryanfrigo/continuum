@@ -121,9 +121,9 @@ enum NotificationPlanner {
     static func reminderBody(completed: Set<Int>, dayKey: Int, hasRecentHistory: Bool) -> String {
         guard hasRecentHistory else {
             return pick([
-                "Day one is waiting.",
+                "One hold fills the first square.",
                 "The grid wants its first mark.",
-                "Every habit starts with a single dot.",
+                "Every grid fills one square at a time.",
             ], dayKey: dayKey)
         }
         if !completed.contains(ContinuumDay.key(byAdding: -1, to: dayKey)) {
@@ -145,7 +145,7 @@ enum NotificationPlanner {
             ], dayKey: dayKey)
         }
         return pick([
-            "\(now)% consistent. Today makes it \(ifDone).",
+            "\(now)% consistent. Today makes it \(ifDone)%.",
             "One hold takes you to \(ifDone)%.",
             "\(ifDone)% is one hold away.",
         ], dayKey: dayKey)

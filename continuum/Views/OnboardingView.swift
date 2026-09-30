@@ -13,9 +13,9 @@ struct OnboardingView: View {
     private let pages: [OnboardingPage] = [
         OnboardingPage(
             icon: "percent",
-            title: "Consistency",
-            subtitle: "One number per habit",
-            description: "The share of days you showed up. Miss one and it dips a little. It never resets to zero.",
+            title: "continuum",
+            subtitle: "The consistency tracker",
+            description: "One number per habit: the share of days you showed up. Miss a day and it dips. Nothing resets.",
             color: .orange
         ),
         OnboardingPage(
@@ -36,13 +36,13 @@ struct OnboardingView: View {
             icon: "star.fill",
             title: "66 Days",
             subtitle: "Most of them",
-            description: "In a UCL study, daily habits took a median of 66 days to become automatic, and one missed day didn't set anyone back. Do a habit on 80% of 66 days and it's formed.",
+            description: "In a UCL study, daily habits took a median of 66 days to become automatic, and one missed day didn't materially slow that down. Do a habit on 80% of 66 days and it's formed. The 80% is our line, not the study's.",
             color: .orange
         )
     ]
 
     private let habitSuggestions = [
-        "5 AM Club",
+        "Up by 5 AM",
         "Cold Plunge",
         "Meditate",
         "No Phone Till Noon",

@@ -98,6 +98,7 @@ struct ShareCardView: View {
         }
         .frame(width: cardSize.width, height: cardSize.height)
         .clipped()
+        .fontDesign(.monospaced)
     }
 
     // MARK: - Background
@@ -193,7 +194,7 @@ struct ShareCardView: View {
 
     private var heroSection: some View {
         VStack(spacing: 14) {
-            Text("\(consistency.percent ?? 0)%")
+            Text(consistency.percent.map { "\($0)%" } ?? "–")
                 .font(.system(size: 120, weight: .semibold, design: .monospaced))
                 .foregroundStyle(themeColor)
                 // Phosphor glow, as on the app's readouts
@@ -350,7 +351,7 @@ struct ShareCardView: View {
                 .frame(height: 1)
                 .padding(.horizontal, 40)
 
-            Text("Download Continuum")
+            Text("Continuum: Consistency Tracker · on the App Store")
                 .font(.system(size: 18, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color.white.opacity(0.35))
         }

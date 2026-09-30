@@ -151,7 +151,7 @@ struct TileCelebration: Equatable, Identifiable {
         case .five: return "momentum"
         case .seven: return "a week's worth"
         case .twentyOne: return "three weeks' worth"
-        case .hundred: return "few get here"
+        case .hundred: return "triple digits"
         case .year: return "a year of days"
         }
     }

@@ -1045,8 +1045,8 @@ struct ReminderCopyTests {
 
     @Test func emptyGridGetsDayOneCopy() {
         let text = body(habit(completing: []))
-        #expect(["Day one is waiting.", "The grid wants its first mark.",
-                 "Every habit starts with a single dot."].contains(text))
+        #expect(["One hold fills the first square.", "The grid wants its first mark.",
+                 "Every grid fills one square at a time."].contains(text))
     }
 
     @Test func missedYesterdayIsNotToldItNeverStarted() {
@@ -1054,14 +1054,15 @@ struct ReminderCopyTests {
         let text = body(habit(completing: Array(2...41)))
         #expect(!text.contains("Day one"))
         #expect(!text.contains("first mark"))
-        #expect(!text.contains("single dot"))
+        #expect(!text.contains("first square"))
+        #expect(!text.contains("one square at a time"))
     }
 
     @Test func historyOlderThanTheGridCountsAsEmpty() {
         // The card shows 66 days; anything older isn't on it
         let text = body(habit(completing: [80, 81, 82]))
-        #expect(["Day one is waiting.", "The grid wants its first mark.",
-                 "Every habit starts with a single dot."].contains(text))
+        #expect(["One hold fills the first square.", "The grid wants its first mark.",
+                 "Every grid fills one square at a time."].contains(text))
     }
 
     @Test func aSingleDotOnTheGridIsStillHistory() {

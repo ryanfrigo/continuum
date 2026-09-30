@@ -1,8 +1,8 @@
 # Continuum
 
-An iOS habit tracker built around one number per habit: the share of days you
-showed up, over the last 66. Miss a day and it dips a point or two. It never
-resets to zero.
+A consistency tracker for daily habits on iOS: one number per habit, the share
+of days you showed up over the last 66. Miss a day and it dips. It never
+resets.
 
 On the App Store as **Continuum: Consistency Tracker** (app id 6754441151).
 Free, with no account and no ads.
@@ -17,7 +17,7 @@ Free, with no account and no ads.
 - A habit is **formed** after 66 days with at least 80% of them done. Lally et
   al. (2010, *European Journal of Social Psychology*) found daily habits took a
   median of 66 days to become automatic, 18 to 254 across people, and that one
-  missed day didn't set them back. Singh et al. (2024, *Healthcare*), a review
+  missed day didn't materially slow it down. Singh et al. (2024, *Healthcare*), a review
   of 20 studies, say to plan on two to five months. Neither sets a percentage;
   80% is this app's line for "most days".
 - Hold a card to mark today. Tap once, then hold, to fill in yesterday.

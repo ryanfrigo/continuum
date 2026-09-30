@@ -51,12 +51,12 @@ struct ReminderPromptView: View {
                     .foregroundStyle(accent)
 
                 VStack(spacing: 6) {
-                    Text("ONE NUDGE A DAY")
+                    Text("ONE NUDGE PER HABIT")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .tracking(2)
                         .foregroundStyle(accent)
 
-                    Text("Only if it isn't done yet.\nChange it anytime in Settings.")
+                    Text("Only if it isn't done yet, and a nudge\nthe evening after a miss.\nChange it anytime in Settings.")
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
@@ -107,6 +107,6 @@ struct ReminderPromptView: View {
             .padding(.horizontal, 36)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Set a daily reminder. You'll only be notified if the habit isn't done yet.")
+        .accessibilityLabel("Set a daily reminder for each habit. You'll only be notified if it isn't done yet, and once the evening after a miss.")
     }
 }

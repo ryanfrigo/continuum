@@ -65,7 +65,7 @@ struct SettingsView: View {
                         Text("Daily Reminders")
                             .foregroundStyle(.gray)
                     } footer: {
-                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus one 8pm nudge the day after a miss. Never miss twice.")
+                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus a nudge the evening after a miss. Never miss twice.")
                             .foregroundStyle(.gray.opacity(0.7))
                     }
 
@@ -80,7 +80,7 @@ struct SettingsView: View {
                                 Spacer()
                                 Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                                     .font(.caption)
-                                    .foregroundStyle(.gray)
+                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
                             }
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
@@ -409,12 +409,12 @@ struct AboutView: View {
                         .padding(.top, 30)
 
                         VStack(spacing: 12) {
-                            Text("CONTINUUM")
-                                .font(.title2.weight(.black).monospaced())
+                            Text("continuum")
+                                .font(.title2.weight(.bold).monospaced())
                                 .foregroundStyle(.white)
                                 .tracking(6)
 
-                            Text("CONSISTENCY SYSTEM")
+                            Text("CONSISTENCY TRACKER")
                                 .font(.caption.monospaced())
                                 .foregroundStyle(.orange)
                                 .tracking(2)
@@ -434,23 +434,23 @@ struct AboutView: View {
                         VStack(spacing: 16) {
                             AboutCard(
                                 icon: "percent",
-                                code: "SYS.CONSISTENCY.IDX",
-                                title: "CONSISTENCY INDEX",
-                                description: "Share of the last 66 days you showed up, counted from your first. A miss dents it. Nothing resets it."
+                                code: "SYS.CONSISTENCY",
+                                title: "CONSISTENCY",
+                                description: "Share of the last 66 days you showed up, counted from your first day done. A miss dents it. Nothing resets it."
                             )
 
                             AboutCard(
                                 icon: "waveform.path.ecg",
-                                code: "SYS.PROTOCOL.066",
-                                title: "66 DAY PROTOCOL",
-                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't set them back. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with 80% done; the 80% is ours."
+                                code: "SYS.WINDOW.066",
+                                title: "WHY 66 DAYS",
+                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't materially slow it down. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with at least 80% of them done; the 80% is ours."
                             )
 
                             AboutCard(
                                 icon: "diamond.fill",
-                                code: "SYS.MILESTONE.TRK",
-                                title: "MILESTONE EVENTS",
-                                description: "System triggers at 1, 3, 5, 7, 21, 66, 100 and 365 days done. Consecutive not required."
+                                code: "SYS.MILESTONES",
+                                title: "MILESTONES",
+                                description: "A small card at 1, 3, 5, 7, 21, 100 and 365 days done. It's a running total, so a missed day never takes one away."
                             )
                         }
                         .padding(.horizontal)

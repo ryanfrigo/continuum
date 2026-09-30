@@ -18,7 +18,7 @@ struct AddHabitSheet: View {
         "Gratitude Log",
         "Deep Work 2hr",
         "Sleep by 10 PM",
-        "Whole Foods Only"
+        "Real Food Only"
     ]
 
     var body: some View {
@@ -122,7 +122,7 @@ struct AddHabitSheet: View {
                             attemptSave()
                         } label: {
                             HStack(spacing: 8) {
-                                Text("Create Habit")
+                                Text("Add Habit")
                                     .font(.system(size: 17, weight: .semibold))
                                 Image(systemName: "arrow.right")
                                     .font(.system(size: 14, weight: .semibold))

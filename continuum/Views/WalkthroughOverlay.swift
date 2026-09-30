@@ -10,7 +10,7 @@ struct WalkthroughOverlay: View {
     private let steps: [WalkthroughStep] = [
         WalkthroughStep(
             icon: "hand.tap.fill",
-            title: "Hold to Complete",
+            title: "Hold to Mark",
             description: "Press and hold a habit card to mark it done. The border traces itself as you hold — release early to cancel."
         ),
         WalkthroughStep(
@@ -21,7 +21,7 @@ struct WalkthroughOverlay: View {
         WalkthroughStep(
             icon: "arrow.uturn.backward",
             title: "Tap to Undo",
-            description: "Made a mistake? Tap a completed habit and confirm to undo it."
+            description: "Made a mistake? Tap a habit you marked done and confirm to undo it."
         ),
         WalkthroughStep(
             icon: "percent",

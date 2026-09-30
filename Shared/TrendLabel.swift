@@ -19,6 +19,6 @@ struct TrendLabel: View {
         }
         .foregroundStyle(trend > 0 ? color : Color.white.opacity(0.4))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trend > 0 ? "up \(trend) this week" : "down \(-trend) this week")
+        .accessibilityLabel(trend > 0 ? "up \(trend) points this week" : "down \(-trend) points this week")
     }
 }

@@ -8,16 +8,15 @@ good at spotting it.
 
 ## 1. Show HN
 
-**Title:** Show HN: Continuum – a habit tracker built on a percentage instead of a streak
+**Title:** Show HN: Continuum – a consistency tracker built on a percentage instead of a streak
 
 Every habit app I tried wanted an account, a subscription, or both. This one
-has neither. You hold a card. A dot fills. That's it.
+has neither. You hold a card. A square fills. That's it.
 
-For its first year Continuum was a streak tracker, freezes and all. 3.8 threw
+For its first eleven months Continuum was a streak tracker, freezes and all. 3.8 threw
 that out. Each habit now has one number: the share of the last 66 days you
-showed up, counted from your first day. Miss a day and it drops a point or
-two — it never goes to zero, which is exactly the moment most people quit a
-streak app.
+showed up, counted from your first day. Miss a day and it dips — it never
+resets to zero, which is exactly the moment most people quit a streak app.
 
 The grid is 66 days because that's the median time a daily habit took to
 become automatic in the best-known study — Lally et al. (2010), where it ran
@@ -46,7 +45,7 @@ Free, no ads, no IAP, no accounts, iOS 17+.
 
 ## 2. r/iOSProgramming
 
-**Title:** I shipped iCloud sync 11 months ago. It never synced once.
+**Title:** I shipped iCloud sync in July. It never synced once.
 
 SwiftData + CloudKit, private database, released July 2026 as the headline
 feature of a 3.3 update.
@@ -69,7 +68,7 @@ console-only, by Apple's design.
 
 Separately: `currentStreak()` counted back from today, so it read 0 until the
 user checked in. Reminders told 40-day streaks "Day one is waiting." The
-graduation animation replayed every single day for anyone past 66. The widget
+"habit formed" card replayed every single day for anyone past 66. The widget
 blanked the streak line each morning. One assumption. Seven call sites.
 
 App is Continuum if you want to look — free, no IAP.
@@ -78,10 +77,10 @@ App is Continuum if you want to look — free, no IAP.
 
 ## 3. r/SideProject
 
-**Title:** Continuum — a habit tracker that scores consistency, with no account or subscription
+**Title:** Continuum — a consistency tracker for habits, with no account or subscription
 
 Each habit gets one number: the share of the last 66 days you showed up. Miss
-a day and it dips a point or two; it never resets. Hold a card to mark the
+a day and it dips; it never resets. Hold a card to mark the
 day. That's the app.
 
 No accounts, no ads, no IAP, nothing to buy. I'm not monetising it and haven't
@@ -97,12 +96,13 @@ iOS 17+. Happy to answer anything about the build.
 
 ## 4. r/iosapps
 
-**Title:** [Free] Continuum — habit tracker built around a consistency percentage
+**Title:** [Free] Continuum: Consistency Tracker — one percentage per habit, no streak resets
 
 Free, no IAP, no ads, no account. Each habit shows the share of the last 66
 days you showed up, with a triangle for how it moved this week; miss a day and
 it dips instead of resetting. Hold a card to mark the day. Widgets on the home
-and lock screen show the number and mark days done without opening the app.
+and lock screen show the number; the home screen ones mark days done without
+opening the app.
 iCloud sync across devices.
 
 Made it for myself and kept going. iOS 17+.

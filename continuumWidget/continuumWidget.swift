@@ -10,7 +10,7 @@ import UserNotifications
 // widget UI responds instantly, and (2) queues the desired end state for the
 // app to reconcile into SwiftData on next activation.
 struct ToggleHabitIntent: AppIntent {
-    static var title: LocalizedStringResource = "Complete Habit"
+    static var title: LocalizedStringResource = "Mark Habit Done"
     static var description = IntentDescription("Mark a habit as done for today.")
     static var isDiscoverable: Bool = false
 
@@ -231,7 +231,7 @@ struct MediumWidgetView: View {
                         Text("/\(habits.count)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.25))
-                        Text(allDone ? "perfect" : "today")
+                        Text(allDone ? "all done" : "today")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.white.opacity(0.3))
                             .padding(.leading, 2)
@@ -303,7 +303,7 @@ private struct MediumHabitCard: View {
 
             // Always rendered: an if here makes one card's grid sit higher
             // than its neighbour's, which is what made the widget look broken.
-            Text(consistency.percent.map { "\($0)%" } ?? "start today")
+            Text(consistency.percent.map { "\($0)%" } ?? "new")
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
                 .foregroundStyle(consistency.percent != nil ? color.opacity(0.8) : .white.opacity(0.25))
 
@@ -384,9 +384,9 @@ struct AccessoryRectangularView: View {
                         .minimumScaleFactor(0.8)
                 }
                 HStack(spacing: 4) {
-                    Text(first.consistency.percent.map { "\($0)% consistent" } ?? "Not started")
+                    Text(first.consistency.percent.map { "\($0)% consistent" } ?? "new")
                     if let trend = first.consistencyTrend, trend != 0 {
-                        Text(trend > 0 ? "↑\(trend)" : "↓\(-trend)")
+                        TrendLabel(trend: trend, color: .primary, size: 11)
                     }
                 }
                 .font(.system(size: 11, weight: .medium))
@@ -445,8 +445,8 @@ struct ContinuumWidget: Widget {
         StaticConfiguration(kind: kind, provider: HabitProvider()) { entry in
             ContinuumWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Continuum")
-        .description("Your consistency at a glance, and a button to mark today done.")
+        .configurationDisplayName("continuum")
+        .description("Your consistency at a glance. On the home screen, a button marks today done.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
     }
 }

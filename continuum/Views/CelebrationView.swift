@@ -202,7 +202,7 @@ struct CelebrationCard: View {
     var title: String? = nil           // "PERFECT DAY" — tracked, accent
     var message: String? = nil         // sentence, white 60%
     var subject: String? = nil         // habit name, white 38%
-    var meta: String? = nil            // "2 LEFT" / "3 WEEKS IN A ROW"
+    var meta: String? = nil            // "2 LEFT"
     var sound: CelebrationSound = .standard
     var intensity: CelebrationIntensity = .medium
     var autoDismissAfter: Double? = nil
@@ -518,7 +518,7 @@ struct HabitGraduationOverlay: View {
             message: "You kept coming back.\nThat's how it sticks.",
             subject: habitName,
             intensity: .full,
-            primaryAction: ("Share Achievement", "square.and.arrow.up", onShare),
+            primaryAction: ("Share", "square.and.arrow.up", onShare),
             secondaryActionLabel: "Continue",
             onDismiss: onDismiss
         )
@@ -537,13 +537,13 @@ struct PerfectDayOverlay: View {
         CelebrationCard(
             accent: accent,
             visual: .icon("checkmark"),
-            title: "PERFECT DAY",
-            message: habitCount == 1 ? "Habit complete" : "All \(habitCount) habits complete",
+            title: "ALL DONE TODAY",
+            message: habitCount == 1 ? "Done for today" : "\(habitCount) of \(habitCount) habits done",
             intensity: .medium,
             autoDismissAfter: 2.4,
             onDismiss: onDismiss
         )
-        .accessibilityLabel("Perfect day. All \(habitCount) habits completed.")
+        .accessibilityLabel("All done today. \(habitCount) of \(habitCount) habits done.")
     }
 }
 
@@ -551,7 +551,6 @@ struct PerfectDayOverlay: View {
 
 struct PerfectWeekOverlay: View {
     let habitCount: Int
-    let weekCount: Int   // consecutive perfect weeks (1 = first)
     var accent: Color = CelebrationPalette.gold   // overall health tile color
     let onDismiss: () -> Void
 
@@ -559,14 +558,13 @@ struct PerfectWeekOverlay: View {
         CelebrationCard(
             accent: accent,
             visual: .sevenDots,
-            title: "PERFECT WEEK",
-            message: "7 days. Every habit. Flawless.",
-            meta: weekCount > 1 ? "\(weekCount) weeks in a row" : nil,
+            title: "FULL WEEK",
+            message: "Every habit, all 7 days.",
             sound: .rare,
             intensity: .full,
             onDismiss: onDismiss
         )
-        .accessibilityLabel("Perfect week. All \(habitCount) habits completed every day for 7 days.")
+        .accessibilityLabel("Full week. All \(habitCount) habits done every day for 7 days.")
     }
 }
 
@@ -631,7 +629,7 @@ struct CornerBracket: Shape {
 }
 
 #Preview("Perfect Week") {
-    PerfectWeekOverlay(habitCount: 4, weekCount: 2, onDismiss: {})
+    PerfectWeekOverlay(habitCount: 4, onDismiss: {})
 }
 
 #Preview("Record") {

@@ -114,7 +114,7 @@ three are also OCR-indexed, so they are keyword space as well as conversion.
    Caption: "66 days. One dot at a time."
 2. Mid-hold: thumb on a card, progress partway, dot about to fill.
    Caption: "Hold to mark done."
-3. Lock screen widget with mark-done. Caption: "Mark it from the lock screen."
+3. Home screen widget with MARK DONE. Caption: "Mark it from the home screen." (Lock screen widgets have no button.)
 
 ## The honest ceiling
 

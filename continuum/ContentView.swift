@@ -52,7 +52,6 @@ struct ContentView: View {
     // Perfect day / perfect week state
     @State private var showPerfectDay = false
     @State private var showPerfectWeek = false
-    @State private var perfectWeekCount = 0
 
     @AppStorage("hasCompletedOnboarding") private var onboardingCompleted = false
     @AppStorage("hasCompletedWalkthrough") private var walkthroughCompleted = false
@@ -197,7 +196,6 @@ struct ContentView: View {
                     if showPerfectWeek {
                         PerfectWeekOverlay(
                             habitCount: habits.count,
-                            weekCount: perfectWeekCount,
                             accent: HabitPalette.color(overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
@@ -327,7 +325,7 @@ struct ContentView: View {
                     .font(.system(size: 24, weight: .semibold, design: .default))
                     .foregroundStyle(.white)
 
-                Text("Create your first habit to begin\nbuilding better routines")
+                Text("Add your first habit.\nMiss a day and nothing resets.")
                     .font(.system(size: 15))
                     .foregroundStyle(Color.white.opacity(0.5))
                     .multilineTextAlignment(.center)
@@ -341,7 +339,7 @@ struct ContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .semibold))
-                    Text("Create Habit")
+                    Text("Add Habit")
                         .font(.system(size: 16, weight: .semibold))
                 }
                 .foregroundStyle(.black)
@@ -593,7 +591,6 @@ struct ContentView: View {
             )
 
             if perfectRun > 0 && perfectRun % 7 == 0 {
-                perfectWeekCount = perfectRun / 7
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                     guard !showPerfectWeek else { return }
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {

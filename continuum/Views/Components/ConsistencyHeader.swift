@@ -67,7 +67,7 @@ struct ConsistencyHeader: View {
     private func accessibilityText(_ percent: Int) -> String {
         var parts = ["\(percent) percent consistent over the last 66 days"]
         if let trend, trend != 0 {
-            parts.append(trend > 0 ? "up \(trend) this week" : "down \(-trend) this week")
+            parts.append(trend > 0 ? "up \(trend) points this week" : "down \(-trend) points this week")
         }
         parts.append("\(doneToday) of \(habitCount) done today")
         return parts.joined(separator: ", ")
