@@ -57,18 +57,35 @@ It needs 7 counted days at the comparison point, so it appears from a habit's
 
 ## Where it shows
 
-- **Home header** — pooled consistency, big, with the week's trend and today's
-  count ("5 of 6 today"). 3.7 cut the greeting header for being text; this one
+- **Home header** — three readouts: pooled consistency, the week's trend, and
+  today's count ("4/6"). 3.7 cut the greeting header for being text; this one
   is the metric.
-- **Card** — the percentage replaces the ring and the streak row: big number,
-  trend, then the grid. Days before a habit's first completion draw fainter than
-  misses, so a new habit's grid agrees with its 100%.
-- **Stats** — consistency hero, a 12-week bar chart (each bar is one 7-day
+- **Card** — the percentage replaces the ring and the streak row: a readout
+  with its trend, then the grid. Days before a habit's first completion draw
+  fainter than misses, so a new habit's grid agrees with its 100%.
+- **Stats** — consistency readout, a 12-week bar chart (each bar is one 7-day
   block), then days done, all-time %, best run, perfect weeks, and the year
   heatmap. The streak survives here as "best run".
 - **Widgets** — percentage wherever a streak was.
-- **Share card** — the percentage is the hero; "DAY STREAK" goes.
+- **Share card** — the percentage leads; "DAY STREAK" goes.
 - **Settings** — the reorder list shows each habit's percentage.
+
+## Look
+
+Revised 2026-09-30, after 3.8 was tried on a phone: the big numbers read as a
+different font, they were too big, and the app should feel more like an old
+computer dashboard.
+
+- **Type.** One face, the app's SF Mono, at semibold or bold. No heavy, black
+  or SF Pro Rounded anywhere; the widget now sets the same mono the app does.
+  Numbers are readouts under small tracked labels: 20pt in the home header,
+  13pt on a card, 34pt on stats, 120px on the share card. Trends are ▲ and ▼.
+  The title is "continuum", lower case.
+- **Colour.** One ramp, `Shared/HabitPalette.swift`: coral red, orange, green,
+  cyan, blue. `HabitMath.colorProgress` places a habit on it — consistency
+  times the share of the 66-day window tracked, which is the share of the grid
+  that's lit. A week-old habit at 100% is coral; blue takes 66 days and a high
+  number. Pooled over n habits it's days done ÷ 66n.
 
 ## Moments
 
@@ -123,13 +140,13 @@ Five, captured from the running app on an iPhone 16 Pro Max simulator
 (1320x2868) with seeded data and a pinned 9:41 status bar, then captioned with
 PIL in SF Mono to match the UI:
 
-1. Home with the pooled number: "Miss a day. / nothing resets"
-2. Stats, bars climbing: the number getting better week by week
-3. A comeback moment in its card
-4. Hold to mark the day
-5. Habit formed at 66 days done
+1. Home with the pooled number: "Miss a day. / Nothing resets."
+2. A comeback moment in its card: "Missed yesterday? / Don't miss twice."
+3. Stats, bars climbing: "12 weeks. / Watch it climb."
+4. Habit formed at 66 days done: "66 days. / Not in a row."
+5. Hold to mark the day, magnified: "Hold to mark / the day."
 
-Caption copy gets finalised against the real captures.
+Recaptured 2026-09-30 for the look above; `docs/ASO.md` has the details.
 
 ## Testing
 

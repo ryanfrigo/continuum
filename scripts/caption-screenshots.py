@@ -17,12 +17,13 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 W, H = 1320, 2868
 FONT = "/System/Library/Fonts/SFNSMono.ttf"
 
-# The app's colour for a habit around 85% consistent (HabitCardView.healthColor)
-TEAL = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(164.5 / 360, 0.75, 0.9))
+# The app's colour for a habit kept up at 85% for 66 days (Shared/HabitPalette.swift
+# at 0.85): the azure between its cyan and blue stops
+ACCENT = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(187 / 360, 0.74, 0.92))
 WHITE = (242, 244, 245)
 GREY = (122, 130, 138)
 
-# raw capture, output name, headline (white), headline (teal), small line,
+# raw capture, output name, headline (white), headline (accent), small line,
 # and optionally a region of the capture (px) to magnify over the phone
 SHOTS = [
     ("home.png", "01_consistency.png", "Miss a day.", "Nothing resets.", "one number per habit", None),
@@ -30,7 +31,7 @@ SHOTS = [
     ("stats.png", "03_week_by_week.png", "12 weeks.", "Watch it climb.", None, None),
     ("graduation.png", "04_66_days.png", "66 days.", "Not in a row.", None, None),
     # The half-traced border is invisible at thumbnail size, so the held card is magnified
-    ("hold_final.png", "05_hold.png", "Hold to mark", "the day.", "harder to do by accident", (20, 1195, 660, 1815)),
+    ("hold_final.png", "05_hold.png", "Hold to mark", "the day.", "harder to do by accident", (20, 1030, 660, 1628)),
 ]
 
 
@@ -41,12 +42,12 @@ def font(size, weight):
 
 
 def background():
-    """Dark slate like the app, with a soft teal glow where the phone sits."""
+    """Dark slate like the app, with a soft accent glow where the phone sits."""
     img = Image.new("RGB", (W, H), (9, 11, 13))
     glow = Image.new("L", (W, H), 0)
     ImageDraw.Draw(glow).ellipse((W * 0.05, H * 0.28, W * 0.95, H * 0.62), fill=255)
     glow = glow.filter(ImageFilter.GaussianBlur(220))
-    tint = Image.new("RGB", (W, H), TEAL)
+    tint = Image.new("RGB", (W, H), ACCENT)
     return Image.composite(tint, img, glow.point(lambda v: int(v * 0.22)))
 
 
@@ -67,12 +68,12 @@ def phone(raw, width):
 
 
 def callout(raw, box, width):
-    """A region of the capture, magnified, with a teal edge so it reads as a zoom."""
+    """A region of the capture, magnified, with an accent edge so it reads as a zoom."""
     region = raw.crop(box)
     region = region.resize((width, round(region.height * width / region.width)), Image.LANCZOS)
     card = Image.new("RGBA", (region.width + 16, region.height + 16), (0, 0, 0, 0))
     d = ImageDraw.Draw(card)
-    d.rounded_rectangle((0, 0, card.width - 1, card.height - 1), 56, fill=TEAL + (255,))
+    d.rounded_rectangle((0, 0, card.width - 1, card.height - 1), 56, fill=ACCENT + (255,))
     mask = Image.new("L", region.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, region.width - 1, region.height - 1), 48, fill=255)
     card.paste(region, (8, 8), mask)
@@ -85,7 +86,7 @@ def compose(raw_path, headline, accent, small, zoom=None):
 
     big = font(108, "Bold")
     y = 170
-    for text, colour in ((headline, WHITE), (accent, TEAL)):
+    for text, colour in ((headline, WHITE), (accent, ACCENT)):
         x = (W - d.textlength(text, font=big)) / 2
         d.text((x, y), text, font=big, fill=colour)
         y += 132
@@ -107,7 +108,7 @@ def compose(raw_path, headline, accent, small, zoom=None):
         y = 1560
         glow = Image.new("RGBA", img.size, (0, 0, 0, 0))
         ImageDraw.Draw(glow).rounded_rectangle(
-            ((W - card.width) / 2, y, (W + card.width) / 2, y + card.height), 56, fill=TEAL + (150,))
+            ((W - card.width) / 2, y, (W + card.width) / 2, y + card.height), 56, fill=ACCENT + (150,))
         img = Image.alpha_composite(img, glow.filter(ImageFilter.GaussianBlur(40)))
         img.alpha_composite(card, ((W - card.width) // 2, y))
     return img.convert("RGB")

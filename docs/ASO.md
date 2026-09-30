@@ -19,7 +19,7 @@ app are searching for streak trackers after one of them reset on them.
 
 Screenshots (`AppStoreScreenshots/3.8/`, five, 1320x2868):
 
-1. `01_consistency.png`: home with the pooled 82%. "Miss a day. / Nothing resets."
+1. `01_consistency.png`: home, pooled 85%, cards running coral (a week old) to blue. "Miss a day. / Nothing resets."
 2. `02_never_miss_twice.png`: a comeback in its card. "Missed yesterday? / Don't miss twice."
 3. `03_week_by_week.png`: stats, 12 bars climbing. "12 weeks. / Watch it climb."
 4. `04_66_days.png`: graduation. "66 days. / Not in a row."
@@ -31,7 +31,9 @@ capture with a 9:41 status bar, then
 `python3 scripts/caption-screenshots.py <raw dir> AppStoreScreenshots/3.8`.
 The raw captures are in `AppStoreScreenshots/3.8/raw/`. Xcode 27 has no
 Simulator.app; DeviceHub shows the screen and takes clicks, but roughly one in
-two gets dropped, so check every capture.
+two gets dropped, so check every capture. The 2026-09-30 set used no clicks at
+all: the gesture shots (comeback, hold, graduation) came from temporary launch
+switches, described in the release skill, reverted once captured.
 
 Apply with `node scripts/asc-metadata.mjs --apply` and
 `node scripts/asc-screenshots.mjs AppStoreScreenshots/3.8 --replace` while 3.8

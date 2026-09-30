@@ -337,6 +337,28 @@ screenshot. Menus (the card's ⋯, the share sheet) often need the item tapped
 twice. The home-screen widget gallery never accepted the "Add Widget" tap;
 it's easier to check widget layout another way.
 
+**Prefer launch switches to DeviceHub taps.** The 2026-09-30 screenshots
+took no clicks. Temporary env-gated code, reverted after:
+`HARNESS_COMPLETE=<habit>` in ContentView's `onAppear` marks the habit done
+and calls `checkForMilestones` (the comeback tile, or graduation after
+`seedForGraduationScreenshot`); `HARNESS_HOLD=<habit>` in HabitCardView sets
+`isAnimatingCompletion`, `completionProgress = 0.5`, `cardScale = 0.97`;
+`TileCelebration.duration = 120` keeps a tile up. Launch with
+`SIMCTL_CHILD_HARNESS_…=… xcrun simctl launch`, capture with `simctl io`.
+Commit the real work first so `git checkout` strips the switches cleanly.
+The stats sheet works the same way: present `HabitStatsView` in a `.sheet`
+over `ContentView` from a harness in `continuumApp.swift`.
+
+**Widgets without the home screen:** copy `continuumWidget/continuumWidget.swift`
+into `continuum/` (no `@main` there, no name clashes) and render
+`SmallWidgetView` at 170x170 and `MediumWidgetView` at 364x170, each with
+`.padding(16)` for the content margins and `.fontDesign(.monospaced)`. That's
+how the medium widget's overflow turned up. Delete the copy after.
+
+**Never `screencapture -R` the DeviceHub rectangle** to check its state: other
+apps' windows share that rectangle, and one capture caught a private Messages
+thread. `simctl io … screenshot` sees only the simulator.
+
 Mid-hold captures: press, `sleep 0.45`, screenshot, release. Any later and the
 screenshot's own latency pushes the release past the 0.9s hold and completes
 the habit, so reseed afterwards. The screenshot seed and the caption pipeline

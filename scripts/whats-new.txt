@@ -1,6 +1,8 @@
-Continuum runs on one number now. Your consistency, the share of the last 66 days you showed up, sits on every card in big type with an arrow for how it moved this week. The home screen pools every habit into one figure.
+Continuum runs on one number now. Your consistency, the share of the last 66 days you showed up, sits on every card as a small readout, with a triangle for how it moved this week. The home screen pools every habit into one figure.
 
 I built this app around streaks for a year, freezes included. That was the wrong number. A streak turns one bad day into zero; consistency turns it into a dip. Freezes are gone. So is the 8pm "streak ends at midnight" alert, replaced by a single nudge on the evening after a miss. Never miss twice.
+
+Color follows the grid. A habit starts coral red and turns blue as its 66 days fill — a week-old habit at 100% is still coral, because blue takes time as well as showing up.
 
 A habit is formed at 66 days done, in any order. Already past 66? Your next check-in does it.
 
