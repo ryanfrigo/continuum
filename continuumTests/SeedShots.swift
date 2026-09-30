@@ -6,7 +6,7 @@ import SwiftData
 /// Seeds the simulator's store for App Store screenshots. Not a test of
 /// anything: run one with -only-testing, then launch the app. Days are
 /// relative to today, so the numbers come out the same whenever it runs:
-/// 82% pooled, up 5 this week, 4 of 6 done today.
+/// 85% pooled, up 4 this week, 4 of 6 done today.
 @MainActor
 private enum ScreenshotSeed {
     /// Name, first day (days back), missed days (days back), done today.
@@ -18,9 +18,10 @@ private enum ScreenshotSeed {
         // Its stats bars climb week by week, 42% to 100%
         ("Lift Heavy", 120, [17, 24, 29, 33, 38, 43, 47, 50, 54, 57, 61, 64, 67, 69, 71, 74, 76, 78, 80,
                              82, 83, 86, 89, 93, 97, 100, 104, 108, 113, 117], false),
-        ("Journal", 90, [8, 17, 26, 33, 41, 48, 57, 63, 66, 68, 69, 71, 72, 80], true),
-        // Young and improving: 53% and up 9, so the colour scale gets used
-        ("No Phone in Bed", 40, [9, 12, 14, 16, 18, 19, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37, 39], true),
+        // A month in, so half its grid is lit: green, between the two ends
+        ("Journal", 38, [8, 17, 26, 33], true),
+        // A week old at 85%: colour takes time as well, so it's still coral
+        ("No Phone in Bed", 6, [3], true),
         // Missed yesterday only: holding it today is a clean comeback
         ("Zone 2 Cardio", 110, [1, 9, 13, 16, 18, 22, 26, 29, 33, 37, 41, 44, 48, 51, 55, 58, 62, 74, 79, 86,
                                 93, 99], false),

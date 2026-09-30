@@ -78,7 +78,7 @@ struct HabitCardView: View {
     }
 
     private var themeColor: Color {
-        healthColor(for: consistency.fraction)
+        HabitPalette.color(HabitMath.colorProgress(consistency))
     }
 
     /// Days back to the first done day. Older cells aren't misses — the habit
@@ -92,26 +92,6 @@ struct HabitCardView: View {
         while result.count < habitFormationDays { result.append(false) }
         // Reverse so index 0 = today, index 65 = oldest (65 days ago)
         return Array(result.prefix(habitFormationDays).reversed())
-    }
-
-    // MARK: - Color System
-
-    private func healthColor(for health: Double) -> Color {
-        let hueOrange: Double = 30.0 / 360.0
-        let hueGreen: Double = 140.0 / 360.0
-        let hueCyan: Double = 175.0 / 360.0
-
-        let clamped = max(0, min(1, health))
-
-        if clamped <= 0.5 {
-            let t = clamped / 0.5
-            let hue = hueOrange + (hueGreen - hueOrange) * t
-            return Color(hue: hue, saturation: 0.85, brightness: 0.95)
-        } else {
-            let t = (clamped - 0.5) / 0.5
-            let hue = hueGreen + (hueCyan - hueGreen) * t
-            return Color(hue: hue, saturation: 0.75, brightness: 0.9)
-        }
     }
 
     // MARK: - Body
@@ -355,7 +335,7 @@ struct HabitCardView: View {
                     }
 
                 if let trend = habit.consistencyTrend, trend != 0 {
-                    TrendLabel(trend: trend, color: themeColor)
+                    TrendLabel(trend: trend, color: themeColor, size: 10)
                 }
             } else {
                 Text("Hold to start")
@@ -372,18 +352,15 @@ struct HabitCardView: View {
             }
         }
         // Same height with or without a number, so neighbouring cards line up
-        .frame(height: 30, alignment: .bottom)
+        .frame(height: 16, alignment: .bottom)
     }
 
+    /// A readout, not a headline: the app's own mono at text size.
     private func percentText(_ percent: Int) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text("\(percent)")
-                .font(.system(size: 28, weight: .heavy))
-                .contentTransition(.numericText(value: Double(percent)))
-                .animation(.snappy, value: percent)
-            Text("%")
-                .font(.system(size: 15, weight: .heavy))
-        }
+        Text("\(percent)%")
+            .font(.system(size: 13, weight: .semibold))
+            .contentTransition(.numericText(value: Double(percent)))
+            .animation(.snappy, value: percent)
     }
 
     private var historyGridSection: some View {
@@ -567,7 +544,7 @@ struct HabitCardView: View {
 
             VStack(spacing: 2) {
                 Text(celebration.value)
-                    .font(.system(size: 46, weight: .heavy, design: .monospaced))
+                    .font(.system(size: 40, weight: .bold, design: .monospaced))
                     .foregroundStyle(accent)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)

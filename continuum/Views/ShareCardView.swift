@@ -35,33 +35,13 @@ struct ShareCardView: View {
     }
 
     private var themeColor: Color {
-        healthColor(for: consistency.fraction)
+        HabitPalette.color(HabitMath.colorProgress(consistency))
     }
 
     private var gridFlags: [Bool] {
         var result = habit.historyCompletionFlags(daysBack: habitFormationDays)
         while result.count < habitFormationDays { result.append(false) }
         return Array(result.prefix(habitFormationDays).reversed())
-    }
-
-    // MARK: - Color System
-
-    private func healthColor(for health: Double) -> Color {
-        let hueOrange: Double = 30.0 / 360.0
-        let hueGreen: Double = 140.0 / 360.0
-        let hueCyan: Double = 175.0 / 360.0
-
-        let clamped = max(0, min(1, health))
-
-        if clamped <= 0.5 {
-            let t = clamped / 0.5
-            let hue = hueOrange + (hueGreen - hueOrange) * t
-            return Color(hue: hue, saturation: 0.85, brightness: 0.95)
-        } else {
-            let t = (clamped - 0.5) / 0.5
-            let hue = hueGreen + (hueCyan - hueGreen) * t
-            return Color(hue: hue, saturation: 0.75, brightness: 0.9)
-        }
     }
 
     // MARK: - Body
@@ -186,7 +166,7 @@ struct ShareCardView: View {
                 .fill(themeColor.opacity(0.5))
                 .frame(width: 24, height: 2)
 
-            Text("CONTINUUM")
+            Text("continuum")
                 .font(.system(size: 24, weight: .medium, design: .monospaced))
                 .tracking(6)
                 .foregroundStyle(Color.white.opacity(0.5))
@@ -201,7 +181,7 @@ struct ShareCardView: View {
 
     private var habitNameSection: some View {
         Text(habit.name.uppercased())
-            .font(.system(size: 48, weight: .bold, design: .rounded))
+            .font(.system(size: 44, weight: .bold, design: .monospaced))
             .tracking(2)
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
@@ -213,23 +193,11 @@ struct ShareCardView: View {
 
     private var heroSection: some View {
         VStack(spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(consistency.percent.map(String.init) ?? "0")
-                    .font(.system(size: 170, weight: .heavy, design: .monospaced))
-                Text("%")
-                    .font(.system(size: 80, weight: .heavy, design: .monospaced))
-            }
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [
-                        .white,
-                        themeColor.opacity(0.9)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .shadow(color: themeColor.opacity(0.4), radius: 30, x: 0, y: 10)
+            Text("\(consistency.percent ?? 0)%")
+                .font(.system(size: 120, weight: .semibold, design: .monospaced))
+                .foregroundStyle(themeColor)
+                // Phosphor glow, as on the app's readouts
+                .shadow(color: themeColor.opacity(0.5), radius: 24)
 
             // Label
             Text("CONSISTENT")
@@ -340,7 +308,7 @@ struct ShareCardView: View {
     private var daysSection: some View {
         VStack(spacing: 8) {
             Text("\(habit.daysDone)")
-                .font(.system(size: 64, weight: .heavy, design: .monospaced))
+                .font(.system(size: 52, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white)
 
             Text(habit.daysDone == 1 ? "DAY DONE" : "DAYS DONE")
@@ -383,7 +351,7 @@ struct ShareCardView: View {
                 .padding(.horizontal, 40)
 
             Text("Download Continuum")
-                .font(.system(size: 18, weight: .medium, design: .rounded))
+                .font(.system(size: 18, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color.white.opacity(0.35))
         }
     }

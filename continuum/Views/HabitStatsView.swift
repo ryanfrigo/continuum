@@ -21,17 +21,7 @@ struct HabitStatsView: View {
     private let chartWeeks = 12
 
     private var themeColor: Color {
-        let hueOrange: Double = 30.0 / 360.0
-        let hueGreen: Double = 140.0 / 360.0
-        let hueCyan: Double = 175.0 / 360.0
-        let clamped = max(0, min(1, consistency.fraction))
-        if clamped <= 0.5 {
-            let t = clamped / 0.5
-            return Color(hue: hueOrange + (hueGreen - hueOrange) * t, saturation: 0.85, brightness: 0.95)
-        } else {
-            let t = (clamped - 0.5) / 0.5
-            return Color(hue: hueGreen + (hueCyan - hueGreen) * t, saturation: 0.75, brightness: 0.9)
-        }
+        HabitPalette.color(HabitMath.colorProgress(consistency))
     }
 
     private static let startedFormatter: DateFormatter = {
@@ -109,7 +99,7 @@ struct HabitStatsView: View {
                         Image(systemName: "star.fill")
                             .font(.system(size: 9))
                         Text("FORMED")
-                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
                     }
                     .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
                     .padding(.horizontal, 7)
@@ -127,29 +117,24 @@ struct HabitStatsView: View {
 
     // MARK: - The number
 
+    /// The primary readout: a label over a number, like the home screen's.
     private var heroSection: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(consistency.percent.map(String.init) ?? "–")
-                        .font(.system(size: 64, weight: .heavy, design: .monospaced))
-                    Text("%")
-                        .font(.system(size: 30, weight: .heavy, design: .monospaced))
+        VStack(alignment: .leading, spacing: 6) {
+            Text("CONSISTENT · LAST 66 DAYS")
+                .font(.system(size: 10, weight: .semibold).monospaced())
+                .foregroundStyle(.white.opacity(0.4))
+                .tracking(1)
+
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(consistency.percent.map { "\($0)%" } ?? "–")
+                    .font(.system(size: 34, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(themeColor)
+                    // A little phosphor glow, like an old terminal
+                    .shadow(color: themeColor.opacity(0.45), radius: 8)
+
+                if let trend = habit.consistencyTrend, trend != 0 {
+                    TrendLabel(trend: trend, color: themeColor, size: 12, suffix: " THIS WEEK")
                 }
-                .foregroundStyle(themeColor)
-                .shadow(color: themeColor.opacity(0.3), radius: 14)
-
-                Text("CONSISTENT · LAST 66 DAYS")
-                    .font(.system(size: 10, weight: .semibold).monospaced())
-                    .foregroundStyle(.white.opacity(0.4))
-                    .tracking(1)
-            }
-
-            Spacer()
-
-            if let trend = habit.consistencyTrend, trend != 0 {
-                TrendLabel(trend: trend, color: themeColor, size: 13, suffix: " this week")
-                    .padding(.bottom, 4)
             }
         }
     }
@@ -228,10 +213,10 @@ struct HabitStatsView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
                     .foregroundStyle(color)
                 Text(unit)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.35))
             }
             Text(label)

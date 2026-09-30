@@ -307,6 +307,26 @@ struct ConsistencyTests {
         // today not done
         #expect(HabitMath.comebackGap(completed: keys([4, 3, 2]), dayKey: today) == nil)
     }
+
+    @Test func colourNeedsTimeAndConsistencyTogether() {
+        // Three days in at 100%: still at the coral end
+        let fresh = HabitMath.consistency(completed: keys([2, 1, 0]), todayKey: today)
+        #expect(fresh.percent == 100)
+        #expect(HabitMath.colorProgress(fresh) == 3.0 / 66)
+        // A full grid is the blue end
+        let full = HabitMath.consistency(completed: keys(Array(0..<66)), todayKey: today)
+        #expect(HabitMath.colorProgress(full) == 1)
+        // Past the window it's the consistency: every other day is half way
+        let half = HabitMath.consistency(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
+        #expect(half == ConsistencyTally(done: 33, counted: 66))
+        #expect(HabitMath.colorProgress(half) == 0.5)
+    }
+
+    @Test func pooledColourIsTheShareOfEveryGridLit() {
+        let pooled = ConsistencyTally(done: 66, counted: 66) + ConsistencyTally()
+        #expect(HabitMath.colorProgress(pooled, habits: 2) == 0.5)
+        #expect(HabitMath.colorProgress(ConsistencyTally(), habits: 0) == 0)
+    }
 }
 }
 

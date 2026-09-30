@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "↑4": how far a consistency number moved over the last 7 days. Up takes
+/// "▲4": how far a consistency number moved over the last 7 days. Up takes
 /// the habit's colour; down is grey, never red — a dip isn't a failure.
 /// Shared by the app and the widget.
 struct TrendLabel: View {
@@ -11,11 +11,11 @@ struct TrendLabel: View {
     var suffix: String = ""
 
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: trend > 0 ? "arrow.up" : "arrow.down")
-                .font(.system(size: size * 0.8, weight: .heavy))
+        HStack(spacing: size * 0.2) {
+            Image(systemName: trend > 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                .font(.system(size: size * 0.55))
             Text("\(abs(trend))\(suffix)")
-                .font(.system(size: size, weight: .bold, design: .monospaced))
+                .font(.system(size: size, weight: .semibold, design: .monospaced))
         }
         .foregroundStyle(trend > 0 ? color : Color.white.opacity(0.4))
         .accessibilityElement(children: .ignore)

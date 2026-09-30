@@ -103,8 +103,9 @@ struct ContentView: View {
         }
     }
 
+    /// How much of every habit's grid is lit, pooled: the home screen's colour.
     private var overallHealth: Double {
-        overall.now.fraction
+        HabitMath.colorProgress(overall.now, habits: habits.count)
     }
 
     var body: some View {
@@ -115,7 +116,7 @@ struct ContentView: View {
             // Floating particles
             FloatingParticlesView(
                 particleCount: 25,
-                baseColor: Color(hue: 0.08 + overallHealth * 0.4, saturation: 0.7, brightness: 0.9)
+                baseColor: HabitPalette.color(overallHealth)
             )
             .opacity(0.6)
 
@@ -145,7 +146,7 @@ struct ContentView: View {
                     if showPerfectDay {
                         PerfectDayOverlay(
                             habitCount: habits.count,
-                            accent: healthColor(for: overallHealth),
+                            accent: HabitPalette.color(overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showPerfectDay = false
@@ -158,7 +159,7 @@ struct ContentView: View {
 
                     if showReminderPrompt {
                         ReminderPromptView(
-                            accent: healthColor(for: overallHealth),
+                            accent: HabitPalette.color(overallHealth),
                             onEnable: { time in enableRemindersForAll(at: time) },
                             onDismiss: {
                                 hasAskedForReminders = true
@@ -172,7 +173,7 @@ struct ContentView: View {
                     if showGraduation {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
-                            accent: healthColor(for: graduationHabit?.consistency.fraction ?? 1.0),
+                            accent: HabitPalette.color(graduationHabit.map { HabitMath.colorProgress($0.consistency) } ?? 1),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showGraduation = false
@@ -196,7 +197,7 @@ struct ContentView: View {
                         PerfectWeekOverlay(
                             habitCount: habits.count,
                             weekCount: perfectWeekCount,
-                            accent: healthColor(for: overallHealth),
+                            accent: HabitPalette.color(overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showPerfectWeek = false
@@ -221,7 +222,7 @@ struct ContentView: View {
         .sheet(isPresented: $showingAdd) {
             AddHabitSheet(
                 newHabitName: $newHabitName,
-                healthColor: healthColor(for: overallHealth)
+                healthColor: HabitPalette.color(overallHealth)
             ) { name in
                 addHabit(name: name)
                 showingAdd = false
@@ -366,7 +367,7 @@ struct ContentView: View {
                     trend: HabitMath.trend(now: overall.now, weekAgo: overall.weekAgo),
                     doneToday: completedTodayCount,
                     habitCount: habits.count,
-                    accent: healthColor(for: overall.now.fraction)
+                    accent: HabitPalette.color(HabitMath.colorProgress(overall.now, habits: habits.count))
                 )
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
@@ -420,7 +421,7 @@ struct ContentView: View {
             .hidingSharedBackground()
 
             ToolbarItem(placement: .principal) {
-                Text("Continuum")
+                Text("continuum")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.3))
             }
@@ -431,7 +432,7 @@ struct ContentView: View {
                     newHabitName = ""
                     showingAdd = true
                 } label: {
-                    let buttonColor = healthColor(for: overallHealth)
+                    let buttonColor = HabitPalette.color(overallHealth)
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 24))
                         .foregroundStyle(buttonColor)
@@ -442,22 +443,6 @@ struct ContentView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.clear, for: .navigationBar)
-    }
-
-    private func healthColor(for health: Double) -> Color {
-        let hueOrange: Double = 30.0 / 360.0
-        let hueGreen: Double = 140.0 / 360.0
-        let hueCyan: Double = 175.0 / 360.0
-        let clamped = max(0, min(1, health))
-        if clamped <= 0.5 {
-            let t = clamped / 0.5
-            let hue = hueOrange + (hueGreen - hueOrange) * t
-            return Color(hue: hue, saturation: 0.85, brightness: 0.95)
-        } else {
-            let t = (clamped - 0.5) / 0.5
-            let hue = hueGreen + (hueCyan - hueGreen) * t
-            return Color(hue: hue, saturation: 0.75, brightness: 0.9)
-        }
     }
 
     // MARK: - Actions

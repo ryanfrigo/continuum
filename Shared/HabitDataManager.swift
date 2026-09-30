@@ -177,6 +177,16 @@ enum HabitMath {
         return a - b
     }
 
+    /// Where a habit sits on the colour ramp, 0...1: its consistency scaled by
+    /// how much of the 66-day window it's been tracked. That works out to the
+    /// share of the grid that's lit, so a new habit starts coral even at 100%
+    /// and only time and consistency together turn it blue. `habits` is how
+    /// many habits a pooled tally covers.
+    static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
+        guard habits > 0 else { return 0 }
+        return min(1, Double(tally.done) / Double(gridDays * habits))
+    }
+
     /// Every day since the first completion, today counting once done.
     static func allTime(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
         guard let first = completed.min(), first <= todayKey else { return ConsistencyTally() }

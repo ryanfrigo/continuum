@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The home screen's number: every habit pooled into one consistency figure,
-/// with the week's movement and today's count beside it. Hidden until a habit
-/// has a number — an empty "—%" is just noise on day one.
+/// The home screen's readouts, set like an instrument panel: every habit
+/// pooled into one consistency figure, the week's movement, and today's
+/// count. Hidden until a habit has a number — an empty "—%" is just noise on
+/// day one.
 struct ConsistencyHeader: View {
     let tally: ConsistencyTally
     let trend: Int?
@@ -10,42 +11,57 @@ struct ConsistencyHeader: View {
     let habitCount: Int
     let accent: Color
 
+    private let valueSize: CGFloat = 20
+
     var body: some View {
         if let percent = tally.percent {
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 1) {
-                        Text("\(percent)")
-                            .font(.system(size: 54, weight: .heavy))
-                            .contentTransition(.numericText(value: Double(percent)))
-                            .animation(.snappy, value: percent)
-                        Text("%")
-                            .font(.system(size: 26, weight: .heavy))
-                    }
-                    .foregroundStyle(accent)
-                    .shadow(color: accent.opacity(0.3), radius: 14)
-
-                    Text("CONSISTENT · LAST 66 DAYS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(1.2)
-                        .foregroundStyle(.white.opacity(0.4))
+            HStack(alignment: .top, spacing: 0) {
+                readout("CONSISTENT") {
+                    Text("\(percent)%")
+                        .foregroundStyle(accent)
+                        // A little phosphor glow, like an old terminal
+                        .shadow(color: accent.opacity(0.5), radius: 6)
+                        .contentTransition(.numericText(value: Double(percent)))
+                        .animation(.snappy, value: percent)
                 }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 6) {
+                divider
+                readout("THIS WEEK") {
                     if let trend, trend != 0 {
-                        TrendLabel(trend: trend, color: accent, size: 13, suffix: " this week")
+                        TrendLabel(trend: trend, color: accent, size: valueSize)
+                    } else {
+                        // Too new for a trend, or flat
+                        Text(trend == nil ? "–" : "±0")
+                            .foregroundStyle(.white.opacity(0.3))
                     }
-                    Text("\(doneToday) of \(habitCount) today")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(doneToday == habitCount ? 0.75 : 0.45))
                 }
-                .padding(.bottom, 2)
+                divider
+                readout("TODAY") {
+                    Text("\(doneToday)/\(habitCount)")
+                        .foregroundStyle(.white.opacity(doneToday == habitCount ? 0.9 : 0.6))
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityText(percent))
         }
+    }
+
+    private func readout<Value: View>(_ label: String, @ViewBuilder value: () -> Value) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(1.5)
+                .foregroundStyle(.white.opacity(0.35))
+            value()
+                .font(.system(size: valueSize, weight: .semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(.white.opacity(0.08))
+            .frame(width: 1, height: 36)
+            .padding(.trailing, 14)
     }
 
     private func accessibilityText(_ percent: Int) -> String {

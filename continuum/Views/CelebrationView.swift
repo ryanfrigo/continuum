@@ -389,7 +389,7 @@ struct CelebrationCard: View {
         case .value(let value, let unit):
             VStack(spacing: 2) {
                 Text(value)
-                    .font(.system(size: 60, weight: .heavy, design: .monospaced))
+                    .font(.system(size: 60, weight: .bold, design: .monospaced))
                     .foregroundStyle(
                         LinearGradient(colors: [.white, accent.opacity(0.85)],
                                        startPoint: .top, endPoint: .bottom)
@@ -410,7 +410,7 @@ struct CelebrationCard: View {
                             }
                             .mask(
                                 Text(value)
-                                    .font(.system(size: 60, weight: .heavy, design: .monospaced))
+                                    .font(.system(size: 60, weight: .bold, design: .monospaced))
                             )
                         }
                     }

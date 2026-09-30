@@ -99,7 +99,7 @@ struct CompleteButton: View {
                         .font(.system(size: compact ? 6 : 7, weight: .heavy))
                     if !compact {
                         Text("DONE")
-                            .font(.system(size: 7, weight: .heavy, design: .rounded))
+                            .font(.system(size: 7, weight: .bold))
                     }
                 }
                 .foregroundStyle(color)
@@ -112,7 +112,7 @@ struct CompleteButton: View {
                         .font(.system(size: compact ? 8 : 9, weight: .bold))
                     if !compact {
                         Text("MARK DONE")
-                            .font(.system(size: 7, weight: .heavy, design: .rounded))
+                            .font(.system(size: 7, weight: .bold))
                     }
                 }
                 .foregroundStyle(color.opacity(0.9))
@@ -131,7 +131,7 @@ struct SmallWidgetView: View {
     let habit: HabitData?
 
     private var consistency: ConsistencyTally { habit?.consistency ?? ConsistencyTally() }
-    private var color: Color { healthColor(consistency.fraction) }
+    private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
 
     private var flags: [Bool] {
         guard let h = habit else { return Array(repeating: false, count: 66) }
@@ -147,12 +147,13 @@ struct SmallWidgetView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
                 // The number, and which way it moved this week
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     if let percent = consistency.percent {
                         Text("\(percent)%")
-                            .font(.system(size: 20, weight: .heavy, design: .monospaced))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(color)
                         if let trend = habit.consistencyTrend, trend != 0 {
                             TrendLabel(trend: trend, color: color, size: 10)
@@ -225,10 +226,10 @@ struct MediumWidgetView: View {
                     // Today counter
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(completedCount)")
-                            .font(.system(size: 20, weight: .black, design: .rounded))
-                            .foregroundStyle(allDone ? goldColor : healthColor(overall.fraction))
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(allDone ? goldColor : HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
                         Text("/\(habits.count)")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.25))
                         Text(allDone ? "perfect" : "today")
                             .font(.system(size: 10, weight: .medium))
@@ -242,8 +243,8 @@ struct MediumWidgetView: View {
                     if let percent = overall.percent {
                         HStack(alignment: .firstTextBaseline, spacing: 3) {
                             Text("\(percent)%")
-                                .font(.system(size: 15, weight: .heavy, design: .monospaced))
-                                .foregroundStyle(healthColor(overall.fraction))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
                             Text("consistent")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundStyle(.white.opacity(0.3))
@@ -277,7 +278,7 @@ private struct MediumHabitCard: View {
     let habit: HabitData
 
     private var consistency: ConsistencyTally { habit.consistency }
-    private var color: Color { healthColor(consistency.fraction) }
+    private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
 
     private var flags: [Bool] {
         var r = habit.historyCompletionFlags(daysBack: 66)
@@ -293,6 +294,8 @@ private struct MediumHabitCard: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                    // Mono runs wide in a third of a medium widget
+                    .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 CompleteButton(habit: habit, color: color, compact: true)
@@ -343,14 +346,14 @@ struct AccessoryCircularView: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .heavy))
                         Text("\(percent)%")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .font(.system(size: 11, weight: .semibold))
                     }
                 } else {
                     VStack(spacing: 0) {
                         Text(percent)
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .font(.system(size: 15, weight: .semibold))
                         Text("%")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .font(.system(size: 8, weight: .semibold))
                             .opacity(0.7)
                     }
                 }
@@ -378,6 +381,7 @@ struct AccessoryRectangularView: View {
                     Text(first.name)
                         .font(.system(size: 13, weight: .bold))
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
                 HStack(spacing: 4) {
                     Text(first.consistency.percent.map { "\($0)% consistent" } ?? "Not started")
@@ -414,8 +418,11 @@ private struct MiniGrid: View {
         // Flexible columns stretch to the card's real width. The old
         // GeometryReader + fixed aspectRatio shrank the grid to a
         // height-constrained box and stranded it against the left edge.
+        // The minimum matters: .flexible() defaults to 10pt a column, so 11
+        // columns couldn't go under ~125pt and the medium widget's three
+        // cards overflowed its sides.
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: dotSpacing), count: columns),
+            columns: Array(repeating: GridItem(.flexible(minimum: 1), spacing: dotSpacing), count: columns),
             spacing: dotSpacing
         ) {
             ForEach(0..<(rows * columns), id: \.self) { idx in
@@ -449,6 +456,11 @@ struct ContinuumWidgetEntryView: View {
     let entry: HabitEntry
 
     var body: some View {
+        content.fontDesign(.monospaced)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch family {
         case .accessoryCircular:
             AccessoryCircularView(habit: entry.habits.first)
@@ -467,21 +479,6 @@ struct ContinuumWidgetEntryView: View {
                     Color(red: 0.08, green: 0.09, blue: 0.11)
                 }
         }
-    }
-}
-
-// MARK: - Color Helper
-
-private func healthColor(_ health: Double) -> Color {
-    let clamped = max(0, min(1, health))
-    if clamped <= 0.5 {
-        let t = clamped / 0.5
-        let hue = 30.0/360.0 + (140.0/360.0 - 30.0/360.0) * t
-        return Color(hue: hue, saturation: 0.85, brightness: 0.95)
-    } else {
-        let t = (clamped - 0.5) / 0.5
-        let hue = 140.0/360.0 + (175.0/360.0 - 140.0/360.0) * t
-        return Color(hue: hue, saturation: 0.75, brightness: 0.9)
     }
 }
 
