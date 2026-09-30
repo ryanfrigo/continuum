@@ -2,6 +2,8 @@ import SwiftUI
 
 struct RenameHabitSheet: View {
     @Binding var habitName: String
+    /// The habit's colour, as on its card
+    var accent: Color = HabitPalette.accent
     var onSave: (String) -> Void
     var onCancel: () -> Void
     @FocusState private var isNameFocused: Bool
@@ -18,7 +20,7 @@ struct RenameHabitSheet: View {
                     VStack(spacing: 8) {
                         Image(systemName: "pencil.circle.fill")
                             .font(.system(size: 50))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(accent)
                             .scaleEffect(showContent ? 1 : 0.5)
                             .opacity(showContent ? 1 : 0)
 
@@ -39,7 +41,7 @@ struct RenameHabitSheet: View {
                         TextField("Enter habit name", text: $habitName)
                             .font(.title3.weight(.medium))
                             .foregroundStyle(.white)
-                            .tint(.orange)
+                            .tint(accent)
                             .padding()
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
@@ -47,7 +49,7 @@ struct RenameHabitSheet: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isNameFocused ? Color.orange : Color.gray.opacity(0.3), lineWidth: 1)
+                                    .stroke(isNameFocused ? accent : Color.gray.opacity(0.3), lineWidth: 1)
                             )
                             .submitLabel(.done)
                             .onSubmit { attemptSave() }
@@ -70,7 +72,7 @@ struct RenameHabitSheet: View {
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .fill(canSave ? Color.orange : Color.gray.opacity(0.3))
+                                    .fill(canSave ? accent : Color.gray.opacity(0.3))
                             )
                     }
                     .disabled(!canSave)
@@ -81,10 +83,11 @@ struct RenameHabitSheet: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("CANCEL") {
                         onCancel()
                     }
-                    .foregroundStyle(.gray)
+                    .font(.caption.weight(.semibold).monospaced())
+                    .foregroundStyle(.white.opacity(0.6))
                 }
             }
         }
@@ -108,8 +111,7 @@ struct RenameHabitSheet: View {
         guard !trimmed.isEmpty else { return }
 
         #if os(iOS)
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
+        SoundManager.shared.triggerCompletionHaptic()
         #endif
 
         onSave(trimmed)

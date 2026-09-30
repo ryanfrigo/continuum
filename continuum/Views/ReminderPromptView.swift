@@ -28,7 +28,7 @@ enum ReminderPrompt {
 }
 
 struct ReminderPromptView: View {
-    var accent: Color = .orange
+    var accent: Color = HabitPalette.accent
     let onEnable: (Date) -> Void
     let onDismiss: () -> Void
 

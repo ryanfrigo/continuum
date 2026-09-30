@@ -17,6 +17,9 @@ struct HabitHistoryEditView: View {
 
     private let calendar = Calendar.current
 
+    /// The habit's colour, as on its card
+    private var accent: Color { HabitPalette.color(HabitMath.colorProgress(habit.consistency)) }
+
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
@@ -26,7 +29,7 @@ struct HabitHistoryEditView: View {
                         VStack(spacing: 8) {
                             Image(systemName: "calendar.badge.clock")
                                 .font(.system(size: 50))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(accent)
                                 .scaleEffect(showContent ? 1 : 0.5)
                                 .opacity(showContent ? 1 : 0)
 
@@ -38,7 +41,7 @@ struct HabitHistoryEditView: View {
 
                             Text("TAP OR DRAG TO SELECT DAYS")
                                 .font(.caption2.monospaced())
-                                .foregroundStyle(.gray)
+                                .foregroundStyle(.white.opacity(0.4))
                                 .tracking(1)
                                 .opacity(showContent ? 1 : 0)
                         }
@@ -53,7 +56,7 @@ struct HabitHistoryEditView: View {
                             // Month header
                             Text(monthData.monthName)
                                 .font(.headline.weight(.semibold))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(accent)
                                 .padding(.horizontal, 4)
 
                             // Day of week headers
@@ -78,7 +81,8 @@ struct HabitHistoryEditView: View {
                                     DayCell(
                                         date: date,
                                         isCompleted: isDateCompleted(date),
-                                        isInRange: isInDragRange(date)
+                                        isInRange: isInDragRange(date),
+                                        color: accent
                                     )
                                     .id(date)
                                 }
@@ -127,8 +131,8 @@ struct HabitHistoryEditView: View {
                             habit.setCompletedKeys(ContinuumDay.keys(fromStorage: originalDates))
                             onCancel()
                         }
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.gray)
+                        .font(.caption.weight(.semibold).monospaced())
+                        .foregroundStyle(.white.opacity(0.6))
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("SAVE") {
@@ -139,9 +143,8 @@ struct HabitHistoryEditView: View {
                             onSave()
                         }
                     }
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.orange)
-                        .fontWeight(.semibold)
+                        .font(.caption.weight(.semibold).monospaced())
+                        .foregroundStyle(accent)
                 }
             }
         }
@@ -246,8 +249,7 @@ struct HabitHistoryEditView: View {
                 dragCurrentDate = dragStartDate
 
                 #if os(iOS)
-                let impact = UIImpactFeedbackGenerator(style: .light)
-                impact.impactOccurred()
+                SoundManager.shared.triggerSelectionHaptic()
                 #endif
             }
         }
@@ -258,8 +260,7 @@ struct HabitHistoryEditView: View {
             if newDate != dragCurrentDate {
                 dragCurrentDate = newDate
                 #if os(iOS)
-                let impact = UIImpactFeedbackGenerator(style: .soft)
-                impact.impactOccurred()
+                SoundManager.shared.triggerSelectionHaptic()
                 #endif
             }
         }
@@ -322,8 +323,7 @@ struct HabitHistoryEditView: View {
         }
 
         #if os(iOS)
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
+        SoundManager.shared.triggerCompletionHaptic()
         #endif
 
         isDragging = false
@@ -338,6 +338,7 @@ private struct DayCell: View {
     let date: Date
     let isCompleted: Bool
     let isInRange: Bool
+    let color: Color
 
     private let calendar = Calendar.current
 
@@ -351,14 +352,14 @@ private struct DayCell: View {
         VStack(spacing: 2) {
             Text(dayOfMonth)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(isToday ? .orange : .white.opacity(0.8))
+                .foregroundStyle(isToday ? color : .white.opacity(0.8))
 
-            Circle()
+            RoundedRectangle(cornerRadius: 6)
                 .fill(fillColor)
                 .frame(width: 32, height: 32)
                 .overlay(
-                    Circle()
-                        .stroke(isInRange ? Color.orange : Color.clear, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isInRange ? color : Color.clear, lineWidth: 2)
                 )
         }
         .frame(height: 44)
@@ -367,9 +368,9 @@ private struct DayCell: View {
 
     private var fillColor: Color {
         if isCompleted || isInRange {
-            return Color.orange
+            return color
         }
-        return Color.gray.opacity(0.3)
+        return Color.white.opacity(0.08)
     }
 
     private var dayOfMonth: String {

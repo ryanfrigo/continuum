@@ -40,7 +40,7 @@ struct ContentView: View {
     @State private var showGraduation = false
     @State private var graduationHabitName: String = ""
     @State private var graduationHabit: Habit? = nil
-    @State private var recordAccent: Color = .orange
+    @State private var recordAccent: Color = HabitPalette.accent
 
     // Share state
     @State private var shareImage: UIImage? = nil
@@ -173,7 +173,6 @@ struct ContentView: View {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
                             percent: graduationHabit?.consistency.percent ?? HabitMath.formedPercent,
-                            accent: HabitPalette.color(graduationHabit.map { HabitMath.colorProgress($0.consistency) } ?? 1),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showGraduation = false
@@ -196,7 +195,6 @@ struct ContentView: View {
                     if showPerfectWeek {
                         PerfectWeekOverlay(
                             habitCount: habits.count,
-                            accent: HabitPalette.color(overallHealth),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showPerfectWeek = false
@@ -307,22 +305,22 @@ struct ContentView: View {
             ZStack {
                 // Outer rings
                 Circle()
-                    .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                    .stroke(HabitPalette.accent.opacity(0.2), lineWidth: 1)
                     .frame(width: 120, height: 120)
 
                 Circle()
-                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                    .stroke(HabitPalette.accent.opacity(0.3), lineWidth: 1)
                     .frame(width: 90, height: 90)
 
                 // Center icon
                 Image(systemName: "plus")
                     .font(.system(size: 36, weight: .light))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(HabitPalette.accent)
             }
 
             VStack(spacing: 12) {
                 Text("No habits yet")
-                    .font(.system(size: 24, weight: .semibold, design: .default))
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundStyle(.white)
 
                 Text("Add your first habit.\nMiss a day and nothing resets.")
@@ -347,7 +345,7 @@ struct ContentView: View {
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.orange)
+                        .fill(HabitPalette.accent)
                 )
             }
 
@@ -368,7 +366,7 @@ struct ContentView: View {
                     habitCount: habits.count,
                     accent: HabitPalette.color(HabitMath.colorProgress(overall.now, habits: habits.count))
                 )
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 26)
                 .padding(.top, 4)
                 .padding(.bottom, 14)
 
@@ -416,6 +414,7 @@ struct ContentView: View {
                         .font(.system(size: 16))
                         .foregroundStyle(Color.white.opacity(0.6))
                 }
+                .accessibilityLabel("Settings")
             }
             .hidingSharedBackground()
 
@@ -437,6 +436,7 @@ struct ContentView: View {
                         .foregroundStyle(buttonColor)
                         .shadow(color: buttonColor.opacity(0.3), radius: 8)
                 }
+                .accessibilityLabel("Add habit")
             }
             .hidingSharedBackground()
         }

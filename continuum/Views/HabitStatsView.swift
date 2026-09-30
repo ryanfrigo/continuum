@@ -54,20 +54,21 @@ struct HabitStatsView: View {
                         .foregroundStyle(.white.opacity(0.4))
                         .tracking(2)
                 }
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("DONE") { dismiss() }
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.orange)
+                        .font(.caption.weight(.semibold).monospaced())
+                        .foregroundStyle(themeColor)
                 }
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
                         shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
                         showShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(.white.opacity(0.6))
                     }
+                    .accessibilityLabel("Share")
                 }
             }
             .sheet(isPresented: $showShareSheet) {
@@ -101,10 +102,10 @@ struct HabitStatsView: View {
                         Text("FORMED")
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                     }
-                    .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
+                    .foregroundStyle(HabitPalette.gold)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color(hue: 0.12, saturation: 0.8, brightness: 0.95).opacity(0.12)))
+                    .background(Capsule().fill(HabitPalette.gold.opacity(0.12)))
                 }
             }
 
@@ -121,9 +122,7 @@ struct HabitStatsView: View {
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("CONSISTENT · LAST 66 DAYS")
-                .font(.system(size: 10, weight: .semibold).monospaced())
-                .foregroundStyle(.white.opacity(0.4))
-                .tracking(1)
+                .readoutLabel(size: 10)
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(consistency.percent.map { "\($0)%" } ?? "–")
@@ -137,6 +136,7 @@ struct HabitStatsView: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Week by week
@@ -150,9 +150,7 @@ struct HabitStatsView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("LAST \(chartWeeks) WEEKS")
-                    .font(.system(size: 10, weight: .semibold).monospaced())
-                    .foregroundStyle(.white.opacity(0.4))
-                    .tracking(1)
+                    .readoutLabel(size: 10)
                 Spacer()
                 if let percent = blocks.last?.percent {
                     Text("LAST 7 DAYS \(percent)%")
@@ -210,20 +208,19 @@ struct HabitStatsView: View {
     }
 
     private func statTile(value: String, unit: String, label: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .readoutLabel()
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 20, weight: .semibold, design: .monospaced))
                     .foregroundStyle(color)
                 Text(unit)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.35))
             }
-            Text(label)
-                .font(.system(size: 9, weight: .semibold).monospaced())
-                .foregroundStyle(.white.opacity(0.4))
-                .tracking(1)
         }
+        .accessibilityElement(children: .combine)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(
@@ -290,7 +287,7 @@ struct HabitStatsView: View {
     }
 
     private var goldColor: Color {
-        Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
+        HabitPalette.gold
     }
 
     private var heatmapSection: some View {
@@ -303,9 +300,7 @@ struct HabitStatsView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             Text("LAST 365 DAYS")
-                .font(.system(size: 10, weight: .semibold).monospaced())
-                .foregroundStyle(.white.opacity(0.4))
-                .tracking(1)
+                .readoutLabel(size: 10)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -379,7 +374,7 @@ struct HabitStatsView: View {
             let notStarted = firstKey.map { key < $0 } ?? true
 
             RoundedRectangle(cornerRadius: 2)
-                .fill(isDone ? themeColor : Color.white.opacity(notStarted ? 0.03 : 0.07))
+                .fill(HabitPalette.cell(filled: isDone, isToday: isToday, notStarted: notStarted, color: themeColor))
                 .frame(width: size, height: size)
                 .overlay {
                     if isToday && !isDone {

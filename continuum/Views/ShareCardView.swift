@@ -292,16 +292,7 @@ struct ShareCardView: View {
     }
 
     private func gridDotColor(filled: Bool, isToday: Bool, notStarted: Bool, healthColor: Color) -> Color {
-        if filled {
-            return healthColor
-        } else if isToday {
-            return Color.white.opacity(0.12)
-        } else if notStarted {
-            // Before the first done day: not a miss, so fainter than one
-            return Color.white.opacity(0.035)
-        } else {
-            return Color.white.opacity(0.08)
-        }
+        HabitPalette.cell(filled: filled, isToday: isToday, notStarted: notStarted, color: healthColor)
     }
 
     // MARK: - Days Done
@@ -325,7 +316,7 @@ struct ShareCardView: View {
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
                         .tracking(2)
                 }
-                .foregroundStyle(themeColor)
+                .foregroundStyle(HabitPalette.gold)
                 .padding(.top, 8)
             }
         }

@@ -54,16 +54,16 @@ struct WalkthroughOverlay: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(Color.orange.opacity(0.15))
+                        .fill(HabitPalette.accent.opacity(0.15))
                         .frame(width: 100, height: 100)
 
                     Circle()
-                        .stroke(Color.orange.opacity(0.3), lineWidth: 1.5)
+                        .stroke(HabitPalette.accent.opacity(0.3), lineWidth: 1.5)
                         .frame(width: 100, height: 100)
 
                     Image(systemName: steps[currentStep].icon)
                         .font(.system(size: 36, weight: .medium))
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(HabitPalette.accent)
                 }
 
                 // Text
@@ -88,7 +88,7 @@ struct WalkthroughOverlay: View {
                     HStack(spacing: 8) {
                         ForEach(0..<steps.count, id: \.self) { i in
                             Capsule()
-                                .fill(i == currentStep ? Color.orange : Color.white.opacity(0.2))
+                                .fill(i == currentStep ? HabitPalette.accent : Color.white.opacity(0.2))
                                 .frame(width: i == currentStep ? 24 : 8, height: 8)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentStep)
                         }
@@ -112,7 +112,7 @@ struct WalkthroughOverlay: View {
                         .padding(.vertical, 16)
                         .background(
                             RoundedRectangle(cornerRadius: 14)
-                                .fill(Color.orange)
+                                .fill(HabitPalette.accent)
                         )
                     }
                     .padding(.horizontal, 24)

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AddHabitSheet: View {
     @Binding var newHabitName: String
-    var healthColor: Color = .orange
+    var healthColor: Color = HabitPalette.accent
     var onSave: (String) -> Void
     var onCancel: () -> Void
     @FocusState private var isNameFocused: Bool
@@ -144,10 +144,10 @@ struct AddHabitSheet: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("CANCEL") {
                         onCancel()
                     }
-                    .font(.system(size: 16))
+                    .font(.caption.weight(.semibold).monospaced())
                     .foregroundStyle(Color.white.opacity(0.6))
                 }
             }
@@ -188,7 +188,7 @@ struct AddHabitSheet: View {
 struct SuggestionChip: View {
     let name: String
     let isSelected: Bool
-    var healthColor: Color = .orange
+    var healthColor: Color = HabitPalette.accent
     let onTap: () -> Void
 
     var body: some View {

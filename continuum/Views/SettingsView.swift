@@ -23,12 +23,12 @@ struct SettingsView: View {
                     )) {
                         HStack {
                             Image(systemName: "speaker.wave.2.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
                             Text("Sound Effects")
                                 .foregroundStyle(.white)
                         }
                     }
-                    .tint(.orange)
+                    .tint(HabitPalette.accent)
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
 
                     Toggle(isOn: Binding(
@@ -37,12 +37,12 @@ struct SettingsView: View {
                     )) {
                         HStack {
                             Image(systemName: "hand.tap.fill")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
                             Text("Haptic Feedback")
                                 .foregroundStyle(.white)
                         }
                     }
-                    .tint(.orange)
+                    .tint(HabitPalette.accent)
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                 } header: {
                     Text("Preferences")
@@ -102,7 +102,7 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Image(systemName: "questionmark.circle")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
                             Text("Show Walkthrough")
                                 .foregroundStyle(.white)
                             Spacer()
@@ -118,7 +118,7 @@ struct SettingsView: View {
                     } label: {
                         HStack {
                             Image(systemName: "info.circle")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
                             Text("About Continuum")
                                 .foregroundStyle(.white)
                             Spacer()
@@ -131,14 +131,14 @@ struct SettingsView: View {
 
                     HStack {
                         Image(systemName: "diamond.fill")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(HabitPalette.accent)
                         Text("VERSION")
                             .font(.subheadline.monospaced())
                             .foregroundStyle(.white)
                         Spacer()
                         Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "3.0")
                             .font(.subheadline.monospaced())
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(HabitPalette.accent)
                     }
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                 } header: {
@@ -169,11 +169,19 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // UIKit draws the navigation title, out of the app font's reach
+                ToolbarItem(placement: .principal) {
+                    Text("SETTINGS")
+                        .font(.caption.weight(.bold).monospaced())
+                        .foregroundStyle(.white.opacity(0.4))
+                        .tracking(2)
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button("DONE") {
                         dismiss()
                     }
-                    .foregroundStyle(.orange)
+                    .font(.caption.weight(.semibold).monospaced())
+                    .foregroundStyle(HabitPalette.accent)
                 }
             }
             .onAppear {
@@ -289,7 +297,7 @@ struct HabitNotificationRow: View {
                     if habit.reminderEnabled {
                         Text(formattedTime)
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(HabitPalette.accent)
                     }
                 }
 
@@ -306,7 +314,7 @@ struct HabitNotificationRow: View {
                         }
                     }
                 ))
-                .tint(.orange)
+                .tint(HabitPalette.accent)
                 .labelsHidden()
             }
 
@@ -314,7 +322,7 @@ struct HabitNotificationRow: View {
             if habit.reminderEnabled {
                 HStack {
                     Image(systemName: "bell.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(HabitPalette.accent)
                         .font(.caption)
 
                     Text("Remind at")
@@ -335,7 +343,7 @@ struct HabitNotificationRow: View {
                         displayedComponents: .hourAndMinute
                     )
                     .labelsHidden()
-                    .tint(.orange)
+                    .tint(HabitPalette.accent)
                     .colorScheme(.dark)
                 }
                 .padding(.top, 4)
@@ -357,6 +365,7 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var ringRotation: Double = 0
     @State private var glowPulse: Double = 0.3
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationStack {
@@ -374,30 +383,30 @@ struct AboutView: View {
                         ZStack {
                             // Outer rotating ring
                             Circle()
-                                .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                                .stroke(HabitPalette.accent.opacity(0.2), lineWidth: 1)
                                 .frame(width: 140, height: 140)
 
                             // Dashed rotating ring
                             Circle()
-                                .stroke(Color.orange.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 8]))
+                                .stroke(HabitPalette.accent.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [4, 8]))
                                 .frame(width: 120, height: 120)
                                 .rotationEffect(.degrees(ringRotation))
 
                             // Inner ring with glow
                             Circle()
-                                .stroke(Color.orange, lineWidth: 2)
+                                .stroke(HabitPalette.accent, lineWidth: 2)
                                 .frame(width: 90, height: 90)
-                                .shadow(color: .orange.opacity(glowPulse), radius: 15)
+                                .shadow(color: HabitPalette.accent.opacity(glowPulse), radius: 15)
 
                             // Center icon
                             Image(systemName: "infinity")
                                 .font(.system(size: 36, weight: .light))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
 
                             // Corner brackets
                             ForEach(0..<4, id: \.self) { i in
                                 CornerBracket()
-                                    .stroke(Color.orange.opacity(0.6), lineWidth: 1)
+                                    .stroke(HabitPalette.accent.opacity(0.6), lineWidth: 1)
                                     .frame(width: 16, height: 16)
                                     .rotationEffect(.degrees(Double(i) * 90))
                                     .offset(
@@ -416,11 +425,11 @@ struct AboutView: View {
 
                             Text("CONSISTENCY TRACKER")
                                 .font(.caption.monospaced())
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(HabitPalette.accent)
                                 .tracking(2)
 
                             Rectangle()
-                                .fill(Color.orange.opacity(0.3))
+                                .fill(HabitPalette.accent.opacity(0.3))
                                 .frame(width: 60, height: 1)
                                 .padding(.vertical, 4)
 
@@ -476,13 +485,14 @@ struct AboutView: View {
                     Button("DONE") {
                         dismiss()
                     }
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.orange)
+                    .font(.caption.weight(.semibold).monospaced())
+                    .foregroundStyle(HabitPalette.accent)
                 }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
                 ringRotation = 360
             }
@@ -504,13 +514,13 @@ struct AboutCard: View {
             HStack {
                 Image(systemName: icon)
                     .font(.title3)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(HabitPalette.accent)
 
                 Spacer()
 
                 Text(code)
                     .font(.caption2.monospaced())
-                    .foregroundStyle(.orange.opacity(0.6))
+                    .foregroundStyle(HabitPalette.accent.opacity(0.6))
             }
 
             Text(title)

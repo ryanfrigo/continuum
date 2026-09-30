@@ -65,7 +65,7 @@ struct HabitCardView: View {
 
     // Variable reward: ~1 in 15 completions goes golden
     @State private var isRareCompletion = false
-    private let goldColor = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
+    private let goldColor = HabitPalette.gold
 
     private var effectColor: Color {
         isRareCompletion ? goldColor : themeColor
@@ -302,7 +302,7 @@ struct HabitCardView: View {
         HStack(alignment: .top, spacing: 6) {
             // Habit name — gets all remaining space
             Text(habit.name)
-                .font(.system(size: 15, weight: .bold, design: .default))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(.white)
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
@@ -348,7 +348,7 @@ struct HabitCardView: View {
             if habit.isGraduated {
                 Image(systemName: "star.fill")
                     .font(.system(size: 9))
-                    .foregroundStyle(Color(hue: 0.12, saturation: 0.8, brightness: 0.95))
+                    .foregroundStyle(HabitPalette.gold)
             }
         }
         // Same height with or without a number, so neighbouring cards line up
@@ -439,16 +439,7 @@ struct HabitCardView: View {
     }
 
     private func dotColor(filled: Bool, isToday: Bool, notStarted: Bool, healthColor: Color) -> Color {
-        if filled {
-            return healthColor
-        } else if isToday {
-            return Color.white.opacity(0.12)
-        } else if notStarted {
-            // Before the first done day: not a miss, so fainter than one
-            return Color.white.opacity(0.035)
-        } else {
-            return Color.white.opacity(0.08)
-        }
+        HabitPalette.cell(filled: filled, isToday: isToday, notStarted: notStarted, color: healthColor)
     }
 
     // MARK: - Card Background
@@ -544,7 +535,7 @@ struct HabitCardView: View {
 
             VStack(spacing: 2) {
                 Text(celebration.value)
-                    .font(.system(size: 40, weight: .bold, design: .monospaced))
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
                     .foregroundStyle(accent)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
@@ -623,18 +614,18 @@ struct HabitCardView: View {
                     showUndoConfirm = false
                 }
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "arrow.uturn.backward")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("Tap to Undo")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Tap to undo")
                         .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(Color.red.opacity(0.6))
+                        .fill(themeColor.opacity(0.5))
                 )
             }
             .padding(.bottom, 8)
@@ -777,18 +768,27 @@ struct HabitCardView: View {
             Label("Share", systemImage: "square.and.arrow.up")
         }
         Divider()
-        Button("Erase History", role: .destructive) { showingResetConfirmation = true }
-        Divider()
-        Button("Edit Name") {
+        Button {
             newHabitName = habit.name
             showingRename = true
+        } label: {
+            Label("Edit Name", systemImage: "pencil")
         }
-        Button("Edit History") {
+        Button {
             showingSetStreak = true
+        } label: {
+            Label("Edit History", systemImage: "calendar")
         }
         Divider()
-        Button("Delete Habit", role: .destructive) {
+        Button(role: .destructive) {
+            showingResetConfirmation = true
+        } label: {
+            Label("Erase History", systemImage: "eraser")
+        }
+        Button(role: .destructive) {
             showingDeleteConfirmation = true
+        } label: {
+            Label("Delete Habit", systemImage: "trash")
         }
     }
 
@@ -814,7 +814,7 @@ struct HabitCardView: View {
     }
 
     private var renameSheet: some View {
-        RenameHabitSheet(habitName: $newHabitName) { newName in
+        RenameHabitSheet(habitName: $newHabitName, accent: themeColor) { newName in
             onAction?(.rename(newName))
             showingRename = false
         } onCancel: {

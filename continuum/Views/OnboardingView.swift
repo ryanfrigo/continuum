@@ -16,28 +16,28 @@ struct OnboardingView: View {
             title: "continuum",
             subtitle: "The consistency tracker",
             description: "One number per habit: the share of days you showed up. Miss a day and it dips. Nothing resets.",
-            color: .orange
+            color: HabitPalette.accent
         ),
         OnboardingPage(
             icon: "hand.tap.fill",
             title: "Hold to Mark",
             subtitle: "One hold a day",
             description: "Press and hold a habit to mark today done. Let go early and nothing happens.",
-            color: .orange
+            color: HabitPalette.accent
         ),
         OnboardingPage(
             icon: "square.grid.3x3.fill",
             title: "The Grid",
             subtitle: "66 days at a glance",
             description: "Each square is a day. Top-left is today. Filled squares are the days you showed up.",
-            color: .orange
+            color: HabitPalette.accent
         ),
         OnboardingPage(
             icon: "star.fill",
             title: "66 Days",
             subtitle: "Most of them",
             description: "In a UCL study, daily habits took a median of 66 days to become automatic, and one missed day didn't materially slow that down. Do a habit on 80% of 66 days and it's formed. The 80% is our line, not the study's.",
-            color: .orange
+            color: HabitPalette.accent
         )
     ]
 
@@ -104,7 +104,7 @@ struct OnboardingView: View {
                         HStack(spacing: 8) {
                             ForEach(0..<totalPages, id: \.self) { index in
                                 Capsule()
-                                    .fill(index == currentPage ? Color.orange : Color.white.opacity(0.2))
+                                    .fill(index == currentPage ? HabitPalette.accent : Color.white.opacity(0.2))
                                     .frame(width: index == currentPage ? 24 : 8, height: 8)
                                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentPage)
                             }
@@ -133,7 +133,7 @@ struct OnboardingView: View {
                             .padding(.vertical, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.orange)
+                                    .fill(HabitPalette.accent)
                             )
                         }
                         .padding(.horizontal, 24)
@@ -201,18 +201,18 @@ struct OnboardingPageView: View {
             // Clean icon with simple ring
             ZStack {
                 Circle()
-                    .stroke(Color.orange.opacity(0.3), lineWidth: 1.5)
+                    .stroke(HabitPalette.accent.opacity(0.3), lineWidth: 1.5)
                     .frame(width: 120, height: 120)
                     .scaleEffect(iconScale)
 
                 Circle()
-                    .fill(Color.orange.opacity(0.15))
+                    .fill(HabitPalette.accent.opacity(0.15))
                     .frame(width: 96, height: 96)
                     .scaleEffect(iconScale)
 
                 Image(systemName: page.icon)
                     .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(HabitPalette.accent)
                     .scaleEffect(iconScale)
                     .opacity(iconOpacity)
             }
@@ -226,7 +226,7 @@ struct OnboardingPageView: View {
 
                     Text(page.subtitle)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(HabitPalette.accent)
                 }
 
                 Text(page.description)
@@ -328,7 +328,7 @@ struct HabitSelectionPageView: View {
             if !selectedHabits.isEmpty {
                 Text("\(selectedHabits.count) habit\(selectedHabits.count == 1 ? "" : "s") selected")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.orange)
+                    .foregroundStyle(HabitPalette.accent)
             }
 
             Spacer()
@@ -379,7 +379,7 @@ struct HabitChipView: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.orange : Color.white.opacity(0.08))
+                    .fill(isSelected ? HabitPalette.accent : Color.white.opacity(0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

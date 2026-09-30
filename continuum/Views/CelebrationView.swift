@@ -4,9 +4,9 @@ import SwiftUI
 //
 // Every celebration is the SAME card: dark fill, 1px accent border with a
 // soft glow, identical typography scale and spacing. Only the accent color
-// and content change. The accent follows the habit's progress color
-// (orange → green → cyan) for habit moments; gold is the fallback for
-// graduation and perfect days.
+// and content change. The accent follows the habit's colour (coral → blue,
+// HabitPalette) for everyday moments; gold is kept for the rare ones, a
+// habit formed and a full week.
 
 enum CelebrationVisual {
     case value(String, unit: String)   // big number + unit ("7" / "DAYS")
@@ -218,6 +218,7 @@ struct CelebrationCard: View {
     @State private var visualOpacity: Double = 0
     @State private var textOpacity: Double = 0
     @State private var dotScales: [CGFloat] = Array(repeating: 0, count: 7)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var sweepX: CGFloat = -1
 
     private var hasButtons: Bool { primaryAction != nil || secondaryActionLabel != nil }
@@ -389,7 +390,7 @@ struct CelebrationCard: View {
         case .value(let value, let unit):
             VStack(spacing: 2) {
                 Text(value)
-                    .font(.system(size: 60, weight: .bold, design: .monospaced))
+                    .font(.system(size: 48, weight: .bold, design: .monospaced))
                     .foregroundStyle(
                         LinearGradient(colors: [.white, accent.opacity(0.85)],
                                        startPoint: .top, endPoint: .bottom)
@@ -410,7 +411,7 @@ struct CelebrationCard: View {
                             }
                             .mask(
                                 Text(value)
-                                    .font(.system(size: 60, weight: .bold, design: .monospaced))
+                                    .font(.system(size: 48, weight: .bold, design: .monospaced))
                             )
                         }
                     }
@@ -463,6 +464,13 @@ struct CelebrationCard: View {
         }
         SoundManager.shared.triggerCelebrationHaptic()
 
+        // Reduce Motion keeps the fades and drops the springs and the sweep
+        if reduceMotion {
+            cardScale = 1
+            visualScale = 1
+            dotScales = Array(repeating: 1, count: 7)
+        }
+
         withAnimation(.easeOut(duration: 0.25)) { backgroundOpacity = 1 }
         withAnimation(.spring(response: 0.42, dampingFraction: 0.8).delay(0.08)) {
             cardScale = 1.0
@@ -481,7 +489,7 @@ struct CelebrationCard: View {
         }
         withAnimation(.easeOut(duration: 0.4).delay(0.45)) { textOpacity = 1.0 }
 
-        if intensity.showsSweep {
+        if intensity.showsSweep && !reduceMotion {
             sweepX = -1
             withAnimation(.easeInOut(duration: 1.1).delay(0.6)) { sweepX = 1.6 }
         }
@@ -492,12 +500,6 @@ struct CelebrationCard: View {
     }
 }
 
-// MARK: - Shared accent palette
-
-enum CelebrationPalette {
-    static let gold = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
-}
-
 
 
 // MARK: - Habit Graduation Overlay
@@ -506,7 +508,7 @@ struct HabitGraduationOverlay: View {
     let habitName: String
     /// Consistency over the 66 days it formed across
     let percent: Int
-    var accent: Color = CelebrationPalette.gold   // habit's tile color
+    var accent: Color = HabitPalette.gold   // habit's tile color
     let onDismiss: () -> Void
     let onShare: () -> Void
 
@@ -530,7 +532,7 @@ struct HabitGraduationOverlay: View {
 
 struct PerfectDayOverlay: View {
     let habitCount: Int
-    var accent: Color = CelebrationPalette.gold   // overall health tile color
+    var accent: Color = HabitPalette.gold   // overall health tile color
     let onDismiss: () -> Void
 
     var body: some View {
@@ -551,7 +553,7 @@ struct PerfectDayOverlay: View {
 
 struct PerfectWeekOverlay: View {
     let habitCount: Int
-    var accent: Color = CelebrationPalette.gold   // overall health tile color
+    var accent: Color = HabitPalette.gold   // overall health tile color
     let onDismiss: () -> Void
 
     var body: some View {
@@ -590,13 +592,13 @@ struct GridPattern: View {
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: 0))
                 path.addLine(to: CGPoint(x: x, y: size.height))
-                context.stroke(path, with: .color(.orange.opacity(0.1)), lineWidth: 0.5)
+                context.stroke(path, with: .color(HabitPalette.accent.opacity(0.1)), lineWidth: 0.5)
             }
             for y in stride(from: 0, to: size.height, by: gridSize) {
                 var path = Path()
                 path.move(to: CGPoint(x: 0, y: y))
                 path.addLine(to: CGPoint(x: size.width, y: y))
-                context.stroke(path, with: .color(.orange.opacity(0.1)), lineWidth: 0.5)
+                context.stroke(path, with: .color(HabitPalette.accent.opacity(0.1)), lineWidth: 0.5)
             }
         }
     }

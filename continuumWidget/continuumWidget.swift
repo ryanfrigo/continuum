@@ -132,6 +132,10 @@ struct SmallWidgetView: View {
 
     private var consistency: ConsistencyTally { habit?.consistency ?? ConsistencyTally() }
     private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
+    /// Days back to the first one done; squares older than that weren't misses
+    private var startIndex: Int? {
+        habit?.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
+    }
 
     private var flags: [Bool] {
         guard let h = habit else { return Array(repeating: false, count: 66) }
@@ -153,7 +157,7 @@ struct SmallWidgetView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     if let percent = consistency.percent {
                         Text("\(percent)%")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(color)
                         if let trend = habit.consistencyTrend, trend != 0 {
                             TrendLabel(trend: trend, color: color, size: 10)
@@ -168,7 +172,7 @@ struct SmallWidgetView: View {
                 Spacer(minLength: 4)
 
                 // 66-day grid
-                MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2)
+                MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2, startIndex: startIndex)
 
                 // Complete button — interactive, no app launch needed
                 HStack {
@@ -187,7 +191,7 @@ struct SmallWidgetView: View {
         VStack(spacing: 6) {
             Image(systemName: "plus.circle")
                 .font(.system(size: 24, weight: .light))
-                .foregroundStyle(Color.orange.opacity(0.4))
+                .foregroundStyle(HabitPalette.accent.opacity(0.4))
             Text("Add a habit")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.3))
@@ -213,7 +217,7 @@ struct MediumWidgetView: View {
             VStack(spacing: 6) {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 24, weight: .light))
-                    .foregroundStyle(Color.orange.opacity(0.4))
+                    .foregroundStyle(HabitPalette.accent.opacity(0.4))
                 Text("Add habits to get started")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.3))
@@ -227,14 +231,13 @@ struct MediumWidgetView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(completedCount)")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(allDone ? goldColor : HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
+                            .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
                         Text("/\(habits.count)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.25))
-                        Text(allDone ? "all done" : "today")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.3))
-                            .padding(.leading, 2)
+                        Text(allDone ? "ALL DONE" : "TODAY")
+                            .readoutLabel()
+                            .padding(.leading, 4)
                     }
 
                     Spacer()
@@ -245,9 +248,8 @@ struct MediumWidgetView: View {
                             Text("\(percent)%")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
-                            Text("consistent")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.3))
+                            Text("CONSISTENT")
+                                .readoutLabel()
                         }
                     }
                 }
@@ -266,10 +268,6 @@ struct MediumWidgetView: View {
             }
         }
     }
-
-    private var goldColor: Color {
-        Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
-    }
 }
 
 // MARK: - Medium Widget Habit Card
@@ -279,6 +277,9 @@ private struct MediumHabitCard: View {
 
     private var consistency: ConsistencyTally { habit.consistency }
     private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
+    private var startIndex: Int? {
+        habit.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
+    }
 
     private var flags: [Bool] {
         var r = habit.historyCompletionFlags(daysBack: 66)
@@ -310,7 +311,7 @@ private struct MediumHabitCard: View {
             Spacer(minLength: 2)
 
             // Mini grid — compact version
-            MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 1.5)
+            MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 1.5, startIndex: startIndex)
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -413,6 +414,7 @@ private struct MiniGrid: View {
     let columns: Int
     let rows: Int
     let dotSpacing: CGFloat
+    var startIndex: Int? = nil
 
     var body: some View {
         // Flexible columns stretch to the card's real width. The old
@@ -429,7 +431,7 @@ private struct MiniGrid: View {
                 let filled = idx < flags.count && flags[idx]
                 let isToday = idx == 0
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(filled ? color : Color.white.opacity(isToday ? 0.12 : 0.05))
+                    .fill(HabitPalette.cell(filled: filled, isToday: isToday, notStarted: startIndex.map { idx > $0 } ?? true, color: color))
                     .aspectRatio(1, contentMode: .fit)
             }
         }
