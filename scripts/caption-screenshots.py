@@ -17,9 +17,9 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 W, H = 1320, 2868
 FONT = "/System/Library/Fonts/SFNSMono.ttf"
 
-# The app's colour for a habit kept up at 85% for 66 days (Shared/HabitPalette.swift
-# at 0.85): the azure between its cyan and blue stops
-ACCENT = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(187 / 360, 0.74, 0.92))
+# The brand accent, coral (HabitPalette.accent: where every habit's colour
+# starts). It stands off the blues and cyans of a well-kept home screen.
+ACCENT = tuple(round(c * 255) for c in colorsys.hsv_to_rgb(5 / 360, 0.66, 0.98))
 WHITE = (242, 244, 245)
 GREY = (122, 130, 138)
 

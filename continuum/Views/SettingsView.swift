@@ -398,10 +398,13 @@ struct AboutView: View {
                                 .frame(width: 90, height: 90)
                                 .shadow(color: HabitPalette.accent.opacity(glowPulse), radius: 15)
 
-                            // Center icon
-                            Image(systemName: "infinity")
-                                .font(.system(size: 36, weight: .light))
-                                .foregroundStyle(HabitPalette.accent)
+                            // Center mark: the app icon's bar, coral to blue.
+                            // The old infinity sign meant "forever", the streak idea.
+                            Rectangle()
+                                .fill(LinearGradient(
+                                    colors: stride(from: 0.0, through: 1.0, by: 0.1).map { HabitPalette.color($0) },
+                                    startPoint: .leading, endPoint: .trailing))
+                                .frame(width: 42, height: 18)
 
                             // Corner brackets
                             ForEach(0..<4, id: \.self) { i in
