@@ -11,7 +11,7 @@ switch, though. Two misses and the number goes to 0, and everything around it
 (freezes, a full-screen STREAK SAVED card, an 8pm "streak ends at midnight"
 alert) exists to protect that switch.
 
-The app cites Lally et al. (European Journal of Social Psychology, 2009) for its
+The app cites Lally et al. (European Journal of Social Psychology, 2010) for its
 66 days. The same paper found that missing a single day didn't measurably set
 habit formation back. So the app quotes the study and then resets people for
 doing exactly what the study says is fine.
@@ -48,7 +48,7 @@ That keeps a two-day-old habit at 100% from outvoting a year-old one.
 
 ## Trend
 
-The arrow beside a number is that number's change over 7 days: today's value
+The triangle beside a number is that number's change over 7 days: today's value
 minus its value 7 days ago with that whole day counted, both as displayed. "↑5" means
 the number you're looking at was 5 lower last week.
 
@@ -91,8 +91,16 @@ computer dashboard.
 
 - **Days done.** Milestones at 1, 3, 5, 7, 21, 100 and 365 days done in total,
   in any order. A count that only goes up can't be lost.
-- **Habit formed** at 66 days done. Habits already past 66 that never had a
-  66-day streak get their graduation on the next completion after updating.
+- **Habit formed** at 66 days in, with at least 80% of them done. Revised
+  2026-09-30: the first cut counted 66 days done in any order, which called
+  66 days scattered across a year formed — a count, in an app about
+  consistency. Lally's 66 is the median time to automaticity with daily
+  practice (18 to 254 days), and Singh et al. (Healthcare, 2024), reviewing
+  20 studies, put typical times at two to five months, so 66 days at 80% is a
+  floor, not a finish line. Neither sets a percentage; 80 is ours. A habit that
+  already qualifies graduates on its next completion.
+- **21 days done** reads "three weeks' worth", not "becoming you": the same
+  review calls 21-day habit formation a myth.
 - **Consistency levels.** Reaching 50, 75, 90 or 100%, once a habit has 14
   counted days. Each fires once per habit: the highest level celebrated is
   kept per habit on the device. (The first build looked for a crossing, which
@@ -143,7 +151,7 @@ PIL in SF Mono to match the UI:
 1. Home with the pooled number: "Miss a day. / Nothing resets."
 2. A comeback moment in its card: "Missed yesterday? / Don't miss twice."
 3. Stats, bars climbing: "12 weeks. / Watch it climb."
-4. Habit formed at 66 days done: "66 days. / Not in a row."
+4. Habit formed at 66 days, 80% done: "66 days. / Most of them."
 5. Hold to mark the day, magnified: "Hold to mark / the day."
 
 Recaptured 2026-09-30 for the look above; `docs/ASO.md` has the details.

@@ -18,7 +18,7 @@ final class Habit {
     var reminderMinute: Int = 0  // 0-59
     var streakFreezeCount: Int = 0  // Retired in 3.8; kept because CloudKit fields can't be removed
     var freezeUsedDates: [Date]?  // Days where a freeze was used
-    var graduatedAt: Date?  // Date when habit hit 66 days (nil if not yet graduated)
+    var graduatedAt: Date?  // Date the habit was formed (nil until then)
 
     init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
@@ -210,14 +210,16 @@ final class Habit {
 
     // MARK: - Graduation
 
-    /// Whether this habit has been "graduated" (66 days done)
+    /// Whether this habit has been "graduated": formed, and it stays formed
     var isGraduated: Bool {
         graduatedAt != nil
     }
 
-    /// Mark as graduated once 66 days are done, in any order
+    /// Mark as formed once it's 66 days in with 80% of them done
     func checkAndMarkGraduation() -> Bool {
-        guard graduatedAt == nil, daysDone >= HabitMath.daysToForm else { return false }
+        guard graduatedAt == nil,
+              HabitMath.isFormed(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+        else { return false }
         graduatedAt = Date()
         return true
     }

@@ -322,6 +322,15 @@ struct ConsistencyTests {
         #expect(HabitMath.colorProgress(half) == 0.5)
     }
 
+    @Test func formedCountsTodayOnlyOnceDone() {
+        // 66 days in, today still open: 52 of 65 counted is 80%
+        let done = keys(Array(1...65).filter { $0 % 5 != 2 })
+        #expect(HabitMath.consistency(completed: done, todayKey: today) == ConsistencyTally(done: 52, counted: 65))
+        #expect(HabitMath.isFormed(completed: done, todayKey: today))
+        // A day younger, and it's too soon at any percentage
+        #expect(!HabitMath.isFormed(completed: keys(Array(0..<65)), todayKey: today))
+    }
+
     @Test func pooledColourIsTheShareOfEveryGridLit() {
         let pooled = ConsistencyTally(done: 66, counted: 66) + ConsistencyTally()
         #expect(HabitMath.colorProgress(pooled, habits: 2) == 0.5)
@@ -368,28 +377,44 @@ struct GraduationTests {
 
     init() { ContinuumDay.calendar = utc }
 
-    @Test func graduatesAtSixtySixDaysDoneInAnyOrder() {
+    private func makeHabit(doneBack days: some Sequence<Int>) -> Habit {
         let habit = Habit(name: "Test")
         let todayKey = ContinuumDay.todayKey()
-        // Every other day: 66 days done across 131, never two in a row
-        for n in 0..<66 {
-            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -2 * n, to: todayKey))
+        for back in days {
+            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: todayKey))
         }
-        #expect(habit.daysDone == 66)
+        return habit
+    }
+
+    @Test func formedAfterSixtySixDaysWithFourInFiveDone() {
+        // 66 days, today included, every fifth one missed: 53 of 66
+        let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 })
+        #expect(habit.consistency.percent == 80)
         #expect(habit.checkAndMarkGraduation() == true)
         #expect(habit.isGraduated)
         // Only marks once
         #expect(habit.checkAndMarkGraduation() == false)
     }
 
-    @Test func doesNotGraduateAtSixtyFive() {
-        let habit = Habit(name: "Test")
-        let todayKey = ContinuumDay.todayKey()
-        for offset in 0..<65 {
-            habit.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -offset, to: todayKey))
-        }
+    @Test func notFormedJustUnderEightyPercent() {
+        // One more miss: 52 of 66
+        let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 && $0 != 1 })
+        #expect(habit.consistency.percent == 78)
+        #expect(habit.checkAndMarkGraduation() == false)
+    }
+
+    @Test func notFormedBeforeSixtySixDaysEvenAtAHundred() {
+        let habit = makeHabit(doneBack: 0..<65)
+        #expect(habit.consistency.percent == 100)
         #expect(habit.checkAndMarkGraduation() == false)
         #expect(!habit.isGraduated)
+    }
+
+    @Test func sixtySixDaysSpreadThinIsNotFormed() {
+        // What 3.8's first cut called formed: 66 done, every other day across 131
+        let habit = makeHabit(doneBack: (0..<66).map { $0 * 2 })
+        #expect(habit.daysDone == 66)
+        #expect(habit.checkAndMarkGraduation() == false)
     }
 }
 }
@@ -860,14 +885,18 @@ struct MilestoneDetectorTests {
         #expect(!events([12, 10, 8, 6, 4, 2, 1]).contains(where: isMilestone))
     }
 
-    @Test func graduationAtSixtySixDoneEvenWithoutAStreak() {
+    @Test func graduationNeedsSixtySixDaysMostlyDone() {
+        // 66 done across 131 days, every other one: 50%, not formed
         let every2nd = (1...65).map { $0 * 2 }
-        #expect(events(every2nd) == [.graduation])
-        #expect(!events(every2nd, graduated: true).contains(.graduation))
+        #expect(!events(every2nd).contains(.graduation))
+        // 66 days in, 53 of them done: formed on this mark
+        let mostly = Array(1...65).filter { $0 % 5 != 3 }
+        #expect(events(mostly) == [.graduation])
+        #expect(!events(mostly, graduated: true).contains(.graduation))
     }
 
-    @Test func alreadyPastSixtySixGraduatesOnTheNextCompletion() {
-        // Never had a 66-day streak, but 80 days done: formed on the next mark
+    @Test func alreadyQualifiedGraduatesOnTheNextCompletion() {
+        // 80 days all done before this rule arrived: formed on the next mark
         #expect(events(Array(1...80)) == [.graduation])
     }
 

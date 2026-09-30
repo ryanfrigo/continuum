@@ -15,20 +15,21 @@ private enum ScreenshotSeed {
     static let habits: [(name: String, start: Int, missed: [Int], doneToday: Bool)] = [
         ("Meditate", 140, [12, 31, 49, 67, 68, 70, 72, 81, 95, 110, 126], true),
         ("Read 30 Pages", 100, [9, 20, 27, 38, 46, 55, 61, 66, 67, 69, 70, 71, 72, 84, 91], true),
-        // Its stats bars climb week by week, 42% to 100%
+        // Its stats bars climb week by week, 42% to 100%; formed at 81%
         ("Lift Heavy", 120, [17, 24, 29, 33, 38, 43, 47, 50, 54, 57, 61, 64, 67, 69, 71, 74, 76, 78, 80,
                              82, 83, 86, 89, 93, 97, 100, 104, 108, 113, 117], false),
         // A month in, so half its grid is lit: green, between the two ends
         ("Journal", 38, [8, 17, 26, 33], true),
         // A week old at 85%: colour takes time as well, so it's still coral
         ("No Phone in Bed", 6, [3], true),
-        // Missed yesterday only: holding it today is a clean comeback
+        // Missed yesterday only: holding it today is a clean comeback. 73%,
+        // so not formed
         ("Zone 2 Cardio", 110, [1, 9, 13, 16, 18, 22, 26, 29, 33, 37, 41, 44, 48, 51, 55, 58, 62, 74, 79, 86,
                                 93, 99], false),
     ]
 
-    /// Habits past 66 days done are formed, except `unformed` — which then
-    /// graduates on its next hold, for the graduation shot.
+    /// Habits that qualify (66 days in, 80% done) are marked formed, except
+    /// `unformed` — which then graduates on its next hold, for the graduation shot.
     static func seed(unformed: Set<String> = []) throws {
         let ctx = continuumApp.sharedModelContainer.mainContext
         for habit in try ctx.fetch(FetchDescriptor<Habit>()) { ctx.delete(habit) }
@@ -66,5 +67,6 @@ private enum ScreenshotSeed {
 
 @MainActor
 @Test func seedForGraduationScreenshot() throws {
-    try ScreenshotSeed.seed(unformed: ["Zone 2 Cardio"])
+    // 53 of 65 today; holding it makes 54 of 66, 81%
+    try ScreenshotSeed.seed(unformed: ["Lift Heavy"])
 }

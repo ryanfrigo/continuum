@@ -142,9 +142,13 @@ struct ConsistencyTally: Equatable {
 enum HabitMath {
 
     /// Days on the card's grid, and the window consistency is measured over.
+    /// Lally et al. (2010) found daily habits took a median of 66 days to
+    /// become automatic (18 to 254 across people).
     static let gridDays = 66
-    /// Days done, in any order, that form a habit.
-    static let daysToForm = 66
+    /// Share of a full window that has to be done for a habit to count as
+    /// formed. Lally found one missed day made no difference, but neither
+    /// they nor later reviews set a percentage: 80 is our line for most days.
+    static let formedPercent = 80
 
     /// Consistency over the `window` days ending at `endKey`, counted from the
     /// first completed day — a habit added Monday and started Thursday isn't
@@ -185,6 +189,17 @@ enum HabitMath {
     static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
         guard habits > 0 else { return 0 }
         return min(1, Double(tally.done) / Double(gridDays * habits))
+    }
+
+    /// Formed: 66 days since the first one done, with at least 80% of them
+    /// done (today counting once it is). Consistency over the whole stretch,
+    /// not a count, so 66 days scattered across a year doesn't qualify.
+    static func isFormed(completed: Set<Int>, todayKey: Int) -> Bool {
+        guard let first = completed.min(),
+              ContinuumDay.daysBetween(first, todayKey) + 1 >= gridDays,
+              let percent = consistency(completed: completed, todayKey: todayKey).percent
+        else { return false }
+        return percent >= formedPercent
     }
 
     /// Every day since the first completion, today counting once done.

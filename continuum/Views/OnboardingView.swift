@@ -35,8 +35,8 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "star.fill",
             title: "66 Days",
-            subtitle: "Not in a row",
-            description: "Habits take about 66 days of practice to stick. Mark 66 days done, in any order, and the habit is formed.",
+            subtitle: "Most of them",
+            description: "In a UCL study, daily habits took a median of 66 days to become automatic, and one missed day didn't set anyone back. Do a habit on 80% of 66 days and it's formed.",
             color: .orange
         )
     ]

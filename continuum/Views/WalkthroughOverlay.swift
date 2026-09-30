@@ -26,7 +26,7 @@ struct WalkthroughOverlay: View {
         WalkthroughStep(
             icon: "percent",
             title: "Your Number",
-            description: "The big number is your consistency over the last 66 days, and the arrow is this week's change. Miss a day and it dips a little. Just don't miss twice."
+            description: "The percentage is your consistency over the last 66 days, and the triangle is this week's change. Miss a day and it dips a little. Just don't miss twice."
         ),
         WalkthroughStep(
             icon: "ellipsis.circle",
@@ -36,7 +36,7 @@ struct WalkthroughOverlay: View {
         WalkthroughStep(
             icon: "star.fill",
             title: "66 Days",
-            description: "Mark 66 days done, in a row or not, and the habit is formed."
+            description: "Keep a habit up for 66 days, doing it on at least 80% of them, and it's formed."
         ),
     ]
 

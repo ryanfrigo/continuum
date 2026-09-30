@@ -9,7 +9,6 @@ enum DaysMilestone: Int, CaseIterable {
     case five = 5
     case seven = 7
     case twentyOne = 21
-    case formed = 66
     case hundred = 100
     case year = 365
 
@@ -68,16 +67,15 @@ enum MilestoneDetector {
         smallMomentShownToday: Bool,
         highestLevelCelebrated: Int
     ) -> [CelebrationEvent] {
-        // Once per habit. No crossing required, so anyone already past 66 when
-        // this rule arrived graduates on their next completion.
-        if after.count >= HabitMath.daysToForm && !isAlreadyGraduated {
+        // Once per habit: 66 days in, 80% of them done. No crossing required,
+        // so a habit that already qualifies graduates on its next completion.
+        if HabitMath.isFormed(completed: after, todayKey: todayKey) && !isAlreadyGraduated {
             return [.graduation]
         }
 
         var events: [CelebrationEvent] = []
 
         if let milestone = DaysMilestone.crossed(from: before.count, to: after.count),
-           milestone != .formed,
            !(milestone.isMinor && smallMomentShownToday) {
             events.append(.milestone(milestone))
         }
@@ -152,8 +150,7 @@ struct TileCelebration: Equatable, Identifiable {
         case .three: return "it's real now"
         case .five: return "momentum"
         case .seven: return "a week's worth"
-        case .twentyOne: return "becoming you"
-        case .formed: return "habit formed"
+        case .twentyOne: return "three weeks' worth"
         case .hundred: return "few get here"
         case .year: return "a year of days"
         }

@@ -29,7 +29,7 @@ SHOTS = [
     ("home.png", "01_consistency.png", "Miss a day.", "Nothing resets.", "one number per habit", None),
     ("comeback.png", "02_never_miss_twice.png", "Missed yesterday?", "Don't miss twice.", None, None),
     ("stats.png", "03_week_by_week.png", "12 weeks.", "Watch it climb.", None, None),
-    ("graduation.png", "04_66_days.png", "66 days.", "Not in a row.", None, None),
+    ("graduation.png", "04_66_days.png", "66 days.", "Most of them.", None, None),
     # The half-traced border is invisible at thumbnail size, so the held card is magnified
     ("hold_final.png", "05_hold.png", "Hold to mark", "the day.", "harder to do by accident", (20, 1030, 660, 1628)),
 ]

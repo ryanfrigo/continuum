@@ -22,7 +22,7 @@ Screenshots (`AppStoreScreenshots/3.8/`, five, 1320x2868):
 1. `01_consistency.png`: home, pooled 85%, cards running coral (a week old) to blue. "Miss a day. / Nothing resets."
 2. `02_never_miss_twice.png`: a comeback in its card. "Missed yesterday? / Don't miss twice."
 3. `03_week_by_week.png`: stats, 12 bars climbing. "12 weeks. / Watch it climb."
-4. `04_66_days.png`: graduation. "66 days. / Not in a row."
+4. `04_66_days.png`: graduation at 81% of 66 days. "66 days. / Most of them."
 5. `05_hold.png`: mid-hold, magnified. "Hold to mark / the day."
 
 To rebuild them: run `seedForScreenshots()` (or `seedForGraduationScreenshot()`)

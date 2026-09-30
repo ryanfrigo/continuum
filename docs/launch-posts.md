@@ -19,9 +19,9 @@ showed up, counted from your first day. Miss a day and it drops a point or
 two — it never goes to zero, which is exactly the moment most people quit a
 streak app.
 
-The grid is 66 days because that's roughly how long a habit takes to become
-automatic — Lally et al. (2009) found a median of 66 days, with an enormous
-range, and that a single missed day didn't set people back. The streak version
+The grid is 66 days because that's the median time a daily habit took to
+become automatic in the best-known study — Lally et al. (2010), where it ran
+from 18 days to 254 — and a single missed day didn't set people back. The streak version
 of this app quoted the first finding and ignored the second.
 
 Eleven months in, it has 83 downloads. That isn't traction and I won't pretend
@@ -100,7 +100,7 @@ iOS 17+. Happy to answer anything about the build.
 **Title:** [Free] Continuum — habit tracker built around a consistency percentage
 
 Free, no IAP, no ads, no account. Each habit shows the share of the last 66
-days you showed up, with an arrow for how it moved this week; miss a day and
+days you showed up, with a triangle for how it moved this week; miss a day and
 it dips instead of resetting. Hold a card to mark the day. Widgets on the home
 and lock screen show the number and mark days done without opening the app.
 iCloud sync across devices.

@@ -504,6 +504,8 @@ enum CelebrationPalette {
 
 struct HabitGraduationOverlay: View {
     let habitName: String
+    /// Consistency over the 66 days it formed across
+    let percent: Int
     var accent: Color = CelebrationPalette.gold   // habit's tile color
     let onDismiss: () -> Void
     let onShare: () -> Void
@@ -511,16 +513,16 @@ struct HabitGraduationOverlay: View {
     var body: some View {
         CelebrationCard(
             accent: accent,
-            visual: .value("66", unit: "days done"),
+            visual: .value("\(percent)%", unit: "of 66 days"),
             title: "HABIT FORMED",
-            message: "Not in a row.\nYou just kept coming back.",
+            message: "You kept coming back.\nThat's what makes a habit stick.",
             subject: habitName,
             intensity: .full,
             primaryAction: ("Share Achievement", "square.and.arrow.up", onShare),
             secondaryActionLabel: "Continue",
             onDismiss: onDismiss
         )
-        .accessibilityLabel("Habit formed. \(habitName) has 66 days done.")
+        .accessibilityLabel("Habit formed. \(habitName): \(percent) percent of the last 66 days done.")
     }
 }
 
@@ -621,7 +623,7 @@ struct CornerBracket: Shape {
 }
 
 #Preview("Graduation") {
-    HabitGraduationOverlay(habitName: "Exercise", onDismiss: {}, onShare: {})
+    HabitGraduationOverlay(habitName: "Exercise", percent: 84, onDismiss: {}, onShare: {})
 }
 
 #Preview("Perfect Day") {

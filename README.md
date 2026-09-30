@@ -13,10 +13,13 @@ Free, with no account and no ads.
   66-day grid on every card. Counting starts at a habit's first done day, and
   today only counts once it's done. The maths lives in `HabitMath`
   (`Shared/HabitDataManager.swift`), which the app and the widget both use.
-- The arrow beside a number is its change over the last 7 days.
-- A habit is **formed** at 66 days done, in any order. Lally et al. (2009)
-  found a median of 66 days to automaticity, and that one missed day didn't set
-  it back.
+- The triangle beside a number is its change over the last 7 days.
+- A habit is **formed** after 66 days with at least 80% of them done. Lally et
+  al. (2010, *European Journal of Social Psychology*) found daily habits took a
+  median of 66 days to become automatic, 18 to 254 across people, and that one
+  missed day didn't set them back. Singh et al. (2024, *Healthcare*), a review
+  of 20 studies, say to plan on two to five months. Neither sets a percentage;
+  80% is this app's line for "most days".
 - Hold a card to mark today. Tap once, then hold, to fill in yesterday.
 - One reminder per habit, sent only if it isn't done yet, plus a single 8pm
   nudge on the evening after a miss.

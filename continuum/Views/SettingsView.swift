@@ -443,7 +443,7 @@ struct AboutView: View {
                                 icon: "waveform.path.ecg",
                                 code: "SYS.PROTOCOL.066",
                                 title: "66 DAY PROTOCOL",
-                                description: "Lally et al. (2009) put automaticity at a median of 66 days of practice, and found one missed day didn't set it back. System counts days done, in any order."
+                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't set them back. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with 80% done; the 80% is ours."
                             )
 
                             AboutCard(

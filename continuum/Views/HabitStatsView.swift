@@ -405,13 +405,25 @@ struct HabitStatsView: View {
 
     // MARK: - Footer
 
+    /// How far this habit is from formed: 66 days in, 80% of them done.
+    private var formedNote: String {
+        guard let percent = consistency.percent, let first = completedKeys.min() else {
+            return "Formed at 66 days, with 80% of them done."
+        }
+        let left = HabitMath.gridDays - (ContinuumDay.daysBetween(first, ContinuumDay.todayKey()) + 1)
+        if left > 0 {
+            return "Formed at 66 days if 80% are done. \(left) day\(left == 1 ? "" : "s") to go, at \(percent)% now."
+        } else if percent < HabitMath.formedPercent {
+            return "Formed once 80% of your last 66 days are done. You're at \(percent)%."
+        } else {
+            return "80% of your last 66 days are done. It's formed on your next check-in."
+        }
+    }
+
     private var footerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             if !habit.isGraduated {
-                let left = HabitMath.daysToForm - habit.daysDone
-                Text(left > 0
-                     ? "\(left) more day\(left == 1 ? "" : "s") done and it's formed. In any order."
-                     : "66 days done. It's formed on your next check-in.")
+                Text(formedNote)
                     .font(.system(size: 11, weight: .medium).monospaced())
                     .foregroundStyle(.white.opacity(0.5))
             }

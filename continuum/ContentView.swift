@@ -173,6 +173,7 @@ struct ContentView: View {
                     if showGraduation {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
+                            percent: graduationHabit?.consistency.percent ?? HabitMath.formedPercent,
                             accent: HabitPalette.color(graduationHabit.map { HabitMath.colorProgress($0.consistency) } ?? 1),
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
