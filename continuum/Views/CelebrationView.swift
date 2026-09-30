@@ -515,7 +515,7 @@ struct HabitGraduationOverlay: View {
             accent: accent,
             visual: .value("\(percent)%", unit: "of 66 days"),
             title: "HABIT FORMED",
-            message: "You kept coming back.\nThat's what makes a habit stick.",
+            message: "You kept coming back.\nThat's how it sticks.",
             subject: habitName,
             intensity: .full,
             primaryAction: ("Share Achievement", "square.and.arrow.up", onShare),
