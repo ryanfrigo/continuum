@@ -406,7 +406,7 @@ struct AboutView: View {
                                     HStack(spacing: 3) {
                                         ForEach(0..<4, id: \.self) { col in
                                             RoundedRectangle(cornerRadius: 2)
-                                                .fill(row == 1 && col == 2
+                                                .fill(row == 3 && col == 0
                                                       ? Color.white.opacity(0.12)
                                                       : HabitPalette.color(Double(row + col) / 6))
                                                 .frame(width: 9, height: 9)
