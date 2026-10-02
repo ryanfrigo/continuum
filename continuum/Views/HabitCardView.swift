@@ -335,7 +335,7 @@ struct HabitCardView: View {
                     }
 
                 if let trend = habit.consistencyTrend, trend != 0 {
-                    TrendLabel(trend: trend, color: themeColor, size: 10)
+                    TrendLabel(trend: trend, size: 10)
                 }
             } else {
                 Text("Hold to start")

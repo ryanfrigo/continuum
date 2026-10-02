@@ -132,7 +132,7 @@ struct HabitStatsView: View {
                     .shadow(color: themeColor.opacity(0.45), radius: 8)
 
                 if let trend = habit.consistencyTrend, trend != 0 {
-                    TrendLabel(trend: trend, color: themeColor, size: 12, suffix: " THIS WEEK")
+                    TrendLabel(trend: trend, size: 12, suffix: " THIS WEEK")
                 }
             }
         }

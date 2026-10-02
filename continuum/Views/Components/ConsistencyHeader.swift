@@ -27,7 +27,7 @@ struct ConsistencyHeader: View {
                 divider
                 readout("THIS WEEK") {
                     if let trend, trend != 0 {
-                        TrendLabel(trend: trend, color: accent, size: valueSize)
+                        TrendLabel(trend: trend, size: valueSize)
                     } else {
                         // Too new for a trend, or flat
                         Text(trend == nil ? "–" : "±0")

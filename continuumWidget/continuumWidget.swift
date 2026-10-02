@@ -149,7 +149,7 @@ struct SmallWidgetView: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundStyle(color)
                                 if let trend = habit.consistencyTrend, trend != 0 {
-                                    TrendLabel(trend: trend, color: color, size: 9)
+                                    TrendLabel(trend: trend, size: 9)
                                 }
                             }
                         } else {
@@ -370,7 +370,7 @@ struct AccessoryRectangularView: View {
                 HStack(spacing: 4) {
                     Text(first.consistency.percent.map { "\($0)% consistent" } ?? "new")
                     if let trend = first.consistencyTrend, trend != 0 {
-                        TrendLabel(trend: trend, color: .primary, size: 11)
+                        TrendLabel(trend: trend, size: 11)
                     }
                 }
                 .font(.system(size: 11, weight: .medium))

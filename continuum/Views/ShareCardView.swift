@@ -207,7 +207,7 @@ struct ShareCardView: View {
                 .foregroundStyle(Color.white.opacity(0.5))
 
             if let trend = habit.consistencyTrend, trend != 0 {
-                TrendLabel(trend: trend, color: themeColor, size: 22, suffix: " THIS WEEK")
+                TrendLabel(trend: trend, size: 22, suffix: " THIS WEEK")
                     .padding(.top, 4)
             }
         }
