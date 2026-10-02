@@ -14,7 +14,7 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "percent",
             title: "continuum",
-            subtitle: "The consistency tracker",
+            subtitle: "Consistency, not perfection",
             description: "One number per habit: the share of days you showed up. Miss a day and it dips. Nothing resets.",
             color: HabitPalette.accent
         ),

@@ -26,7 +26,7 @@ GREY = (122, 130, 138)
 # raw capture, output name, headline (white), headline (accent), small line,
 # and optionally a region of the capture (px) to magnify over the phone
 SHOTS = [
-    ("home.png", "01_consistency.png", "Miss a day.", "Nothing resets.", "one number per habit", None),
+    ("home.png", "01_consistency.png", "Miss a day.", "Nothing resets.", "consistency, not perfection", None),
     ("comeback.png", "02_never_miss_twice.png", "Missed yesterday?", "Don't miss twice.", None, None),
     ("stats.png", "03_week_by_week.png", "12 weeks.", "Watch it climb.", None, None),
     ("graduation.png", "04_66_days.png", "66 days.", "Most of them.", None, None),
