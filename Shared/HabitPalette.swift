@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A habit's colour on every screen and in the widget: coral red while it's
 /// new, through orange, yellow and green to blue as its grid fills. Where a
-/// habit sits on the ramp is `HabitMath.colorProgress`. The app icon's bar is
-/// this ramp, end to end.
+/// habit sits on the ramp is `HabitMath.colorProgress`. The app icon is a grid
+/// lit along this ramp, coral to blue, with one missed day.
 enum HabitPalette {
     /// Ramp stops as (position, hue in degrees, saturation, brightness).
     private static let stops: [(at: Double, hue: Double, saturation: Double, brightness: Double)] = [

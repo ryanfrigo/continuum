@@ -89,39 +89,26 @@ struct HabitProvider: TimelineProvider {
 struct CompleteButton: View {
     let habit: HabitData
     let color: Color
-    var compact: Bool = false
+    var size: CGFloat = 22
 
     var body: some View {
         Button(intent: ToggleHabitIntent(habitId: habit.id)) {
-            if habit.isCompletedToday {
-                HStack(spacing: 2) {
+            // One circle: outlined while open, filled with a check once done
+            ZStack {
+                if habit.isCompletedToday {
+                    Circle().fill(color)
                     Image(systemName: "checkmark")
-                        .font(.system(size: compact ? 6 : 7, weight: .heavy))
-                    if !compact {
-                        Text("DONE")
-                            .font(.system(size: 7, weight: .bold))
-                    }
+                        .font(.system(size: size * 0.42, weight: .bold))
+                        .foregroundStyle(.black)
+                } else {
+                    Circle().strokeBorder(color.opacity(0.6), lineWidth: 1.5)
                 }
-                .foregroundStyle(color)
-                .padding(.horizontal, compact ? 4 : 6)
-                .padding(.vertical, compact ? 4 : 3)
-                .background(Capsule().fill(color.opacity(0.15)))
-            } else {
-                HStack(spacing: 3) {
-                    Image(systemName: "circle")
-                        .font(.system(size: compact ? 8 : 9, weight: .bold))
-                    if !compact {
-                        Text("MARK DONE")
-                            .font(.system(size: 7, weight: .bold))
-                    }
-                }
-                .foregroundStyle(color.opacity(0.9))
-                .padding(.horizontal, compact ? 4 : 6)
-                .padding(.vertical, compact ? 4 : 3)
-                .background(Capsule().stroke(color.opacity(0.4), lineWidth: 1))
             }
+            .frame(width: size, height: size)
+            .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(habit.isCompletedToday ? "Done today" : "Mark today done")
     }
 }
 
@@ -146,40 +133,36 @@ struct SmallWidgetView: View {
 
     var body: some View {
         if let habit {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(habit.name)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-
-                // The number, and which way it moved this week
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    if let percent = consistency.percent {
-                        Text("\(percent)%")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(color)
-                        if let trend = habit.consistencyTrend, trend != 0 {
-                            TrendLabel(trend: trend, color: color, size: 10)
+            // Same layout as a medium widget card: name and number, the
+            // button top right, the grid filling the rest
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(habit.name)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        if let percent = consistency.percent {
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                Text("\(percent)%")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(color)
+                                if let trend = habit.consistencyTrend, trend != 0 {
+                                    TrendLabel(trend: trend, color: color, size: 9)
+                                }
+                            }
+                        } else {
+                            Text("NEW").readoutLabel()
                         }
-                    } else {
-                        Text("Tap to start")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.3))
                     }
-                }
-
-                Spacer(minLength: 4)
-
-                // 66-day grid
-                MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2, startIndex: startIndex)
-
-                // Complete button — interactive, no app launch needed
-                HStack {
-                    Spacer()
+                    Spacer(minLength: 0)
                     CompleteButton(habit: habit, color: color)
                 }
-                .padding(.top, 3)
+
+                Spacer(minLength: 0)
+
+                MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2, startIndex: startIndex)
             }
             .padding(4)
         } else {
@@ -299,7 +282,7 @@ private struct MediumHabitCard: View {
                     .minimumScaleFactor(0.75)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                CompleteButton(habit: habit, color: color, compact: true)
+                CompleteButton(habit: habit, color: color, size: 16)
             }
 
             // Always rendered: an if here makes one card's grid sit higher

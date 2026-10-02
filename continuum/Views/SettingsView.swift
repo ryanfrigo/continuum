@@ -398,13 +398,22 @@ struct AboutView: View {
                                 .frame(width: 90, height: 90)
                                 .shadow(color: HabitPalette.accent.opacity(glowPulse), radius: 15)
 
-                            // Center mark: the app icon's bar, coral to blue.
-                            // The old infinity sign meant "forever", the streak idea.
-                            Rectangle()
-                                .fill(LinearGradient(
-                                    colors: stride(from: 0.0, through: 1.0, by: 0.1).map { HabitPalette.color($0) },
-                                    startPoint: .leading, endPoint: .trailing))
-                                .frame(width: 42, height: 18)
+                            // Center mark: the app icon, a grid lit coral to blue
+                            // with one missed day. The old infinity sign meant
+                            // "forever", the streak idea.
+                            VStack(spacing: 3) {
+                                ForEach(0..<4, id: \.self) { row in
+                                    HStack(spacing: 3) {
+                                        ForEach(0..<4, id: \.self) { col in
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(row == 1 && col == 2
+                                                      ? Color.white.opacity(0.12)
+                                                      : HabitPalette.color(Double(row + col) / 6))
+                                                .frame(width: 9, height: 9)
+                                        }
+                                    }
+                                }
+                            }
 
                             // Corner brackets
                             ForEach(0..<4, id: \.self) { i in
