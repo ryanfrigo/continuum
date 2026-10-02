@@ -48,6 +48,11 @@ const existing = await api('GET', `/v1/appScreenshotSets/${set.id}/appScreenshot
 
 console.log(`Version ${version.attributes.versionString} (${version.attributes.appStoreState})`)
 console.log(`Existing: ${existing.data.map((s) => s.attributes.fileName).join(', ')}`)
+// Delete first: a set holds at most 10, and a new version inherits the old set
+for (const old of existing.data) {
+  await api('DELETE', `/v1/appScreenshots/${old.id}`)
+  console.log(`  removed ${old.attributes.fileName}`)
+}
 console.log(`Uploading: ${files.join(', ')}`)
 if (!replace) {
   console.log('\nDry run. Pass --replace to apply.')
@@ -83,10 +88,6 @@ for (const name of files) {
   console.log(`  uploaded ${name}`)
 }
 
-for (const old of existing.data) {
-  await api('DELETE', `/v1/appScreenshots/${old.id}`)
-  console.log(`  removed ${old.attributes.fileName}`)
-}
 await api('PATCH', `/v1/appScreenshotSets/${set.id}/relationships/appScreenshots`, {
   data: added.map((id) => ({ type: 'appScreenshots', id })),
 })
