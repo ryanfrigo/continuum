@@ -115,8 +115,20 @@ await api('PATCH', `/v1/appStoreVersions/${version.id}/relationships/build`, {
 })
 console.log('Attached build')
 
-// Phased release: a bug reaches 1% on day one instead of everyone
-try {
+// Phased release: a bug reaches 1% on day one instead of everyone.
+// --no-phased releases to everyone on approval, and removes a phased
+// release a previous run set up.
+if (wants('no-phased')) {
+  try {
+    const pr = await api('GET', `/v1/appStoreVersions/${version.id}/appStoreVersionPhasedRelease`)
+    if (pr.data) {
+      await api('DELETE', `/v1/appStoreVersionPhasedReleases/${pr.data.id}`)
+      console.log('Phased release: removed')
+    } else console.log('Phased release: OFF')
+  } catch (e) {
+    console.log('Phased release: OFF')
+  }
+} else try {
   await api('POST', '/v1/appStoreVersionPhasedReleases', {
     data: {
       type: 'appStoreVersionPhasedReleases',
