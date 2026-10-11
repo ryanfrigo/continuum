@@ -1,11 +1,5 @@
-Continuum runs on one number now. Your consistency — the share of the last 66 days you showed up — sits on every card as a small readout. The triangle beside it is this week's move. The home screen pools every habit into one figure.
+The old icon is back. It's the one with the missing square in the second row, which I swapped out for 3.8 thinking the bottom corner read cleaner, and then missed within a week.
 
-I built this app around streaks for a year, freezes included. That was the wrong number. A streak turns one bad day into zero; consistency turns it into a dip. Freezes are gone. So is the 8pm "streak ends at midnight" alert, replaced by a single nudge on the evening after a miss. Never miss twice.
+Settings has a Send Feedback row now. Two weeks after your first habit, the app also asks once how it's going. I read every reply. Honestly, I don't know what most of you think of Continuum — that's the gap this closes.
 
-Color follows the grid. A habit starts coral red and turns blue as its 66 days fill — a week-old habit at 100% is still coral, because blue takes time as well as showing up.
-
-A habit is formed after 66 days with at least 80% of them done. Sixty-six is the median it took people in a UCL study for a daily habit to become automatic, and one missed day didn't materially slow it down. The 80% is my line; the study doesn't set one. Already there? It's formed the next time you mark it done.
-
-New habits don't start near zero any more: the number counts from your first day, so 20 days out of 20 reads 100% (it used to read 30%).
-
-The stats screen shows your last 12 weeks as bars. Watch them climb.
+The app now sends a few anonymous signals too: whether setup got finished, and whether you come back. A random ID. Never your habits (the privacy policy lists every signal). Turn it off in Settings → Share Anonymous Usage.

@@ -2,6 +2,9 @@
   "name": "continuum-api",
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
+  // Feedback is mailed to FEEDBACK_TO (a secret, so the address stays out of
+  // this public repo). Must be a verified Email Routing destination.
+  "send_email": [{ "name": "MAIL" }],
   "d1_databases": [
     {
       "binding": "DB",

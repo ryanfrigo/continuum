@@ -1,7 +1,9 @@
 name: App Store numbers
 
 # Downloads and retention from App Store Connect, using the same ASC secrets
-# as the release workflow. Read-only; the app ships no analytics SDK.
+# as the release workflow. Read-only. Also prints the app's own anonymous
+# setup funnel from the continuum-api Worker (worker/). Counts only: this repo
+# and its logs are public, and feedback text is mailed to Ryan instead.
 #
 #   gh workflow run analytics.yml
 #   gh run watch $(gh run list -w analytics.yml -L1 --json databaseId -q '.[0].databaseId')
@@ -51,3 +53,9 @@ jobs:
           curl -s "https://itunes.apple.com/lookup?bundleId=orion-labs.continuum&country=us" \
             | python3 -c "import sys,json;a=json.load(sys.stdin)['results'][0];print(f\"version {a['version']} · {a.get('userRatingCount',0)} ratings · avg {a.get('averageUserRating',0):.1f}\")" \
             | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup funnel (continuum-api)
+        env:
+          CONTINUUM_REPORT_TOKEN: ${{ secrets.CONTINUUM_REPORT_TOKEN }}
+        run: |
+          { echo '```'; python3 scripts/usage_report.py --counts; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"

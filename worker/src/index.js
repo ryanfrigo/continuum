@@ -7,6 +7,9 @@
 // Nothing here can identify a person: `install` is a random UUID the app
 // makes, and feedback is stored without it.
 
+import { EmailMessage } from "cloudflare:email";
+
+const FROM = "continuum@windowsticker.org"; // a zone with Email Routing on
 const EVENTS = new Set(["first_open", "upgrade", "onboarded", "first_habit", "first_completion", "active"]);
 const KINDS = new Set(["settings", "checkin"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,7 +45,31 @@ async function event(request, env) {
   return new Response(null, { status: 204 });
 }
 
-async function feedback(request, env) {
+// Best effort: the row in D1 is the record, the email is the nudge.
+async function mail(env, kind, text, version, os) {
+  if (!env.MAIL || !env.FEEDBACK_TO) return;
+  const raw = [
+    `From: Continuum <${FROM}>`,
+    `To: ${env.FEEDBACK_TO}`,
+    `Subject: Continuum feedback (${kind}, ${version || "?"})`,
+    `Message-ID: <${crypto.randomUUID()}@windowsticker.org>`,
+    `Date: ${new Date().toUTCString()}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    text,
+    "",
+    `-- ${kind} · app ${version || "?"} · iOS ${os || "?"}`,
+  ].join("\r\n");
+  try {
+    await env.MAIL.send(new EmailMessage(FROM, env.FEEDBACK_TO, raw));
+  } catch (e) {
+    console.log("feedback mail failed", e.message);
+  }
+}
+
+async function feedback(request, env, ctx) {
   const b = await body(request);
   const text = str(b?.text, 4000).trim();
   if (!b || !KINDS.has(b.kind) || !text) return json({ error: "bad feedback" }, 400);
@@ -51,6 +78,7 @@ async function feedback(request, env) {
   )
     .bind(now(), b.kind, text, str(b.version, 20), str(b.os, 20))
     .run();
+  ctx.waitUntil(mail(env, b.kind, text, str(b.version, 20), str(b.os, 20)));
   return new Response(null, { status: 204 });
 }
 
@@ -91,10 +119,10 @@ async function report(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
     if (request.method === "POST" && pathname === "/event") return event(request, env);
-    if (request.method === "POST" && pathname === "/feedback") return feedback(request, env);
+    if (request.method === "POST" && pathname === "/feedback") return feedback(request, env, ctx);
     if (request.method === "GET" && pathname === "/report") return report(request, env);
     return json({ error: "not found" }, 404);
   },
