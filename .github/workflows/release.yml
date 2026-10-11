@@ -26,6 +26,11 @@ on:
         required: false
         default: true
         type: boolean
+      tests_only:
+        description: "Stop after the tests (no archive, no upload)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release
@@ -75,7 +80,19 @@ jobs:
             -destination "platform=iOS Simulator,id=$SIM" \
             -derivedDataPath build/dd
 
+      # Crash logs and attachments, for failures that don't reproduce locally
+      - name: Keep test results
+        if: failure() && inputs.run_tests
+        run: cd build/dd/Logs/Test && zip -qr "$GITHUB_WORKSPACE/test-results.zip" .
+      - uses: actions/upload-artifact@v4
+        if: failure() && inputs.run_tests
+        with:
+          name: test-results
+          path: test-results.zip
+
+
       - name: Write ASC API key
+        if: ${{ !inputs.tests_only }}
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -88,6 +105,7 @@ jobs:
           test -s ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 || { echo "::error::Decoded key is empty"; exit 1; }
 
       - name: Archive
+        if: ${{ !inputs.tests_only }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -105,6 +123,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       - name: Verify the archive is actually shippable
+        if: ${{ !inputs.tests_only }}
         run: |
           SIGNED_BY=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIdentity' build/Continuum.xcarchive/Info.plist)
           SDK=$(plutil -extract DTSDKName raw build/Continuum.xcarchive/Products/Applications/continuum.app/Info.plist)
@@ -125,6 +144,7 @@ jobs:
           esac
 
       - name: Upload to App Store Connect
+        if: ${{ !inputs.tests_only }}
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -153,7 +173,7 @@ jobs:
         run: rm -rf ~/private_keys
 
       - name: Summary
-        if: success()
+        if: success() && !inputs.tests_only
         run: |
           {
             echo "### Uploaded to App Store Connect"
