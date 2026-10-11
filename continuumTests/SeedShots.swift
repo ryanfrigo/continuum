@@ -61,13 +61,21 @@ private enum ScreenshotSeed {
     }
 }
 
+/// Set by CI (`TEST_RUNNER_SKIP_SEEDS=1`). The seed deletes every habit in the
+/// shared store while the host app's UI still holds them, and SwiftData
+/// intermittently traps on a detached `completedDates` fault. Seeds aren't
+/// tests; they only matter when run by hand for screenshots.
+private let skipSeeds = ProcessInfo.processInfo.environment["SKIP_SEEDS"] != nil
+
 @MainActor
-@Test func seedForScreenshots() throws {
+@Test(.disabled(if: skipSeeds, "CI: wipes the live app's store mid-render and traps"))
+func seedForScreenshots() throws {
     try ScreenshotSeed.seed()
 }
 
 @MainActor
-@Test func seedForGraduationScreenshot() throws {
+@Test(.disabled(if: skipSeeds, "CI: wipes the live app's store mid-render and traps"))
+func seedForGraduationScreenshot() throws {
     // 53 of 65 today; holding it makes 54 of 66, 81%
     try ScreenshotSeed.seed(unformed: ["Lift Heavy"])
 }

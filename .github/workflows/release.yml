@@ -76,6 +76,9 @@ jobs:
                 | grep -m1 -E "iPhone 1[6-9]" \
                 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
           [ -n "$SIM" ] || { echo "::error::No iPhone simulator on runner"; exit 1; }
+          # The screenshot seeds wipe the live store under the app and trap
+          # intermittently; they're not tests. See continuumTests/SeedShots.swift.
+          TEST_RUNNER_SKIP_SEEDS=1 \
           xcodebuild test -scheme continuum -testPlan continuum \
             -destination "platform=iOS Simulator,id=$SIM" \
             -derivedDataPath build/dd

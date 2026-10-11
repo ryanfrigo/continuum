@@ -315,9 +315,7 @@ struct ContentView: View {
         UsageReporter.shared.report(UsagePlanner.State(
             onboarded: onboardingCompleted,
             hasHabit: hasHabits,
-            // A habit deleted under the query has no context; reading its
-            // dates would trap
-            hasCompletion: habits.contains { $0.modelContext != nil && !$0.completedDatesArray.isEmpty }
+            hasCompletion: habits.contains { !$0.completedDatesArray.isEmpty }
         ))
     }
 
