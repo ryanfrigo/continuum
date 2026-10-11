@@ -55,6 +55,7 @@ private enum ScreenshotSeed {
         // Nothing pops over the shots: no reminder offer, no review sheet
         defaults.set(true, forKey: "hasAskedForReminders")
         defaults.set(21, forKey: "reviewRequestedForMilestone")
+        defaults.set(true, forKey: "hasShownCheckIn")
         defaults.set(0, forKey: "lastMinorMilestoneCelebrationKey")
         defaults.set(0, forKey: "lastPerfectDayCelebrationKey")
     }
