@@ -1214,3 +1214,36 @@ struct ReviewPromptTests {
     }
 }
 }
+
+// MARK: - Usage planner
+
+struct UsagePlannerTests {
+    private let fresh = UsagePlanner.State(onboarded: false, hasHabit: false, hasCompletion: false)
+    private let setUp = UsagePlanner.State(onboarded: true, hasHabit: true, hasCompletion: true)
+
+    @Test func newInstallOpensWithFirstOpen() {
+        #expect(UsagePlanner.opening(fresh) == .firstOpen)
+        #expect(UsagePlanner.opening(setUp) == .upgrade)
+    }
+
+    @Test func freshInstallOwesOpeningAndActive() {
+        let due = UsagePlanner.due(opening: .firstOpen, sent: [], lastActiveDay: 0, today: 20261011, state: fresh)
+        #expect(due == [.firstOpen, .active])
+    }
+
+    @Test func milestonesGoOnceActiveGoesDaily() {
+        let sent: Set<UsageEvent> = [.firstOpen, .onboarded, .firstHabit, .firstCompletion]
+        #expect(UsagePlanner.due(opening: .firstOpen, sent: sent, lastActiveDay: 20261011, today: 20261011, state: setUp).isEmpty)
+        #expect(UsagePlanner.due(opening: .firstOpen, sent: sent, lastActiveDay: 20261011, today: 20261012, state: setUp) == [.active])
+    }
+
+    @Test func milestonesWaitForTheirState() {
+        let state = UsagePlanner.State(onboarded: true, hasHabit: true, hasCompletion: false)
+        let due = UsagePlanner.due(opening: .firstOpen, sent: [.firstOpen], lastActiveDay: 20261011, today: 20261011, state: state)
+        #expect(due == [.onboarded, .firstHabit])
+    }
+
+    @Test func dayStringIsISO() {
+        #expect(UsagePlanner.dayString(20260105) == "2026-01-05")
+    }
+}

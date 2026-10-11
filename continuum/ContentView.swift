@@ -65,6 +65,9 @@ struct ContentView: View {
     @State private var pendingReviewRequest = false
     @State private var showWalkthrough = false
     @Environment(\.requestReview) private var requestReview
+    // One-time "how's it going?" two weeks after the first habit
+    @AppStorage("hasShownCheckIn") private var hasShownCheckIn = false
+    @State private var showCheckIn = false
 
     #if canImport(Inject)
     @ObserveInjection var inject
@@ -229,6 +232,9 @@ struct ContentView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showCheckIn) {
+            FeedbackSheet(kind: .checkin)
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .onDisappear {
@@ -241,6 +247,7 @@ struct ContentView: View {
             OnboardingView(isPresented: $showingOnboarding) { selectedHabits in
                 onboardingCompleted = true
                 createSelectedHabits(selectedHabits)
+                reportUsage()
                 // Show walkthrough after onboarding
                 if !walkthroughCompleted {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -264,6 +271,7 @@ struct ContentView: View {
             syncNotifications()
             NotificationManager.shared.clearBadge()
             refreshTrigger.toggle()
+            reportUsage()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             applyPendingWidgetToggles()
@@ -273,6 +281,12 @@ struct ContentView: View {
             refreshTrigger.toggle()
             syncNotifications()
             NotificationManager.shared.clearBadge()
+            reportUsage()
+            maybeShowCheckIn()
+        }
+        // Someone who sets up and never returns still counts toward the funnel
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            reportUsage()
         }
         // CloudKit delivered changes while the app is open: merge them before
         // the last-writer-wins array value sticks on screen
@@ -292,6 +306,34 @@ struct ContentView: View {
             refreshTrigger.toggle()
             syncNotifications()
             syncAllHabitsToWidget()
+        }
+    }
+
+    // MARK: - Usage + check-in
+
+    private func reportUsage() {
+        UsageReporter.shared.report(UsagePlanner.State(
+            onboarded: onboardingCompleted,
+            hasHabit: hasHabits,
+            hasCompletion: habits.contains { !$0.completedDatesArray.isEmpty }
+        ))
+    }
+
+    private var isPresentingSomething: Bool {
+        showingAdd || showingSettings || showingOnboarding || showWalkthrough
+            || showPerfectDay || showPerfectWeek || showReminderPrompt || showGraduation
+            || showShareSheet || statsHabit != nil || pendingReviewRequest
+    }
+
+    /// Asked once, two weeks after the first habit, while people still care.
+    private func maybeShowCheckIn() {
+        guard !hasShownCheckIn, onboardingCompleted,
+              let first = habits.map(\.createdAt).min(),
+              Date().timeIntervalSince(first) >= 14 * 86_400 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            guard !hasShownCheckIn, !isPresentingSomething else { return }
+            hasShownCheckIn = true
+            showCheckIn = true
         }
     }
 

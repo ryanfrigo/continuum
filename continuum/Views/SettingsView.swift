@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var isEditMode = false
     @State private var showingResetConfirmation = false
     @State private var showingAbout = false
+    @State private var showingFeedback = false
+    @State private var shareUsage = UsageReporter.enabled
     @State private var notificationPermissionGranted = false
     @State private var showingPermissionAlert = false
 
@@ -44,9 +46,24 @@ struct SettingsView: View {
                     }
                     .tint(HabitPalette.accent)
                     .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+
+                    Toggle(isOn: $shareUsage) {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .foregroundStyle(HabitPalette.accent)
+                            Text("Share Anonymous Usage")
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .tint(HabitPalette.accent)
+                    .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                    .onChange(of: shareUsage) { _, on in UsageReporter.enabled = on }
                 } header: {
                     Text("Preferences")
                         .foregroundStyle(.gray)
+                } footer: {
+                    Text("Tells us whether people get through setup and come back. A random ID, never your habits or anything about you.")
+                        .foregroundStyle(.gray.opacity(0.7))
                 }
 
                 // Notifications Section
@@ -104,6 +121,22 @@ struct SettingsView: View {
                             Image(systemName: "questionmark.circle")
                                 .foregroundStyle(HabitPalette.accent)
                             Text("Show Walkthrough")
+                                .foregroundStyle(.white)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.gray)
+                        }
+                    }
+                    .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+
+                    Button {
+                        showingFeedback = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "bubble.left.fill")
+                                .foregroundStyle(HabitPalette.accent)
+                            Text("Send Feedback")
                                 .foregroundStyle(.white)
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -192,6 +225,9 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingFeedback) {
+            FeedbackSheet(kind: .settings)
+        }
         .confirmationDialog("Delete All Habits?", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
             Button("Delete All", role: .destructive) {
                 deleteAllHabits()

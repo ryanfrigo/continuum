@@ -1,0 +1,12 @@
+{
+  "name": "continuum-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "continuum-usage",
+      "database_id": "8a50bbe9-b920-4210-a84c-5e5d79dbc5fc"
+    }
+  ]
+}
