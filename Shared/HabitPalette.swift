@@ -14,8 +14,8 @@ enum HabitPalette {
         // flash a neon stripe
         (0.625, 78, 0.60, 0.84),    // lime
         (0.750, 140, 0.56, 0.78),   // green
-        (0.875, 180, 0.60, 0.80),   // teal
-        (1.000, 212, 0.72, 0.97),   // blue
+        (0.875, 184, 0.62, 0.78),   // teal
+        (1.000, 222, 0.84, 0.82),   // deep blue
     ]
 
     static func color(_ progress: Double) -> Color {
