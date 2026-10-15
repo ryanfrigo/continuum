@@ -18,7 +18,7 @@ struct HabitHistoryEditView: View {
     private let calendar = Calendar.current
 
     /// The habit's colour, as on its card
-    private var accent: Color { HabitPalette.color(HabitMath.colorProgress(habit.formation)) }
+    private var accent: Color { HabitPalette.color(HabitMath.colorProgress(habit.consistency)) }
 
     var body: some View {
         NavigationStack {

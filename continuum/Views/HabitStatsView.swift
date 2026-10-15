@@ -21,7 +21,7 @@ struct HabitStatsView: View {
     private let chartWeeks = 12
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.formation))
+        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
     }
 
     private static let startedFormatter: DateFormatter = {
@@ -95,11 +95,11 @@ struct HabitStatsView: View {
                     .foregroundStyle(.white)
                     .lineLimit(2)
 
-                if habit.isGraduated {
+                if habit.isStrong {
                     HStack(spacing: 3) {
                         Image(systemName: "star.fill")
                             .font(.system(size: 9))
-                        Text("FORMED")
+                        Text("STRONG")
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                     }
                     .foregroundStyle(HabitPalette.gold)
@@ -400,30 +400,28 @@ struct HabitStatsView: View {
 
     // MARK: - Footer
 
-    /// How far this habit is from formed: 66 days in, 80% of them done.
-    private var formedNote: String {
-        guard let percent = habit.formation.percent, let first = completedKeys.min() else {
-            return "Formed at 66 days, with 80% of them done."
+    /// How far this habit is from strong: 80% over a full four weeks.
+    private var strongNote: String {
+        guard let percent = consistency.percent, let first = completedKeys.min() else {
+            return "Strong at 80% over four weeks."
         }
-        let left = HabitMath.formationDays - (ContinuumDay.daysBetween(first, ContinuumDay.todayKey()) + 1)
+        let left = HabitMath.gridDays - (ContinuumDay.daysBetween(first, ContinuumDay.todayKey()) + 1)
         if left > 0 {
-            return "Formed at 66 days if 80% are done. \(left) day\(left == 1 ? "" : "s") to go, \(percent)% done so far."
-        } else if percent < HabitMath.formedPercent {
-            return "Formed once 80% of your last 66 days are done. You're at \(percent)%."
+            return "Strong at 80% over a full four weeks. \(left) day\(left == 1 ? "" : "s") to go, at \(percent)% now."
+        } else if percent < HabitMath.strongPercent {
+            return "Strong at 80%. You're at \(percent)%."
         } else {
-            return "80% of your last 66 days are done. It's formed the next time you mark it done."
+            return "Strong. Stay at 80% or above to keep it."
         }
     }
 
     private var footerSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if !habit.isGraduated {
-                Text(formedNote)
-                    .font(.system(size: 11, weight: .medium).monospaced())
-                    .foregroundStyle(.white.opacity(0.5))
-            }
+            Text(strongNote)
+                .font(.system(size: 11, weight: .medium).monospaced())
+                .foregroundStyle(.white.opacity(0.5))
 
-            Text("Consistency is the share of the last 4 weeks you showed up, counted from your first day done. A missed day dents it. Nothing resets it. Formed looks at the full 66.")
+            Text("Consistency is the share of the last 4 weeks you showed up, counted from your first day done. A missed day dents it. Nothing resets it.")
                 .font(.system(size: 10).monospaced())
                 .foregroundStyle(.white.opacity(0.25))
                 .lineSpacing(3)

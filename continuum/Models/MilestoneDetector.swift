@@ -28,7 +28,7 @@ enum DaysMilestone: Int, CaseIterable {
 enum CelebrationEvent: Equatable {
     case graduation
     case milestone(DaysMilestone)
-    case level(Int)          // consistency crossed 50, 75, 90 or 100
+    case level(Int)          // consistency crossed 50, 90 or 100
     case comeback(gap: Int)  // marked after missing the day before
 
     /// Minor milestones and comebacks share one slot a day across habits, so
@@ -47,7 +47,8 @@ enum CelebrationEvent: Equatable {
 /// instead of remembering "previous" values in view state, which is where
 /// the old streak rules misfired.
 enum MilestoneDetector {
-    static let levels = [50, 75, 90, 100]
+    /// No 75: 80 is strong, and that has its own moment.
+    static let levels = [50, 90, 100]
     /// Below this many counted days the percentage swings too much to celebrate.
     static let levelMinimumCounted = 14
 
@@ -67,9 +68,9 @@ enum MilestoneDetector {
         smallMomentShownToday: Bool,
         highestLevelCelebrated: Int
     ) -> [CelebrationEvent] {
-        // Once per habit: 66 days in, 80% of them done. No crossing required,
-        // so a habit that already qualifies graduates on its next completion.
-        if HabitMath.isFormed(completed: after, todayKey: todayKey) && !isAlreadyGraduated {
+        // Once per habit, the first time it's strong. No crossing required,
+        // so a habit that already qualifies gets it on its next completion.
+        if HabitMath.isStrong(completed: after, todayKey: todayKey) && !isAlreadyGraduated {
             return [.graduation]
         }
 

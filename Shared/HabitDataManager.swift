@@ -141,16 +141,13 @@ struct ConsistencyTally: Equatable {
 // Shared between Habit (app) and HabitData (widget) so both always agree.
 enum HabitMath {
 
-    /// Days on the card's grid, and the window consistency is measured over:
+    /// Days on the card's grid, and the window everything is measured over:
     /// four weeks, so a lapse shows within days and each row is a week.
     static let gridDays = 28
-    /// The formation target. Lally et al. (2010) found daily habits took a
-    /// median of 66 days to become automatic (18 to 254 across people).
-    static let formationDays = 66
-    /// Share of a full window that has to be done for a habit to count as
-    /// formed. Lally found one missed day made no difference, but neither
-    /// they nor later reviews set a percentage: 80 is our line for most days.
-    static let formedPercent = 80
+    /// Consistency at which a habit counts as strong. Lally et al. (2010)
+    /// found one missed day made no difference, but no study sets a
+    /// percentage: 80 is our line for most days.
+    static let strongPercent = 80
 
     /// Consistency over the `window` days ending at `endKey`, counted from the
     /// first completed day — a habit added Monday and started Thursday isn't
@@ -183,36 +180,24 @@ enum HabitMath {
         return a - b
     }
 
-    /// The last 66 days, today counting once done: what formed is judged on.
-    static func formation(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
-        tally(completed: completed, endKey: todayKey, window: formationDays, endInProgress: true)
-    }
-
-    /// Which day of the 66 a habit is on, counted from its first one done.
-    /// Nil before it starts; caps at 66.
-    static func formationDay(completed: Set<Int>, todayKey: Int) -> Int? {
-        guard let first = completed.min(), first <= todayKey else { return nil }
-        return min(formationDays, ContinuumDay.daysBetween(first, todayKey) + 1)
-    }
-
-    /// Where a habit sits on the colour ramp, 0...1: days done out of the 66
-    /// it takes to form (pass a `formation` tally). A new habit starts coral
-    /// even at 100%, and only time and consistency together turn it blue.
-    /// `habits` is how many habits a pooled tally covers.
+    /// Where a habit sits on the colour ramp, 0...1: the share of its grid
+    /// that's lit. Once a habit is four weeks old that's its consistency, so
+    /// 0.8 (green) is strong; before then a new habit starts orange even at
+    /// 100%. `habits` is how many habits a pooled tally covers.
     static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
         guard habits > 0 else { return 0 }
-        return min(1, Double(tally.done) / Double(formationDays * habits))
+        return min(1, Double(tally.done) / Double(gridDays * habits))
     }
 
-    /// Formed: 66 days since the first one done, with at least 80% of them
-    /// done (today counting once it is). Consistency over the whole stretch,
-    /// not a count, so 66 days scattered across a year doesn't qualify.
-    static func isFormed(completed: Set<Int>, todayKey: Int) -> Bool {
+    /// Strong: a full four weeks since the first one done, and at least 80%
+    /// of them done (today counting once it is). A state, not a badge: drop
+    /// under 80% and it isn't strong any more.
+    static func isStrong(completed: Set<Int>, todayKey: Int) -> Bool {
         guard let first = completed.min(),
-              ContinuumDay.daysBetween(first, todayKey) + 1 >= formationDays,
-              let percent = formation(completed: completed, todayKey: todayKey).percent
+              ContinuumDay.daysBetween(first, todayKey) + 1 >= gridDays,
+              let percent = consistency(completed: completed, todayKey: todayKey).percent
         else { return false }
-        return percent >= formedPercent
+        return percent >= strongPercent
     }
 
     /// Every day since the first completion, today counting once done.
@@ -537,9 +522,6 @@ struct HabitData: Codable {
         HabitMath.consistency(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
 
-    var formation: ConsistencyTally {
-        HabitMath.formation(completed: completedKeys, todayKey: ContinuumDay.todayKey())
-    }
 
     var consistencyWeekAgo: ConsistencyTally {
         HabitMath.consistencyWeekAgo(completed: completedKeys, todayKey: ContinuumDay.todayKey())

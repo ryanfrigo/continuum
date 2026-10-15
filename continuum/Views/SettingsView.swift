@@ -97,7 +97,7 @@ struct SettingsView: View {
                                 Spacer()
                                 Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                                     .font(.caption)
-                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.formation)))
+                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
                             }
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
@@ -498,9 +498,9 @@ struct AboutView: View {
 
                             AboutCard(
                                 icon: "waveform.path.ecg",
-                                code: "SYS.WINDOW.066",
-                                title: "WHY 66 DAYS",
-                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't materially slow it down. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with at least 80% of them done; the 80% is ours. The card counts the days: 23/66."
+                                code: "SYS.STRONG.080",
+                                title: "WHY 80%",
+                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't materially slow it down. Nobody can tell you the day it clicks, so we track what you control: 80% over the last four weeks is strong. The 80% is our line, not the studies'."
                             )
 
                             AboutCard(

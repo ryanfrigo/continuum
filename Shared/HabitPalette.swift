@@ -1,18 +1,17 @@
 import SwiftUI
 
-/// A habit's colour on every screen and in the widget: coral red while it's
-/// new, through orange, yellow and green to blue as its grid fills. Where a
-/// habit sits on the ramp is `HabitMath.colorProgress`. The app icon is a grid
-/// lit along this ramp, coral to blue, with one missed day.
+/// A habit's colour on every screen and in the widget: dark orange through
+/// yellow to green at 80% (strong), then green to blue at 100%. Where a habit
+/// sits on the ramp is `HabitMath.colorProgress`. The app icon is a grid lit
+/// along this ramp, with one missed day.
 enum HabitPalette {
     /// Ramp stops as (position, hue in degrees, saturation, brightness).
     private static let stops: [(at: Double, hue: Double, saturation: Double, brightness: Double)] = [
-        (0.00, 5, 0.66, 0.98),     // coral red
-        (0.28, 28, 0.80, 0.97),    // orange
+        (0.00, 20, 0.86, 0.90),    // dark orange
         // A soft yellow, so orange-to-green doesn't flash a bright stripe
-        (0.44, 62, 0.66, 0.90),    // yellow
-        (0.58, 128, 0.64, 0.84),   // green
-        (0.80, 178, 0.74, 0.90),   // cyan
+        (0.45, 55, 0.70, 0.90),    // yellow
+        (0.80, 128, 0.64, 0.84),   // green: strong
+        (0.90, 178, 0.74, 0.90),   // cyan
         (1.00, 214, 0.74, 0.98),   // blue
     ]
 
@@ -31,7 +30,7 @@ enum HabitPalette {
     /// the colour every habit starts at.
     static let accent = color(0)
 
-    /// Formed habits and full weeks: the one colour kept for rare moments.
+    /// Strong habits and full weeks: the one colour kept for rare moments.
     static let gold = Color(hue: 0.12, saturation: 0.8, brightness: 0.95)
 
     /// One square of a day grid, the same on every grid in the app and widget.

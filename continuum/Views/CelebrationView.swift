@@ -6,7 +6,7 @@ import SwiftUI
 // soft glow, identical typography scale and spacing. Only the accent color
 // and content change. The accent follows the habit's colour (coral → blue,
 // HabitPalette) for everyday moments; gold is kept for the rare ones, a
-// habit formed and a full week.
+// habit strong and a full week.
 
 enum CelebrationVisual {
     case value(String, unit: String)   // big number + unit ("7" / "DAYS")
@@ -506,7 +506,7 @@ struct CelebrationCard: View {
 
 struct HabitGraduationOverlay: View {
     let habitName: String
-    /// Consistency over the 66 days it formed across
+    /// Consistency over the last four weeks
     let percent: Int
     var accent: Color = HabitPalette.gold   // habit's tile color
     let onDismiss: () -> Void
@@ -515,8 +515,8 @@ struct HabitGraduationOverlay: View {
     var body: some View {
         CelebrationCard(
             accent: accent,
-            visual: .value("\(percent)%", unit: "of 66 days"),
-            title: "HABIT FORMED",
+            visual: .value("\(percent)%", unit: "last 4 weeks"),
+            title: "HABIT STRONG",
             message: "You kept coming back.\nThat's how it sticks.",
             subject: habitName,
             intensity: .full,
@@ -524,7 +524,7 @@ struct HabitGraduationOverlay: View {
             secondaryActionLabel: "Continue",
             onDismiss: onDismiss
         )
-        .accessibilityLabel("Habit formed. \(habitName): \(percent) percent of the last 66 days done.")
+        .accessibilityLabel("Habit strong. \(habitName): \(percent) percent of the last 4 weeks done.")
     }
 }
 

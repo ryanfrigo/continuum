@@ -18,7 +18,7 @@ final class Habit {
     var reminderMinute: Int = 0  // 0-59
     var streakFreezeCount: Int = 0  // Retired in 3.8; kept because CloudKit fields can't be removed
     var freezeUsedDates: [Date]?  // Days where a freeze was used
-    var graduatedAt: Date?  // Date the habit was formed (nil until then)
+    var graduatedAt: Date?  // First time the habit was strong (nil until then)
 
     init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
@@ -180,14 +180,9 @@ final class Habit {
         HabitMath.consistency(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
     }
 
-    /// The last 66 days: what formed and the colour ramp go by.
-    var formation: ConsistencyTally {
-        HabitMath.formation(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
-    }
-
-    /// Day of the 66 since the first one done; nil before it starts.
-    var formationDay: Int? {
-        HabitMath.formationDay(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+    /// 80% or more over a full four weeks, right now.
+    var isStrong: Bool {
+        HabitMath.isStrong(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
     }
 
     /// Change in the shown percentage over the last 7 days; nil while too new.
@@ -220,15 +215,15 @@ final class Habit {
 
     // MARK: - Graduation
 
-    /// Whether this habit has been "graduated": formed, and it stays formed
+    /// Whether the habit has ever been strong (its moment has been shown)
     var isGraduated: Bool {
         graduatedAt != nil
     }
 
-    /// Mark as formed once it's 66 days in with 80% of them done
+    /// Mark the first time it's strong (80% over four weeks), so the
+    /// full-screen moment fires once
     func checkAndMarkGraduation() -> Bool {
-        guard graduatedAt == nil,
-              HabitMath.isFormed(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+        guard graduatedAt == nil, isStrong
         else { return false }
         graduatedAt = Date()
         return true

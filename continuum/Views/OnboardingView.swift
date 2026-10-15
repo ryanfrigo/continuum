@@ -34,9 +34,9 @@ struct OnboardingView: View {
         ),
         OnboardingPage(
             icon: "star.fill",
-            title: "66 Days",
-            subtitle: "Most of them",
-            description: "In a UCL study, daily habits took a median of 66 days to become automatic, and one missed day didn't materially slow that down. Do a habit on 80% of 66 days and it's formed. The 80% is our line, not the study's.",
+            title: "80% Is Strong",
+            subtitle: "Most days, not every day",
+            description: "Do a habit on 80% of the last four weeks and it's strong. Studies put full automaticity anywhere from 18 to 254 days. Showing up most days is the part you control.",
             color: HabitPalette.accent
         )
     ]

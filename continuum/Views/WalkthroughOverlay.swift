@@ -35,8 +35,8 @@ struct WalkthroughOverlay: View {
         ),
         WalkthroughStep(
             icon: "star.fill",
-            title: "66 Days",
-            description: "Keep a habit up for 66 days, doing it on at least 80% of them, and it's formed. The card counts them off: 23/66."
+            title: "Strong",
+            description: "Keep a habit at 80% or more over four weeks and it's strong. The star shows while it stays there."
         ),
     ]
 

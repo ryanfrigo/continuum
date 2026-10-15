@@ -45,7 +45,7 @@ enum NotificationPlanner {
         // "Day one" copy is only true for an empty grid; a habit with 40 days
         // behind it should never be told it has never started. Day keys are
         // yyyymmdd, so the window is a plain integer comparison.
-        let windowStartKey = ContinuumDay.key(byAdding: -(HabitMath.formationDays - 1), to: todayKey)
+        let windowStartKey = ContinuumDay.key(byAdding: -(HabitMath.gridDays - 1), to: todayKey)
         let hasRecentHistory = completed.contains { $0 >= windowStartKey && $0 <= todayKey }
         var result: [PlannedNotification] = []
 

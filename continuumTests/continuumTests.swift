@@ -249,22 +249,12 @@ struct ConsistencyTests {
         // Same, today open: 27 counted
         let open = HabitMath.consistency(completed: keys(Array(1..<100)), todayKey: today)
         #expect(open == ConsistencyTally(done: 27, counted: 27))
-        // Formation still looks at 66
-        #expect(HabitMath.formation(completed: keys(Array(0..<100)), todayKey: today) == ConsistencyTally(done: 66, counted: 66))
     }
 
     @Test func aLapseShowsInTheNumberWithinTheWeek() {
-        // 60 days perfect, then six missed and today open: 21 of 27 counted,
-        // where the 66-day window still reads 59 of 65
+        // 60 days perfect, then six missed and today open: 21 of 27 counted
         let done = keys(Array(7..<67))
         #expect(HabitMath.consistency(completed: done, todayKey: today).percent == 77)
-        #expect(HabitMath.formation(completed: done, todayKey: today).percent == 90)
-    }
-
-    @Test func formationDayCountsFromTheFirstDoneAndCapsAt66() {
-        #expect(HabitMath.formationDay(completed: [], todayKey: today) == nil)
-        #expect(HabitMath.formationDay(completed: keys([22, 3]), todayKey: today) == 23)
-        #expect(HabitMath.formationDay(completed: keys([200]), todayKey: today) == 66)
     }
 
     @Test func percentRoundsDownSoNothingImperfectReadsAHundred() {
@@ -326,29 +316,35 @@ struct ConsistencyTests {
 
     @Test func colourNeedsTimeAndConsistencyTogether() {
         // Three days in at 100%: still at the coral end
-        let fresh = HabitMath.formation(completed: keys([2, 1, 0]), todayKey: today)
+        let fresh = HabitMath.consistency(completed: keys([2, 1, 0]), todayKey: today)
         #expect(fresh.percent == 100)
-        #expect(HabitMath.colorProgress(fresh) == 3.0 / 66)
+        #expect(HabitMath.colorProgress(fresh) == 3.0 / 28)
         // A full grid is the blue end
-        let full = HabitMath.formation(completed: keys(Array(0..<66)), todayKey: today)
+        let full = HabitMath.consistency(completed: keys(Array(0..<28)), todayKey: today)
         #expect(HabitMath.colorProgress(full) == 1)
         // Past the window it's the consistency: every other day is half way
-        let half = HabitMath.formation(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
-        #expect(half == ConsistencyTally(done: 33, counted: 66))
+        let half = HabitMath.consistency(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
+        #expect(half == ConsistencyTally(done: 14, counted: 28))
         #expect(HabitMath.colorProgress(half) == 0.5)
     }
 
-    @Test func formedCountsTodayOnlyOnceDone() {
-        // 66 days in, today still open: 52 of 65 counted is 80%
-        let done = keys(Array(1...65).filter { $0 % 5 != 2 })
-        #expect(HabitMath.formation(completed: done, todayKey: today) == ConsistencyTally(done: 52, counted: 65))
-        #expect(HabitMath.isFormed(completed: done, todayKey: today))
+    @Test func strongCountsTodayOnlyOnceDone() {
+        // 28 days in, today still open: 22 of 27 counted is 81%
+        let done = keys(Array(1...27).filter { $0 % 5 != 3 })
+        #expect(HabitMath.consistency(completed: done, todayKey: today) == ConsistencyTally(done: 22, counted: 27))
+        #expect(HabitMath.isStrong(completed: done, todayKey: today))
         // A day younger, and it's too soon at any percentage
-        #expect(!HabitMath.isFormed(completed: keys(Array(0..<65)), todayKey: today))
+        #expect(!HabitMath.isStrong(completed: keys(Array(0..<27)), todayKey: today))
+    }
+
+    @Test func strongIsAStateNotABadge() {
+        // Months of every day, then a bad fortnight: 14 of 27, not strong
+        let done = keys(Array(14..<120))
+        #expect(!HabitMath.isStrong(completed: done, todayKey: today))
     }
 
     @Test func pooledColourIsTheShareOfEveryGridLit() {
-        let pooled = ConsistencyTally(done: 66, counted: 66) + ConsistencyTally()
+        let pooled = ConsistencyTally(done: 28, counted: 28) + ConsistencyTally()
         #expect(HabitMath.colorProgress(pooled, habits: 2) == 0.5)
         #expect(HabitMath.colorProgress(ConsistencyTally(), habits: 0) == 0)
     }
@@ -402,32 +398,32 @@ struct GraduationTests {
         return habit
     }
 
-    @Test func formedAfterSixtySixDaysWithFourInFiveDone() {
-        // 66 days, today included, every fifth one missed: 53 of 66
-        let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 })
-        #expect(habit.formation.percent == 80)
+    @Test func strongAfterFourWeeksWithFourInFiveDone() {
+        // 28 days, today included, every fifth one missed: 23 of 28
+        let habit = makeHabit(doneBack: (0..<28).filter { $0 % 5 != 3 })
+        #expect(habit.consistency.percent == 82)
         #expect(habit.checkAndMarkGraduation() == true)
         #expect(habit.isGraduated)
         // Only marks once
         #expect(habit.checkAndMarkGraduation() == false)
     }
 
-    @Test func notFormedJustUnderEightyPercent() {
-        // One more miss: 52 of 66
-        let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 && $0 != 1 })
-        #expect(habit.formation.percent == 78)
+    @Test func notStrongJustUnderEightyPercent() {
+        // Two more misses: 21 of 28
+        let habit = makeHabit(doneBack: (0..<28).filter { $0 % 5 != 3 && $0 != 1 && $0 != 2 })
+        #expect(habit.consistency.percent == 75)
         #expect(habit.checkAndMarkGraduation() == false)
     }
 
-    @Test func notFormedBeforeSixtySixDaysEvenAtAHundred() {
-        let habit = makeHabit(doneBack: 0..<65)
-        #expect(habit.formation.percent == 100)
+    @Test func notStrongBeforeFourWeeksEvenAtAHundred() {
+        let habit = makeHabit(doneBack: 0..<27)
+        #expect(habit.consistency.percent == 100)
         #expect(habit.checkAndMarkGraduation() == false)
         #expect(!habit.isGraduated)
     }
 
-    @Test func sixtySixDaysSpreadThinIsNotFormed() {
-        // What 3.8's first cut called formed: 66 done, every other day across 131
+    @Test func manyDaysSpreadThinIsNotStrong() {
+        // 66 done, every other day across 131: 50%
         let habit = makeHabit(doneBack: (0..<66).map { $0 * 2 })
         #expect(habit.daysDone == 66)
         #expect(habit.checkAndMarkGraduation() == false)
@@ -901,18 +897,18 @@ struct MilestoneDetectorTests {
         #expect(!events([12, 10, 8, 6, 4, 2, 1]).contains(where: isMilestone))
     }
 
-    @Test func graduationNeedsSixtySixDaysMostlyDone() {
-        // 66 done across 131 days, every other one: 50%, not formed
+    @Test func strongMomentNeedsFourWeeksMostlyDone() {
+        // Every other day for months: 50%, not strong
         let every2nd = (1...65).map { $0 * 2 }
         #expect(!events(every2nd).contains(.graduation))
-        // 66 days in, 53 of them done: formed on this mark
-        let mostly = Array(1...65).filter { $0 % 5 != 3 }
+        // 28 days in, 23 of them done: strong on this mark
+        let mostly = Array(1...27).filter { $0 % 5 != 3 }
         #expect(events(mostly) == [.graduation])
         #expect(!events(mostly, graduated: true).contains(.graduation))
     }
 
     @Test func alreadyQualifiedGraduatesOnTheNextCompletion() {
-        // 80 days all done before this rule arrived: formed on the next mark
+        // 80 days all done before this rule arrived: strong on the next mark
         #expect(events(Array(1...80)) == [.graduation])
     }
 
@@ -925,14 +921,14 @@ struct MilestoneDetectorTests {
     }
 
     @Test func levelNeedsFourteenCountedDays() {
-        // 11 of 15 counted (73%) → 12 of 16 (75%)
-        #expect(events([15, 14, 13, 12, 11, 10, 8, 6, 4, 2, 1]) == [.level(75)])
+        // 15 of 16 counted (93%)
+        #expect(events(Array(1...15).filter { $0 != 8 }) == [.level(90)])
         // 3 of 4 → 4 of 5 moves the number, but 5 days is too young to mean it
         #expect(!events([4, 3, 1]).contains(where: isLevel))
     }
 
     @Test func aLevelFiresOnceNotEachTimeTheDenominatorWobbles() {
-        // Every other day for months: 32/65 (49%) becomes 33/66 (50%) on every done day
+        // Every other day for months: 13/27 (48%) becomes 14/28 (50%) on every done day
         let alternating = (1...60).map { $0 * 2 }
         #expect(events(alternating) == [.level(50)])
         #expect(!events(alternating, celebrated: 50).contains(where: isLevel))
@@ -1075,14 +1071,14 @@ struct ReminderCopyTests {
     }
 
     @Test func historyOlderThanTheGridCountsAsEmpty() {
-        // Nothing in the last 66 days reads as a fresh start
+        // Nothing on the four-week grid reads as a fresh start
         let text = body(habit(completing: [80, 81, 82]))
         #expect(["One hold fills the first square.", "The grid wants its first mark.",
                  "Every grid fills one square at a time."].contains(text))
     }
 
     @Test func aSingleDotOnTheGridIsStillHistory() {
-        let text = body(habit(completing: [30]))
+        let text = body(habit(completing: [20]))
         #expect(!text.contains("first mark"))
     }
 }

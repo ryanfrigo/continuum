@@ -35,7 +35,7 @@ struct ShareCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.formation))
+        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
     }
 
     private var gridFlags: [Bool] {
@@ -81,7 +81,7 @@ struct ShareCardView: View {
                 Spacer()
                     .frame(height: cardSize.height * 0.04)
 
-                // Days done, and whether it's formed
+                // Days done, and whether it's strong
                 daysSection
 
                 Spacer()
@@ -306,11 +306,11 @@ struct ShareCardView: View {
                 .tracking(4)
                 .foregroundStyle(Color.white.opacity(0.4))
 
-            if habit.isGraduated {
+            if habit.isStrong {
                 HStack(spacing: 6) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 16))
-                    Text("HABIT FORMED")
+                    Text("HABIT STRONG")
                         .font(.system(size: 16, weight: .bold, design: .monospaced))
                         .tracking(2)
                 }

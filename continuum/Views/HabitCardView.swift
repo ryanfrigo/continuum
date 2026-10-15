@@ -79,7 +79,7 @@ struct HabitCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.formation))
+        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
     }
 
     /// Days back to the first done day. Older cells aren't misses — the habit
@@ -256,7 +256,7 @@ struct HabitCardView: View {
             parts.append(trend > 0 ? "up \(trend) points this week" : "down \(-trend) points this week")
         }
         parts.append(habit.isCompletedToday ? "done today" : "not done today")
-        if habit.isGraduated { parts.append("habit formed") }
+        if habit.isStrong { parts.append("habit strong") }
         return parts.joined(separator: ", ")
     }
 
@@ -344,16 +344,10 @@ struct HabitCardView: View {
 
             Spacer(minLength: 0)
 
-            if habit.isGraduated {
+            if habit.isStrong {
                 Image(systemName: "star.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(HabitPalette.gold)
-            } else if let day = habit.formationDay {
-                // Progress toward formed: the 66 lives here, not on the grid
-                Text("\(day)/\(HabitMath.formationDays)")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.35))
-                    .accessibilityLabel("day \(day) of \(HabitMath.formationDays)")
             }
         }
         // Same height with or without a number, so neighbouring cards line up
