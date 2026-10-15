@@ -28,8 +28,8 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "square.grid.3x3.fill",
             title: "The Grid",
-            subtitle: "66 days at a glance",
-            description: "Each square is a day. Top-left is today. Filled squares are the days you showed up.",
+            subtitle: "4 weeks at a glance",
+            description: "Each square is a day, a week to a row. Top-left is today. Filled squares are the days you showed up.",
             color: HabitPalette.accent
         ),
         OnboardingPage(

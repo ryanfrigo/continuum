@@ -19,8 +19,9 @@ struct HabitCardView: View {
 
     // Visual constants
     private let cornerRadius: CGFloat = 20
-    private let columnsCount: Int = 11
-    private let habitFormationDays: Int = 66
+    /// A week a row, four rows: the last 28 days
+    private let columnsCount: Int = 7
+    private let gridDays: Int = HabitMath.gridDays
 
     // Sheet states
     @State private var showingSetStreak = false
@@ -78,7 +79,7 @@ struct HabitCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(consistency))
+        HabitPalette.color(HabitMath.colorProgress(habit.formation))
     }
 
     /// Days back to the first done day. Older cells aren't misses — the habit
@@ -88,10 +89,8 @@ struct HabitCardView: View {
     }
 
     private var paddedFlags: [Bool] {
-        var result = habit.historyCompletionFlags(daysBack: habitFormationDays)
-        while result.count < habitFormationDays { result.append(false) }
-        // Reverse so index 0 = today, index 65 = oldest (65 days ago)
-        return Array(result.prefix(habitFormationDays).reversed())
+        // Reverse so index 0 = today, the last index = oldest
+        Array(habit.historyCompletionFlags().reversed())
     }
 
     // MARK: - Body
@@ -271,7 +270,7 @@ struct HabitCardView: View {
             // The number: consistency over the grid, and this week's change
             consistencySection
 
-            // 66-day grid — hero visual, gets remaining space
+            // Four-week grid — hero visual, gets remaining space
             historyGridSection
         }
         .padding(12)
@@ -349,6 +348,12 @@ struct HabitCardView: View {
                 Image(systemName: "star.fill")
                     .font(.system(size: 9))
                     .foregroundStyle(HabitPalette.gold)
+            } else if let day = habit.formationDay {
+                // Progress toward formed: the 66 lives here, not on the grid
+                Text("\(day)/\(HabitMath.formationDays)")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.35))
+                    .accessibilityLabel("day \(day) of \(HabitMath.formationDays)")
             }
         }
         // Same height with or without a number, so neighbouring cards line up
@@ -364,9 +369,9 @@ struct HabitCardView: View {
     }
 
     private var historyGridSection: some View {
-        // Grid is 11 columns × 6 rows with 3pt spacing
-        // Aspect ratio: (11*d + 10*3) / (6*d + 5*3) ≈ 1.85 for typical dot sizes
-        let gridAspectRatio: CGFloat = 1.85
+        // Grid is 7 columns × 4 rows with 3pt spacing
+        // Aspect ratio: (7*d + 6*3) / (4*d + 3*3) ≈ 1.78 for typical dot sizes
+        let gridAspectRatio: CGFloat = 1.78
         let flags = paddedFlags // Cache computed property
         let color = themeColor // Cache computed property
         let startIndex = daysSinceStart
@@ -381,7 +386,7 @@ struct HabitCardView: View {
                     let columns = Array(repeating: GridItem(.fixed(dotSize), spacing: spacing), count: columnsCount)
 
                     LazyVGrid(columns: columns, spacing: spacing) {
-                        ForEach(0..<habitFormationDays, id: \.self) { idx in
+                        ForEach(0..<gridDays, id: \.self) { idx in
                             let filled = flags[idx]
                             let isToday = idx == 0
 
@@ -410,7 +415,7 @@ struct HabitCardView: View {
                             TiltSheenFill()
                                 .mask {
                                     LazyVGrid(columns: columns, spacing: spacing) {
-                                        ForEach(0..<habitFormationDays, id: \.self) { idx in
+                                        ForEach(0..<gridDays, id: \.self) { idx in
                                             RoundedRectangle(cornerRadius: 2)
                                                 .fill(flags[idx] ? Color.white : Color.clear)
                                                 .frame(width: dotSize, height: dotSize)

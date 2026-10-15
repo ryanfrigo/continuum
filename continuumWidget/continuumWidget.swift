@@ -118,17 +118,15 @@ struct SmallWidgetView: View {
     let habit: HabitData?
 
     private var consistency: ConsistencyTally { habit?.consistency ?? ConsistencyTally() }
-    private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
+    private var color: Color { HabitPalette.color(HabitMath.colorProgress(habit?.formation ?? ConsistencyTally())) }
     /// Days back to the first one done; squares older than that weren't misses
     private var startIndex: Int? {
         habit?.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
     }
 
     private var flags: [Bool] {
-        guard let h = habit else { return Array(repeating: false, count: 66) }
-        var r = h.historyCompletionFlags(daysBack: 66)
-        while r.count < 66 { r.append(false) }
-        return Array(r.prefix(66).reversed())
+        guard let h = habit else { return Array(repeating: false, count: HabitMath.gridDays) }
+        return Array(h.historyCompletionFlags().reversed())
     }
 
     var body: some View {
@@ -162,7 +160,7 @@ struct SmallWidgetView: View {
 
                 Spacer(minLength: 0)
 
-                MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 2, startIndex: startIndex)
+                MiniGrid(flags: flags, color: color, columns: 7, rows: 4, dotSpacing: 2, startIndex: startIndex)
             }
             .padding(4)
         } else {
@@ -194,6 +192,9 @@ struct MediumWidgetView: View {
     private var overall: ConsistencyTally {
         habits.reduce(ConsistencyTally()) { $0 + $1.consistency }
     }
+    private var overallColor: Color {
+        HabitPalette.color(HabitMath.colorProgress(habits.reduce(ConsistencyTally()) { $0 + $1.formation }, habits: habits.count))
+    }
 
     var body: some View {
         if habits.isEmpty {
@@ -214,7 +215,7 @@ struct MediumWidgetView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 2) {
                         Text("\(completedCount)")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
+                            .foregroundStyle(overallColor)
                         Text("/\(habits.count)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.white.opacity(0.25))
@@ -230,7 +231,7 @@ struct MediumWidgetView: View {
                         HStack(alignment: .firstTextBaseline, spacing: 3) {
                             Text("\(percent)%")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count)))
+                                .foregroundStyle(overallColor)
                             Text("CONSISTENT")
                                 .readoutLabel()
                         }
@@ -259,15 +260,13 @@ private struct MediumHabitCard: View {
     let habit: HabitData
 
     private var consistency: ConsistencyTally { habit.consistency }
-    private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
+    private var color: Color { HabitPalette.color(HabitMath.colorProgress(habit.formation)) }
     private var startIndex: Int? {
         habit.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
     }
 
     private var flags: [Bool] {
-        var r = habit.historyCompletionFlags(daysBack: 66)
-        while r.count < 66 { r.append(false) }
-        return Array(r.prefix(66).reversed())
+        Array(habit.historyCompletionFlags().reversed())
     }
 
     var body: some View {
@@ -294,7 +293,7 @@ private struct MediumHabitCard: View {
             Spacer(minLength: 2)
 
             // Mini grid — compact version
-            MiniGrid(flags: flags, color: color, columns: 11, rows: 6, dotSpacing: 1.5, startIndex: startIndex)
+            MiniGrid(flags: flags, color: color, columns: 7, rows: 4, dotSpacing: 1.5, startIndex: startIndex)
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -403,8 +402,8 @@ private struct MiniGrid: View {
         // Flexible columns stretch to the card's real width. The old
         // GeometryReader + fixed aspectRatio shrank the grid to a
         // height-constrained box and stranded it against the left edge.
-        // The minimum matters: .flexible() defaults to 10pt a column, so 11
-        // columns couldn't go under ~125pt and the medium widget's three
+        // The minimum matters: .flexible() defaults to 10pt a column, so the
+        // old 11 columns couldn't go under ~125pt and the medium widget's three
         // cards overflowed its sides.
         LazyVGrid(
             columns: Array(repeating: GridItem(.flexible(minimum: 1), spacing: dotSpacing), count: columns),

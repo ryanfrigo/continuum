@@ -180,6 +180,16 @@ final class Habit {
         HabitMath.consistency(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
     }
 
+    /// The last 66 days: what formed and the colour ramp go by.
+    var formation: ConsistencyTally {
+        HabitMath.formation(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+    }
+
+    /// Day of the 66 since the first one done; nil before it starts.
+    var formationDay: Int? {
+        HabitMath.formationDay(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+    }
+
     /// Change in the shown percentage over the last 7 days; nil while too new.
     var consistencyTrend: Int? {
         let keys = completedDayKeys
@@ -191,7 +201,7 @@ final class Habit {
     /// Every day ever marked done. Only goes up; a bad week can't take one back.
     var daysDone: Int { completedDayKeys.count }
 
-    func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {
+    func historyCompletionFlags(daysBack: Int = HabitMath.gridDays, asOf date: Date = Date()) -> [Bool] {
         HabitMath.historyFlags(
             completed: completedDayKeys,
             asOfKey: ContinuumDay.key(for: date),

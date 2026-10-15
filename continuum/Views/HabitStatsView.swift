@@ -21,7 +21,7 @@ struct HabitStatsView: View {
     private let chartWeeks = 12
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(consistency))
+        HabitPalette.color(HabitMath.colorProgress(habit.formation))
     }
 
     private static let startedFormatter: DateFormatter = {
@@ -121,7 +121,7 @@ struct HabitStatsView: View {
     /// The primary readout: a label over a number, like the home screen's.
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("CONSISTENT · LAST 66 DAYS")
+            Text("CONSISTENT · LAST 4 WEEKS")
                 .readoutLabel(size: 10)
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -402,12 +402,12 @@ struct HabitStatsView: View {
 
     /// How far this habit is from formed: 66 days in, 80% of them done.
     private var formedNote: String {
-        guard let percent = consistency.percent, let first = completedKeys.min() else {
+        guard let percent = habit.formation.percent, let first = completedKeys.min() else {
             return "Formed at 66 days, with 80% of them done."
         }
-        let left = HabitMath.gridDays - (ContinuumDay.daysBetween(first, ContinuumDay.todayKey()) + 1)
+        let left = HabitMath.formationDays - (ContinuumDay.daysBetween(first, ContinuumDay.todayKey()) + 1)
         if left > 0 {
-            return "Formed at 66 days if 80% are done. \(left) day\(left == 1 ? "" : "s") to go, at \(percent)% now."
+            return "Formed at 66 days if 80% are done. \(left) day\(left == 1 ? "" : "s") to go, \(percent)% done so far."
         } else if percent < HabitMath.formedPercent {
             return "Formed once 80% of your last 66 days are done. You're at \(percent)%."
         } else {
@@ -423,7 +423,7 @@ struct HabitStatsView: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
 
-            Text("Consistency is the share of the last 66 days you showed up, counted from your first day done. A missed day dents it. Nothing resets it.")
+            Text("Consistency is the share of the last 4 weeks you showed up, counted from your first day done. A missed day dents it. Nothing resets it. Formed looks at the full 66.")
                 .font(.system(size: 10).monospaced())
                 .foregroundStyle(.white.opacity(0.25))
                 .lineSpacing(3)

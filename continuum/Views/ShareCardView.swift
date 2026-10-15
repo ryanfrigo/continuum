@@ -25,8 +25,8 @@ struct ShareCardView: View {
     let habit: Habit
     let format: ShareFormat
 
-    private let habitFormationDays: Int = 66
-    private let columnsCount: Int = 11
+    private let gridDays: Int = HabitMath.gridDays
+    private let columnsCount: Int = 7
 
     // MARK: - Computed Properties
 
@@ -35,13 +35,11 @@ struct ShareCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(consistency))
+        HabitPalette.color(HabitMath.colorProgress(habit.formation))
     }
 
     private var gridFlags: [Bool] {
-        var result = habit.historyCompletionFlags(daysBack: habitFormationDays)
-        while result.count < habitFormationDays { result.append(false) }
-        return Array(result.prefix(habitFormationDays).reversed())
+        Array(habit.historyCompletionFlags().reversed())
     }
 
     // MARK: - Body
@@ -76,7 +74,7 @@ struct ShareCardView: View {
                 Spacer()
                     .frame(height: cardSize.height * 0.05)
 
-                // 66-day grid - visual centerpiece
+                // Four-week grid - visual centerpiece
                 gridSection
                     .padding(.horizontal, 80)
 
@@ -213,7 +211,7 @@ struct ShareCardView: View {
         }
     }
 
-    // MARK: - 66-Day Grid
+    // MARK: - Four-Week Grid
 
     private var gridSection: some View {
         let flags = gridFlags
@@ -224,7 +222,7 @@ struct ShareCardView: View {
         return VStack(spacing: 0) {
             // Grid label
             HStack {
-                Text("LAST 66 DAYS")
+                Text("LAST 4 WEEKS")
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .tracking(2)
                     .foregroundStyle(Color.white.opacity(0.35))
@@ -245,7 +243,7 @@ struct ShareCardView: View {
                 let columns = Array(repeating: GridItem(.fixed(dotSize), spacing: spacing), count: columnsCount)
 
                 LazyVGrid(columns: columns, spacing: spacing) {
-                    ForEach(0..<habitFormationDays, id: \.self) { idx in
+                    ForEach(0..<gridDays, id: \.self) { idx in
                         let filled = flags[idx]
                         let isToday = idx == 0
 
@@ -282,11 +280,11 @@ struct ShareCardView: View {
     }
 
     private var gridAspectRatio: CGFloat {
-        // 11 columns x 6 rows with spacing
+        // 7 columns x 4 rows with spacing
         let spacing: CGFloat = 6
-        let dotSize: CGFloat = 20 // Reference size for ratio calculation
+        let dotSize: CGFloat = 100 // Reference size for ratio calculation
         let width = CGFloat(columnsCount) * dotSize + CGFloat(columnsCount - 1) * spacing
-        let rows = 6
+        let rows = gridDays / columnsCount
         let height = CGFloat(rows) * dotSize + CGFloat(rows - 1) * spacing
         return width / height
     }

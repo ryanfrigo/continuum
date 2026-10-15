@@ -141,10 +141,12 @@ struct ConsistencyTally: Equatable {
 // Shared between Habit (app) and HabitData (widget) so both always agree.
 enum HabitMath {
 
-    /// Days on the card's grid, and the window consistency is measured over.
-    /// Lally et al. (2010) found daily habits took a median of 66 days to
-    /// become automatic (18 to 254 across people).
-    static let gridDays = 66
+    /// Days on the card's grid, and the window consistency is measured over:
+    /// four weeks, so a lapse shows within days and each row is a week.
+    static let gridDays = 28
+    /// The formation target. Lally et al. (2010) found daily habits took a
+    /// median of 66 days to become automatic (18 to 254 across people).
+    static let formationDays = 66
     /// Share of a full window that has to be done for a habit to count as
     /// formed. Lally found one missed day made no difference, but neither
     /// they nor later reviews set a percentage: 80 is our line for most days.
@@ -181,14 +183,25 @@ enum HabitMath {
         return a - b
     }
 
-    /// Where a habit sits on the colour ramp, 0...1: its consistency scaled by
-    /// how much of the 66-day window it's been tracked. That works out to the
-    /// share of the grid that's lit, so a new habit starts coral even at 100%
-    /// and only time and consistency together turn it blue. `habits` is how
-    /// many habits a pooled tally covers.
+    /// The last 66 days, today counting once done: what formed is judged on.
+    static func formation(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
+        tally(completed: completed, endKey: todayKey, window: formationDays, endInProgress: true)
+    }
+
+    /// Which day of the 66 a habit is on, counted from its first one done.
+    /// Nil before it starts; caps at 66.
+    static func formationDay(completed: Set<Int>, todayKey: Int) -> Int? {
+        guard let first = completed.min(), first <= todayKey else { return nil }
+        return min(formationDays, ContinuumDay.daysBetween(first, todayKey) + 1)
+    }
+
+    /// Where a habit sits on the colour ramp, 0...1: days done out of the 66
+    /// it takes to form (pass a `formation` tally). A new habit starts coral
+    /// even at 100%, and only time and consistency together turn it blue.
+    /// `habits` is how many habits a pooled tally covers.
     static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
         guard habits > 0 else { return 0 }
-        return min(1, Double(tally.done) / Double(gridDays * habits))
+        return min(1, Double(tally.done) / Double(formationDays * habits))
     }
 
     /// Formed: 66 days since the first one done, with at least 80% of them
@@ -196,8 +209,8 @@ enum HabitMath {
     /// not a count, so 66 days scattered across a year doesn't qualify.
     static func isFormed(completed: Set<Int>, todayKey: Int) -> Bool {
         guard let first = completed.min(),
-              ContinuumDay.daysBetween(first, todayKey) + 1 >= gridDays,
-              let percent = consistency(completed: completed, todayKey: todayKey).percent
+              ContinuumDay.daysBetween(first, todayKey) + 1 >= formationDays,
+              let percent = formation(completed: completed, todayKey: todayKey).percent
         else { return false }
         return percent >= formedPercent
     }
@@ -524,6 +537,10 @@ struct HabitData: Codable {
         HabitMath.consistency(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
 
+    var formation: ConsistencyTally {
+        HabitMath.formation(completed: completedKeys, todayKey: ContinuumDay.todayKey())
+    }
+
     var consistencyWeekAgo: ConsistencyTally {
         HabitMath.consistencyWeekAgo(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
@@ -532,7 +549,7 @@ struct HabitData: Codable {
         HabitMath.trend(now: consistency, weekAgo: consistencyWeekAgo)
     }
 
-    func historyCompletionFlags(daysBack: Int = 66, asOf date: Date = Date()) -> [Bool] {
+    func historyCompletionFlags(daysBack: Int = HabitMath.gridDays, asOf date: Date = Date()) -> [Bool] {
         HabitMath.historyFlags(
             completed: completedKeys,
             asOfKey: ContinuumDay.key(for: date),

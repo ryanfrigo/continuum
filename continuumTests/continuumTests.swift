@@ -197,8 +197,8 @@ struct StreakTests {
     @Test func historyFlagsEndWithToday() {
         let habit = Habit(name: "Test")
         habit.setCompleted(true, forDayKey: 20260612)
-        let flags = habit.historyCompletionFlags(daysBack: 66, asOf: date(2026, 6, 12))
-        #expect(flags.count == 66)
+        let flags = habit.historyCompletionFlags(asOf: date(2026, 6, 12))
+        #expect(flags.count == 28)
         #expect(flags.last == true)
         #expect(flags.dropLast().allSatisfy { $0 == false })
     }
@@ -242,13 +242,29 @@ struct ConsistencyTests {
         #expect(t.percent == 66)
     }
 
-    @Test func windowIsTheSixtySixDayGrid() {
-        // Done every day for 100 days: only the grid's 66 count
+    @Test func windowIsTheFourWeekGrid() {
+        // Done every day for 100 days: only the grid's 28 count
         let t = HabitMath.consistency(completed: keys(Array(0..<100)), todayKey: today)
-        #expect(t == ConsistencyTally(done: 66, counted: 66))
-        // Same, today open: 65 counted
+        #expect(t == ConsistencyTally(done: 28, counted: 28))
+        // Same, today open: 27 counted
         let open = HabitMath.consistency(completed: keys(Array(1..<100)), todayKey: today)
-        #expect(open == ConsistencyTally(done: 65, counted: 65))
+        #expect(open == ConsistencyTally(done: 27, counted: 27))
+        // Formation still looks at 66
+        #expect(HabitMath.formation(completed: keys(Array(0..<100)), todayKey: today) == ConsistencyTally(done: 66, counted: 66))
+    }
+
+    @Test func aLapseShowsInTheNumberWithinTheWeek() {
+        // 60 days perfect, then six missed and today open: 21 of 27 counted,
+        // where the 66-day window still reads 59 of 65
+        let done = keys(Array(7..<67))
+        #expect(HabitMath.consistency(completed: done, todayKey: today).percent == 77)
+        #expect(HabitMath.formation(completed: done, todayKey: today).percent == 90)
+    }
+
+    @Test func formationDayCountsFromTheFirstDoneAndCapsAt66() {
+        #expect(HabitMath.formationDay(completed: [], todayKey: today) == nil)
+        #expect(HabitMath.formationDay(completed: keys([22, 3]), todayKey: today) == 23)
+        #expect(HabitMath.formationDay(completed: keys([200]), todayKey: today) == 66)
     }
 
     @Test func percentRoundsDownSoNothingImperfectReadsAHundred() {
@@ -310,14 +326,14 @@ struct ConsistencyTests {
 
     @Test func colourNeedsTimeAndConsistencyTogether() {
         // Three days in at 100%: still at the coral end
-        let fresh = HabitMath.consistency(completed: keys([2, 1, 0]), todayKey: today)
+        let fresh = HabitMath.formation(completed: keys([2, 1, 0]), todayKey: today)
         #expect(fresh.percent == 100)
         #expect(HabitMath.colorProgress(fresh) == 3.0 / 66)
         // A full grid is the blue end
-        let full = HabitMath.consistency(completed: keys(Array(0..<66)), todayKey: today)
+        let full = HabitMath.formation(completed: keys(Array(0..<66)), todayKey: today)
         #expect(HabitMath.colorProgress(full) == 1)
         // Past the window it's the consistency: every other day is half way
-        let half = HabitMath.consistency(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
+        let half = HabitMath.formation(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
         #expect(half == ConsistencyTally(done: 33, counted: 66))
         #expect(HabitMath.colorProgress(half) == 0.5)
     }
@@ -325,7 +341,7 @@ struct ConsistencyTests {
     @Test func formedCountsTodayOnlyOnceDone() {
         // 66 days in, today still open: 52 of 65 counted is 80%
         let done = keys(Array(1...65).filter { $0 % 5 != 2 })
-        #expect(HabitMath.consistency(completed: done, todayKey: today) == ConsistencyTally(done: 52, counted: 65))
+        #expect(HabitMath.formation(completed: done, todayKey: today) == ConsistencyTally(done: 52, counted: 65))
         #expect(HabitMath.isFormed(completed: done, todayKey: today))
         // A day younger, and it's too soon at any percentage
         #expect(!HabitMath.isFormed(completed: keys(Array(0..<65)), todayKey: today))
@@ -389,7 +405,7 @@ struct GraduationTests {
     @Test func formedAfterSixtySixDaysWithFourInFiveDone() {
         // 66 days, today included, every fifth one missed: 53 of 66
         let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 })
-        #expect(habit.consistency.percent == 80)
+        #expect(habit.formation.percent == 80)
         #expect(habit.checkAndMarkGraduation() == true)
         #expect(habit.isGraduated)
         // Only marks once
@@ -399,13 +415,13 @@ struct GraduationTests {
     @Test func notFormedJustUnderEightyPercent() {
         // One more miss: 52 of 66
         let habit = makeHabit(doneBack: (0..<66).filter { $0 % 5 != 3 && $0 != 1 })
-        #expect(habit.consistency.percent == 78)
+        #expect(habit.formation.percent == 78)
         #expect(habit.checkAndMarkGraduation() == false)
     }
 
     @Test func notFormedBeforeSixtySixDaysEvenAtAHundred() {
         let habit = makeHabit(doneBack: 0..<65)
-        #expect(habit.consistency.percent == 100)
+        #expect(habit.formation.percent == 100)
         #expect(habit.checkAndMarkGraduation() == false)
         #expect(!habit.isGraduated)
     }
@@ -1059,7 +1075,7 @@ struct ReminderCopyTests {
     }
 
     @Test func historyOlderThanTheGridCountsAsEmpty() {
-        // The card shows 66 days; anything older isn't on it
+        // Nothing in the last 66 days reads as a fresh start
         let text = body(habit(completing: [80, 81, 82]))
         #expect(["One hold fills the first square.", "The grid wants its first mark.",
                  "Every grid fills one square at a time."].contains(text))

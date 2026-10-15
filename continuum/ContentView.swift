@@ -105,9 +105,9 @@ struct ContentView: View {
         }
     }
 
-    /// How much of every habit's grid is lit, pooled: the home screen's colour.
+    /// Days done toward 66, pooled: the home screen's colour.
     private var overallHealth: Double {
-        HabitMath.colorProgress(overall.now, habits: habits.count)
+        HabitMath.colorProgress(habits.reduce(ConsistencyTally()) { $0 + $1.formation }, habits: habits.count)
     }
 
     var body: some View {
@@ -175,7 +175,7 @@ struct ContentView: View {
                     if showGraduation {
                         HabitGraduationOverlay(
                             habitName: graduationHabitName,
-                            percent: graduationHabit?.consistency.percent ?? HabitMath.formedPercent,
+                            percent: graduationHabit?.formation.percent ?? HabitMath.formedPercent,
                             onDismiss: {
                                 withAnimation(.easeOut(duration: 0.3)) {
                                     showGraduation = false
@@ -406,7 +406,7 @@ struct ContentView: View {
                     trend: HabitMath.trend(now: overall.now, weekAgo: overall.weekAgo),
                     doneToday: completedTodayCount,
                     habitCount: habits.count,
-                    accent: HabitPalette.color(HabitMath.colorProgress(overall.now, habits: habits.count))
+                    accent: HabitPalette.color(overallHealth)
                 )
                 .padding(.horizontal, 26)
                 .padding(.top, 4)

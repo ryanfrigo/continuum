@@ -97,7 +97,7 @@ struct SettingsView: View {
                                 Spacer()
                                 Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                                     .font(.caption)
-                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
+                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.formation)))
                             }
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
@@ -493,14 +493,14 @@ struct AboutView: View {
                                 icon: "percent",
                                 code: "SYS.CONSISTENCY",
                                 title: "CONSISTENCY",
-                                description: "Share of the last 66 days you showed up, counted from your first day done. A miss dents it. Nothing resets it."
+                                description: "Share of the last 4 weeks you showed up, counted from your first day done. A miss dents it. Nothing resets it."
                             )
 
                             AboutCard(
                                 icon: "waveform.path.ecg",
                                 code: "SYS.WINDOW.066",
                                 title: "WHY 66 DAYS",
-                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't materially slow it down. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with at least 80% of them done; the 80% is ours."
+                                description: "Lally et al. (2010): daily habits took a median of 66 days to become automatic, 18 to 254 across people, and one missed day didn't materially slow it down. A 2024 review of 20 studies says plan on two to five months. Formed here means 66 days with at least 80% of them done; the 80% is ours. The card counts the days: 23/66."
                             )
 
                             AboutCard(

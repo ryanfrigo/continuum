@@ -62,7 +62,7 @@ enum CelebrationIntensity {
 
 // MARK: - Grid Ignition Backdrop
 //
-// The app's signature 66-day grid, used as the celebration itself: cells
+// The app's signature day grid, used as the celebration itself: cells
 // ignite in a wave radiating out from the card and settle into a faint
 // residual glow. One Canvas rather than thousands of views, and it stops
 // ticking once the wave has passed.
@@ -153,7 +153,7 @@ struct IgnitionGrid: View {
 
 // MARK: - Geometric Frame
 //
-// The card's edge, built from the same vocabulary as the 66-day grid: a
+// The card's edge, built from the same vocabulary as the day grid: a
 // precise dashed cell frame with a bright segment tracing around it. Reads
 // as circuitry rather than a dialog outline.
 
@@ -230,7 +230,7 @@ struct CelebrationCard: View {
                 .ignoresSafeArea()
                 .onTapGesture { if !hasButtons { onDismiss() } }
 
-            // Grid ignition — the 66-day grid motif as the celebration itself.
+            // Grid ignition — the day-grid motif as the celebration itself.
             // No blendMode here: it pushes the Canvas into its own compositing
             // group that draws over the card instead of behind it.
             if intensity.ignitionStrength > 0 {
@@ -261,7 +261,7 @@ struct CelebrationCard: View {
                         .padding(.top, 6)
 
                     // Divider as a row of grid cells, not a plain rule —
-                    // same vocabulary as the 66-day grid.
+                    // same vocabulary as the day grid.
                     HStack(spacing: 4) {
                         ForEach(0..<5, id: \.self) { i in
                             RoundedRectangle(cornerRadius: 1.5)
