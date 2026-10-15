@@ -76,8 +76,10 @@ struct HabitCardView: View {
     @State private var justCompleted = false
     /// Bumps per completion so an old fade can't cut a newer one short.
     @State private var completionGeneration = 0
-    /// Bumps per completion: fires the gold burst and sweep.
+    /// Bumps per completion: fires the gold sweep.
     @State private var burstToken = 0
+    /// 0 → 1 across the shockwave and fractal bloom; 1 at rest (shaders off).
+    @State private var bloomProgress: Double = 1
     /// What the hold just earned ("+3%", or "+1 DAY" at the top), floating up.
     @State private var gainText: String?
     @State private var gainRise: CGFloat = 0
@@ -132,6 +134,12 @@ struct HabitCardView: View {
         ZStack {
             // Main card
             cardContent
+                .modifier(CompletionBloomEffect(progress: bloomProgress, cornerRadius: cornerRadius))
+                // Outside the shader: a system menu can't be drawn through one.
+                // Tucked into the corner, centred on the title's first line.
+                .overlay(alignment: .topTrailing) {
+                    optionsMenu.padding(.top, 10).padding(.trailing, 2)
+                }
                 .scaleEffect(cardScale)
                 .overlay {
                     // Border traces itself as you hold
@@ -145,10 +153,6 @@ struct HabitCardView: View {
                 .overlay {
                     PerfectDaySweep(trigger: burstToken, cornerRadius: cornerRadius,
                                     color: goldColor, staggered: false)
-                }
-                .overlay {
-                    // Not clipped: the squares fly past the card's edge
-                    GoldBurst(trigger: burstToken, colors: [goldColor, themeColor])
                 }
 
             // Completion effects overlay
@@ -172,8 +176,6 @@ struct HabitCardView: View {
                     .zIndex(10)
             }
         }
-        // Above the neighbouring cards while the burst flies over them
-        .zIndex(celebrating ? 1 : 0)
         // Single tap — share the moment, else undo if completed, else hint
         .onTapGesture {
             if let celebration {
@@ -311,10 +313,6 @@ struct HabitCardView: View {
             historyGridSection
         }
         .padding(12)
-        // Tucked into the corner, centred on the title's first line
-        .overlay(alignment: .topTrailing) {
-            optionsMenu.padding(.top, 10).padding(.trailing, 2)
-        }
         // Done for today: fade back and hatch over, data still readable
         .opacity(1 - 0.45 * doneAmount)
         .background(cardBackground)
@@ -791,7 +789,11 @@ struct HabitCardView: View {
             showCompletionEffect = false
         }
 
-        if !reduceMotion { burstToken += 1 }
+        if !reduceMotion {
+            burstToken += 1
+            bloomProgress = 0
+            withAnimation(.easeOut(duration: 1.4)) { bloomProgress = 1 }
+        }
 
         // Gold for a moment, then ease into the done look
         if !isBackfill {
@@ -1054,63 +1056,40 @@ private struct DoneHatch: View {
 }
 
 
-/// A handful of gold squares, the grid's own shape, popping out from the
-/// card's centre and falling away. Draws nothing until the first trigger.
-private struct GoldBurst: View {
-    let trigger: Int
-    let colors: [Color]
+/// The completion's shockwave and fractal bloom (CompletionShaders.metal).
+/// Animatable, so a single withAnimation drives the shaders frame by frame
+/// without swapping the card's view identity.
+private struct CompletionBloomEffect: ViewModifier, Animatable {
+    var progress: Double
+    let cornerRadius: CGFloat
 
-    @State private var startedAt: Date?
-    private let duration: Double = 1.3
-    private let count = 22
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
 
-    var body: some View {
-        TimelineView(.animation(paused: startedAt == nil)) { timeline in
-            Canvas { context, size in
-                guard let startedAt else { return }
-                let t = timeline.date.timeIntervalSince(startedAt)
-                guard t < duration else { return }
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                var rng = SeededRandom(seed: UInt64(trigger))
-                for i in 0..<count {
-                    let angle = Double(i) / Double(count) * 2 * .pi + rng.next(-0.2, 0.2)
-                    let speed = rng.next(70, 150)
-                    let side = rng.next(6, 11)
-                    let spin = rng.next(-6, 6)
-                    // Out fast, slowing, then gravity takes it
-                    let travel = speed * (1 - exp(-4 * t))
-                    let x = center.x + cos(angle) * travel
-                    let y = center.y + sin(angle) * travel + 120 * t * t
-                    // Full strength for the first half, then gone
-                    let fade = t < 0.6 ? 1 : max(0, 1 - (t - 0.6) / (duration - 0.6))
-                    var square = context
-                    square.translateBy(x: x, y: y)
-                    square.rotate(by: .radians(spin * t))
-                    square.opacity = fade
-                    square.addFilter(.shadow(color: .black.opacity(0.4), radius: 2))
-                    let rect = CGRect(x: -side / 2, y: -side / 2, width: side, height: side)
-                    square.fill(Path(roundedRect: rect, cornerRadius: side * 0.2),
-                                with: .color(colors[i % 3 == 0 ? min(1, colors.count - 1) : 0]))
+    func body(content: Content) -> some View {
+        let t = Float(progress)
+        let active = progress < 1
+        content
+            .visualEffect { view, proxy in
+                view.layerEffect(
+                    ShaderLibrary.completionRipple(.float2(proxy.size), .float(t)),
+                    maxSampleOffset: CGSize(width: 24, height: 24),
+                    isEnabled: active
+                )
+            }
+            .overlay {
+                if active {
+                    GeometryReader { proxy in
+                        Rectangle()
+                            .colorEffect(ShaderLibrary.completionBloom(.float2(proxy.size), .float(t)))
+                    }
+                    .blendMode(.plusLighter)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-        .onChange(of: trigger) {
-            startedAt = Date()
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
-                if let startedAt, Date().timeIntervalSince(startedAt) >= duration { self.startedAt = nil }
-            }
-        }
-    }
-}
-
-/// Deterministic per-burst randomness, so a redraw doesn't reshuffle the squares.
-private struct SeededRandom {
-    private var state: UInt64
-    init(seed: UInt64) { state = seed &* 0x9E3779B97F4A7C15 | 1 }
-    mutating func next(_ low: Double, _ high: Double) -> Double {
-        state ^= state << 13; state ^= state >> 7; state ^= state << 17
-        return low + Double(state % 10_000) / 10_000 * (high - low)
     }
 }

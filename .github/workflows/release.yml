@@ -53,6 +53,11 @@ jobs:
           xcodebuild -showsdks | grep -qE "iphoneos(2[6-9]|[3-9][0-9])" \
             || { echo "::error::No iOS 26+ SDK on this runner"; exit 1; }
 
+      - name: Install the Metal toolchain
+        # Xcode 26+ ships the Metal compiler as a separate component, and the
+        # app has .metal shaders (the completion effect) since 3.9.
+        run: xcrun -f metal >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
+
       - name: Verify version consistency
         run: |
           VERSION=$(grep -m1 -o 'MARKETING_VERSION = [0-9.]*;' continuum.xcodeproj/project.pbxproj | grep -o '[0-9.]*')
