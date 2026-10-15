@@ -76,6 +76,12 @@ struct HabitCardView: View {
     @State private var justCompleted = false
     /// Bumps per completion so an old fade can't cut a newer one short.
     @State private var completionGeneration = 0
+    /// Bumps per completion: fires the gold burst and sweep.
+    @State private var burstToken = 0
+    /// What the hold just earned ("+3%", or "+1 DAY" at the top), floating up.
+    @State private var gainText: String?
+    @State private var gainRise: CGFloat = 0
+    @State private var gainOpacity: Double = 0
     private let successHold: Double = 1.5
     private let doneFade: Double = 3.0
 
@@ -136,6 +142,14 @@ struct HabitCardView: View {
                 .overlay {
                     PerfectDaySweep(trigger: perfectDaySweep, cornerRadius: cornerRadius)
                 }
+                .overlay {
+                    PerfectDaySweep(trigger: burstToken, cornerRadius: cornerRadius,
+                                    color: goldColor, staggered: false)
+                }
+                .overlay {
+                    // Not clipped: the squares fly past the card's edge
+                    GoldBurst(trigger: burstToken, colors: [goldColor, themeColor])
+                }
 
             // Completion effects overlay
             if showCompletionEffect {
@@ -158,6 +172,8 @@ struct HabitCardView: View {
                     .zIndex(10)
             }
         }
+        // Above the neighbouring cards while the burst flies over them
+        .zIndex(celebrating ? 1 : 0)
         // Single tap — share the moment, else undo if completed, else hint
         .onTapGesture {
             if let celebration {
@@ -295,8 +311,9 @@ struct HabitCardView: View {
             historyGridSection
         }
         .padding(12)
-        .overlay(alignment: .bottomTrailing) {
-            optionsMenu.padding(.trailing, 4)
+        // Tucked into the corner, centred on the title's first line
+        .overlay(alignment: .topTrailing) {
+            optionsMenu.padding(.top, 10).padding(.trailing, 2)
         }
         // Done for today: fade back and hatch over, data still readable
         .opacity(1 - 0.45 * doneAmount)
@@ -325,18 +342,20 @@ struct HabitCardView: View {
     }
 
     private var headerSection: some View {
-        // The name gets the full width; options sit in the bottom corner
+        // Nearly the full width: the options menu overlays the corner
         Text(habit.name)
             .strikethrough(doneAmount > 0, color: .white.opacity(0.7))
             .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.white)
             .lineLimit(2)
             .minimumScaleFactor(0.75)
+            .padding(.trailing, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Options menu (was the long-press context menu — long press now
-    /// completes the habit). Sits in the card's bottom padding, under the grid.
+    /// completes the habit). A small glyph in the top corner with a bigger
+    /// tap area than it looks.
     private var optionsMenu: some View {
         Menu {
             contextMenuContent
@@ -344,7 +363,7 @@ struct HabitCardView: View {
             Image(systemName: "ellipsis")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Color.white.opacity(0.45))
-                .frame(width: 34, height: 14)
+                .frame(width: 30, height: 22)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Options for \(habit.name)")
@@ -355,6 +374,7 @@ struct HabitCardView: View {
             if let percent = consistency.percent {
                 percentText(percent)
                     .foregroundStyle(themeColor)
+
                     // The number catches the light as the phone tilts
                     .overlay {
                         TiltSheenFill(intensity: 0.6)
@@ -380,6 +400,19 @@ struct HabitCardView: View {
         }
         // Same height with or without a number, so neighbouring cards line up
         .frame(height: 16, alignment: .bottom)
+        // What the hold just earned, rising off the row
+        .overlay {
+            if let gainText {
+                Text(gainText)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(goldColor)
+                    .shadow(color: goldColor.opacity(0.7), radius: 6)
+                    .fixedSize()
+                    .offset(y: -gainRise)
+                    .opacity(gainOpacity)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     /// A readout, not a headline: the app's own mono at text size.
@@ -413,9 +446,10 @@ struct HabitCardView: View {
                             let isToday = idx == 0
 
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(dotColor(filled: filled, isToday: isToday,
-                                               notStarted: startIndex.map { idx > $0 } ?? true,
-                                               healthColor: color))
+                                .fill(isToday && filled && celebrating ? goldColor
+                                      : dotColor(filled: filled, isToday: isToday,
+                                                 notStarted: startIndex.map { idx > $0 } ?? true,
+                                                 healthColor: color))
                                 .frame(width: dotSize, height: dotSize)
                                 .overlay {
                                     if isToday && !filled {
@@ -757,6 +791,8 @@ struct HabitCardView: View {
             showCompletionEffect = false
         }
 
+        if !reduceMotion { burstToken += 1 }
+
         // Gold for a moment, then ease into the done look
         if !isBackfill {
             completionGeneration += 1
@@ -787,10 +823,27 @@ struct HabitCardView: View {
         }
 
         // The number clicks over, one tick per point, after the hit lands
-        SoundManager.shared.triggerHealthTicks((consistency.percent ?? 0) - percentBefore, after: 0.3)
+        let gain = (consistency.percent ?? 0) - percentBefore
+        SoundManager.shared.triggerHealthTicks(gain, after: 0.3)
+        showGain(gain > 0 ? "+\(gain)%" : "+1 DAY")
 
         // A backfill moves the number and the days done, so it's a completion too
         onCompletion?(true, markedKey)
+    }
+
+    /// The gain floats up off the number, then fades.
+    private func showGain(_ text: String) {
+        gainRise = 0
+        gainOpacity = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            gainText = text
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { gainOpacity = 1 }
+            withAnimation(.easeOut(duration: 1.4)) { gainRise = 9 }
+            withAnimation(.easeIn(duration: 0.5).delay(1.0)) { gainOpacity = 0 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                if gainText == text { gainText = nil }
+            }
+        }
     }
 
     // MARK: - Context Menu
@@ -915,6 +968,9 @@ struct CardOutline: Shape {
 private struct PerfectDaySweep: View {
     let trigger: Int
     let cornerRadius: CGFloat
+    var color: Color = .white
+    /// Perfect-day sweeps ripple across the grid by position; a single card's doesn't.
+    var staggered = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var position: CGFloat = -0.5
@@ -922,7 +978,7 @@ private struct PerfectDaySweep: View {
     var body: some View {
         GeometryReader { geo in
             LinearGradient(
-                colors: [.white.opacity(0), .white.opacity(0.35), .white.opacity(0)],
+                colors: [color.opacity(0), color.opacity(0.35), color.opacity(0)],
                 startPoint: .leading,
                 endPoint: .trailing
             )
@@ -932,7 +988,7 @@ private struct PerfectDaySweep: View {
             .onChange(of: trigger) {
                 guard !reduceMotion else { return }
                 let frame = geo.frame(in: .global)
-                let delay = Double(frame.minX / 1000 + frame.minY / 2500)
+                let delay = staggered ? Double(frame.minX / 1000 + frame.minY / 2500) : 0.05
                 position = -0.5
                 DispatchQueue.main.async {
                     withAnimation(.easeInOut(duration: 0.7).delay(delay)) { position = 1.5 }
@@ -994,5 +1050,67 @@ private struct DoneHatch: View {
             context.stroke(path, with: .color(color.opacity(0.14)), lineWidth: 1.5)
         }
         .allowsHitTesting(false)
+    }
+}
+
+
+/// A handful of gold squares, the grid's own shape, popping out from the
+/// card's centre and falling away. Draws nothing until the first trigger.
+private struct GoldBurst: View {
+    let trigger: Int
+    let colors: [Color]
+
+    @State private var startedAt: Date?
+    private let duration: Double = 1.3
+    private let count = 22
+
+    var body: some View {
+        TimelineView(.animation(paused: startedAt == nil)) { timeline in
+            Canvas { context, size in
+                guard let startedAt else { return }
+                let t = timeline.date.timeIntervalSince(startedAt)
+                guard t < duration else { return }
+                let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                var rng = SeededRandom(seed: UInt64(trigger))
+                for i in 0..<count {
+                    let angle = Double(i) / Double(count) * 2 * .pi + rng.next(-0.2, 0.2)
+                    let speed = rng.next(70, 150)
+                    let side = rng.next(6, 11)
+                    let spin = rng.next(-6, 6)
+                    // Out fast, slowing, then gravity takes it
+                    let travel = speed * (1 - exp(-4 * t))
+                    let x = center.x + cos(angle) * travel
+                    let y = center.y + sin(angle) * travel + 120 * t * t
+                    // Full strength for the first half, then gone
+                    let fade = t < 0.6 ? 1 : max(0, 1 - (t - 0.6) / (duration - 0.6))
+                    var square = context
+                    square.translateBy(x: x, y: y)
+                    square.rotate(by: .radians(spin * t))
+                    square.opacity = fade
+                    square.addFilter(.shadow(color: .black.opacity(0.4), radius: 2))
+                    let rect = CGRect(x: -side / 2, y: -side / 2, width: side, height: side)
+                    square.fill(Path(roundedRect: rect, cornerRadius: side * 0.2),
+                                with: .color(colors[i % 3 == 0 ? min(1, colors.count - 1) : 0]))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onChange(of: trigger) {
+            startedAt = Date()
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
+                if let startedAt, Date().timeIntervalSince(startedAt) >= duration { self.startedAt = nil }
+            }
+        }
+    }
+}
+
+/// Deterministic per-burst randomness, so a redraw doesn't reshuffle the squares.
+private struct SeededRandom {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed &* 0x9E3779B97F4A7C15 | 1 }
+    mutating func next(_ low: Double, _ high: Double) -> Double {
+        state ^= state << 13; state ^= state >> 7; state ^= state << 17
+        return low + Double(state % 10_000) / 10_000 * (high - low)
     }
 }
