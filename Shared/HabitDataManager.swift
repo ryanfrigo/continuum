@@ -181,9 +181,8 @@ enum HabitMath {
     }
 
     /// Where a habit sits on the colour ramp, 0...1: the share of its grid
-    /// that's lit. Once a habit is four weeks old that's its consistency, so
-    /// 0.8 (green) is strong; before then a new habit starts orange even at
-    /// 100%. `habits` is how many habits a pooled tally covers.
+    /// that's lit. Once a habit is four weeks old that's its consistency;
+    /// before then a new habit starts red even at 100%. `habits` is how many habits a pooled tally covers.
     static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
         guard habits > 0 else { return 0 }
         return min(1, Double(tally.done) / Double(gridDays * habits))

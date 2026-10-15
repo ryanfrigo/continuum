@@ -1,18 +1,21 @@
 import SwiftUI
 
-/// A habit's colour on every screen and in the widget: dark orange through
-/// yellow to green at 80% (strong), then green to blue at 100%. Where a habit
+/// A habit's colour on every screen and in the widget: dark red, orange,
+/// gold, green and blue, evenly spaced from 0 to 100%. Where a habit
 /// sits on the ramp is `HabitMath.colorProgress`. The app icon is a grid lit
 /// along this ramp, with one missed day.
 enum HabitPalette {
     /// Ramp stops as (position, hue in degrees, saturation, brightness).
     private static let stops: [(at: Double, hue: Double, saturation: Double, brightness: Double)] = [
-        (0.00, 20, 0.86, 0.90),    // dark orange
-        // A soft yellow, so orange-to-green doesn't flash a bright stripe
-        (0.45, 55, 0.70, 0.90),    // yellow
-        (0.80, 128, 0.64, 0.84),   // green: strong
-        (0.90, 178, 0.74, 0.90),   // cyan
-        (1.00, 214, 0.74, 0.98),   // blue
+        (0.000, -6, 0.80, 0.72),    // dark red (hue below 0 so it turns toward orange)
+        (0.250, 22, 0.84, 0.95),    // orange
+        (0.500, 43, 0.80, 0.97),    // gold
+        // Softer in-betweens, so gold-to-green and green-to-blue don't
+        // flash a neon stripe
+        (0.625, 78, 0.60, 0.84),    // lime
+        (0.750, 140, 0.56, 0.78),   // green
+        (0.875, 180, 0.60, 0.80),   // teal
+        (1.000, 212, 0.72, 0.97),   // blue
     ]
 
     static func color(_ progress: Double) -> Color {
@@ -21,7 +24,8 @@ enum HabitPalette {
         let b = stops[i]
         let a = i > 0 ? stops[i - 1] : b
         let t = b.at > a.at ? (p - a.at) / (b.at - a.at) : 0
-        return Color(hue: (a.hue + (b.hue - a.hue) * t) / 360,
+        let hue = (a.hue + (b.hue - a.hue) * t + 360).truncatingRemainder(dividingBy: 360)
+        return Color(hue: hue / 360,
                      saturation: a.saturation + (b.saturation - a.saturation) * t,
                      brightness: a.brightness + (b.brightness - a.brightness) * t)
     }
