@@ -778,6 +778,11 @@ struct HabitCardView: View {
         } label: {
             Label("Edit History", systemImage: "calendar")
         }
+        Button {
+            onAction?(.archive)
+        } label: {
+            Label("Archive", systemImage: "archivebox")
+        }
         Divider()
         Button(role: .destructive) {
             showingResetConfirmation = true
@@ -904,6 +909,7 @@ enum HabitAction {
     case setStreak(Int)
     case rename(String)
     case delete
+    case archive
     case share
     case stats
 }

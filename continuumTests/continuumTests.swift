@@ -1259,3 +1259,52 @@ struct UsagePlannerTests {
         #expect(UsagePlanner.dayString(20260105) == "2026-01-05")
     }
 }
+
+// MARK: - Sort, archive, pooled history (3.9)
+
+extension ContinuumSerializedTests {
+@Suite(.serialized)
+@MainActor
+struct HomeScreenTests {
+
+    init() { ContinuumDay.calendar = utc }
+
+    private func habit(_ name: String, order: Int, doneBack: [Int]) -> Habit {
+        let h = Habit(name: name, order: order)
+        let today = ContinuumDay.todayKey()
+        for back in doneBack { h.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -back, to: today)) }
+        return h
+    }
+
+    @Test func sortFollowsConsistencyAndKeepsNewHabitsLast() {
+        let low = habit("low", order: 0, doneBack: [9, 3])                 // 2 of 9
+        let fresh = habit("fresh", order: 1, doneBack: [])                 // no number yet
+        let high = habit("high", order: 2, doneBack: Array(0..<10))        // 10 of 10
+        let tieA = habit("tieA", order: 3, doneBack: [9, 3])
+        let all = [high, tieA, fresh, low]
+        #expect(HabitSort.manual.sorted(all).map(\.name) == ["low", "fresh", "high", "tieA"])
+        #expect(HabitSort.mostConsistent.sorted(all).map(\.name) == ["high", "low", "tieA", "fresh"])
+        #expect(HabitSort.leastConsistent.sorted(all).map(\.name) == ["low", "tieA", "high", "fresh"])
+    }
+
+    @Test func archivedHabitsGetNoReminders() {
+        let h = habit("read", order: 0, doneBack: [1])
+        h.reminderEnabled = true
+        #expect(!NotificationPlanner.plan(for: h, todayKey: ContinuumDay.todayKey(), hour: 7, minute: 0).isEmpty)
+        h.archivedAt = Date()
+        #expect(NotificationPlanner.plan(for: h, todayKey: ContinuumDay.todayKey(), hour: 7, minute: 0).isEmpty)
+    }
+
+    @Test func pooledHistoryIsTheHeaderNumberDayByDay() {
+        let today = 20260929
+        let a: Set<Int> = [ContinuumDay.key(byAdding: -2, to: today), ContinuumDay.key(byAdding: -1, to: today)]
+        let b: Set<Int> = [ContinuumDay.key(byAdding: -1, to: today)]
+        let history = HabitMath.pooledHistory([a, b], todayKey: today, days: 4)
+        #expect(history.map(\.dayKey) == (0..<4).reversed().map { ContinuumDay.key(byAdding: -$0, to: today) })
+        #expect(history[0].tally == ConsistencyTally())                       // before anything started
+        #expect(history[1].tally == ConsistencyTally(done: 1, counted: 1))    // a's first day
+        #expect(history[2].tally == ConsistencyTally(done: 3, counted: 3))
+        #expect(history[3].tally == ConsistencyTally(done: 3, counted: 3))    // today open: not counted yet
+    }
+}
+}

@@ -200,6 +200,19 @@ enum HabitMath {
         return percent >= strongPercent
     }
 
+    /// The pooled number as it stood at the end of each of the last `days`
+    /// days, oldest first: what the home header would have shown that day.
+    /// Days before any habit started have no number.
+    static func pooledHistory(_ habits: [Set<Int>], todayKey: Int, days: Int) -> [(dayKey: Int, tally: ConsistencyTally)] {
+        (0..<days).reversed().map { back in
+            let day = ContinuumDay.key(byAdding: -back, to: todayKey)
+            let tally = habits.reduce(ConsistencyTally()) {
+                $0 + self.tally(completed: $1, endKey: day, endInProgress: back == 0)
+            }
+            return (day, tally)
+        }
+    }
+
     /// Every day since the first completion, today counting once done.
     static func allTime(completed: Set<Int>, todayKey: Int) -> ConsistencyTally {
         guard let first = completed.min(), first <= todayKey else { return ConsistencyTally() }

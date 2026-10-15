@@ -37,7 +37,7 @@ enum NotificationPlanner {
     static func plan(for habit: Habit, todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
         // The per-habit reminder toggle is the one switch for everything this
         // habit sends, the evening alert included.
-        guard habit.reminderEnabled else { return [] }
+        guard habit.reminderEnabled, !habit.isArchived else { return [] }
 
         let completed = habit.completedDayKeys
         let doneToday = completed.contains(todayKey)

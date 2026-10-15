@@ -15,7 +15,10 @@ import Inject
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\Habit.order)]) private var habits: [Habit]
+    @Query(sort: [SortDescriptor(\Habit.order)]) private var allHabits: [Habit]
+    /// Everything the home screen, widget and header count: archived habits
+    /// keep their history but sit out of all of it.
+    private var habits: [Habit] { allHabits.filter { !$0.isArchived } }
 
     @State private var showingAdd = false
     @State private var newHabitName: String = ""
@@ -48,6 +51,7 @@ struct ContentView: View {
 
     // Stats state
     @State private var statsHabit: Habit? = nil
+    @State private var showOverallStats = false
 
     // Perfect day / perfect week state
     @State private var showPerfectDay = false
@@ -78,8 +82,10 @@ struct ContentView: View {
         GridItem(.flexible(), spacing: 14)
     ]
 
+    @AppStorage(HabitSort.storageKey) private var habitSort: HabitSort = .manual
+
     private var sortedHabits: [Habit] {
-        habits.sorted { ($0.order ?? 0) < ($1.order ?? 0) }
+        habitSort.sorted(habits)
     }
 
     private var hasHabits: Bool {
@@ -216,6 +222,9 @@ struct ContentView: View {
                 ShareSheet(items: AppStoreLink.shareItems(with: image))
             }
         }
+        .sheet(isPresented: $showOverallStats) {
+            OverallStatsView(habits: habits)
+        }
         .sheet(item: $statsHabit) { habit in
             HabitStatsView(habit: habit)
         }
@@ -238,6 +247,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .onDisappear {
+                    // Settings can restore archived habits
+                    syncAllHabitsToWidget()
+                    syncNotifications()
                     if !walkthroughCompleted && !showWalkthrough {
                         showWalkthrough = true
                     }
@@ -322,7 +334,7 @@ struct ContentView: View {
     private var isPresentingSomething: Bool {
         showingAdd || showingSettings || showingOnboarding || showWalkthrough
             || showPerfectDay || showPerfectWeek || showReminderPrompt || showGraduation
-            || showShareSheet || statsHabit != nil || pendingReviewRequest
+            || showShareSheet || statsHabit != nil || showOverallStats || pendingReviewRequest
     }
 
     /// Asked once, two weeks after the first habit, while people still care.
@@ -408,6 +420,10 @@ struct ContentView: View {
                     habitCount: habits.count,
                     accent: HabitPalette.color(overallHealth)
                 )
+                .contentShape(Rectangle())
+                .onTapGesture { showOverallStats = true }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Shows consistency over time")
                 .padding(.horizontal, 26)
                 .padding(.top, 4)
                 .padding(.bottom, 14)
@@ -515,6 +531,11 @@ struct ContentView: View {
             CompletionLedger.deleteMarks(for: [habit.id], in: modelContext)
             modelContext.delete(habit)
             try? modelContext.save()
+        case .archive:
+            habit.archivedAt = Date()
+            try? modelContext.save()
+            syncAllHabitsToWidget()
+            syncNotifications()
         case .share:
             shareImage = ShareCardGenerator.generateImage(habit: habit, format: .story)
             showShareSheet = true
@@ -525,7 +546,7 @@ struct ContentView: View {
 
     private func addHabit(name: String) {
         let habit = Habit(name: name)
-        habit.order = (habits.map { $0.order ?? 0 }.max() ?? -1) + 1
+        habit.order = (allHabits.map { $0.order ?? 0 }.max() ?? -1) + 1
         modelContext.insert(habit)
         try? modelContext.save()
         syncHabitToWidget(habit)
@@ -779,7 +800,7 @@ struct ContentView: View {
     /// canonical noon-UTC storage. Runs before anything reads streaks.
     private func migrateAllHabitDates() {
         var changed = false
-        for habit in habits {
+        for habit in allHabits {
             if habit.migrateToCanonicalStorage() { changed = true }
         }
         if changed { try? modelContext.save() }
@@ -789,7 +810,7 @@ struct ContentView: View {
     /// before first sync can arrive twice. Merge duplicates (union of
     /// histories) and delete the extras — no completions are ever lost.
     private func dedupeHabits() {
-        let grouped = Dictionary(grouping: habits, by: { $0.id })
+        let grouped = Dictionary(grouping: allHabits, by: { $0.id })
         var changed = false
 
         for (_, group) in grouped where group.count > 1 {
@@ -820,7 +841,7 @@ struct ContentView: View {
 
     @discardableResult
     private func reconcileCompletions() -> Bool {
-        CompletionLedger.reconcile(habits: habits, in: modelContext)
+        CompletionLedger.reconcile(habits: allHabits, in: modelContext)
     }
 
     /// Apply completions/uncompletions made from the interactive widget.

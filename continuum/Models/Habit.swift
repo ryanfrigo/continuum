@@ -19,6 +19,7 @@ final class Habit {
     var streakFreezeCount: Int = 0  // Retired in 3.8; kept because CloudKit fields can't be removed
     var freezeUsedDates: [Date]?  // Days where a freeze was used
     var graduatedAt: Date?  // First time the habit was strong (nil until then)
+    var archivedAt: Date?  // Off the home screen, widget and reminders; history kept
 
     init(id: UUID = UUID(), name: String, createdAt: Date = Date(), completedDates: [Date] = [], order: Int? = nil, reminderEnabled: Bool = false, reminderHour: Int = 9, reminderMinute: Int = 0) {
         self.id = id
@@ -215,6 +216,8 @@ final class Habit {
 
     // MARK: - Graduation
 
+    var isArchived: Bool { archivedAt != nil }
+
     /// Whether the habit has ever been strong (its moment has been shown)
     var isGraduated: Bool {
         graduatedAt != nil
@@ -273,6 +276,7 @@ final class Habit {
         streakFreezeCount = max(streakFreezeCount, other.streakFreezeCount)
         createdAt = min(createdAt, other.createdAt)
         if graduatedAt == nil { graduatedAt = other.graduatedAt }
+        if archivedAt == nil { archivedAt = other.archivedAt }
         if let otherOrder = other.order {
             order = min(order ?? otherOrder, otherOrder)
         }

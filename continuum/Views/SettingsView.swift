@@ -4,7 +4,13 @@ import SwiftData
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query private var habits: [Habit]
+    @Query private var allHabits: [Habit]
+    @AppStorage(HabitSort.storageKey) private var habitSort: HabitSort = .manual
+
+    private var habits: [Habit] { allHabits.filter { !$0.isArchived } }
+    private var archivedHabits: [Habit] {
+        allHabits.filter(\.isArchived).sorted { ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast) }
+    }
 
     @State private var isEditMode = false
     @State private var showingResetConfirmation = false
@@ -86,27 +92,81 @@ struct SettingsView: View {
                             .foregroundStyle(.gray.opacity(0.7))
                     }
 
-                    // Reorder Habits Section
                     Section {
-                        ForEach(sortedHabits) { habit in
+                        Picker(selection: $habitSort) {
+                            ForEach(HabitSort.allCases) { sort in
+                                Text(sort.label).tag(sort)
+                            }
+                        } label: {
                             HStack {
-                                Image(systemName: "line.3.horizontal")
-                                    .foregroundStyle(.gray)
-                                Text(habit.name)
+                                Image(systemName: "arrow.up.arrow.down")
+                                    .foregroundStyle(HabitPalette.accent)
+                                Text("Sort")
                                     .foregroundStyle(.white)
+                            }
+                        }
+                        .tint(.gray)
+                        .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                    } header: {
+                        Text("Home Screen")
+                            .foregroundStyle(.gray)
+                    } footer: {
+                        Text(habitSort == .manual
+                             ? "Habits stay in the order below."
+                             : "Habits re-sort as their consistency moves.")
+                            .foregroundStyle(.gray.opacity(0.7))
+                    }
+
+                    // Reorder Habits Section
+                    if habitSort == .manual {
+                        Section {
+                            ForEach(sortedHabits) { habit in
+                                HStack {
+                                    Image(systemName: "line.3.horizontal")
+                                        .foregroundStyle(.gray)
+                                    Text(habit.name)
+                                        .foregroundStyle(.white)
+                                    Spacer()
+                                    Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
+                                        .font(.caption)
+                                        .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
+                                }
+                                .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                            }
+                            .onMove(perform: moveHabit)
+                        } header: {
+                            Text("Reorder Habits")
+                                .foregroundStyle(.gray)
+                        } footer: {
+                            Text("Drag to reorder your habits on the home screen")
+                                .foregroundStyle(.gray.opacity(0.7))
+                        }
+                    }
+                }
+
+                if !archivedHabits.isEmpty {
+                    Section {
+                        ForEach(archivedHabits) { habit in
+                            HStack {
+                                Text(habit.name)
+                                    .foregroundStyle(.white.opacity(0.7))
                                 Spacer()
-                                Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
+                                Text("\(habit.daysDone) days")
                                     .font(.caption)
-                                    .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
+                                    .foregroundStyle(.gray)
+                                Button("Restore") { restore(habit) }
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(HabitPalette.accent)
+                                    .buttonStyle(.borderless)
+                                    .padding(.leading, 8)
                             }
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
-                        .onMove(perform: moveHabit)
                     } header: {
-                        Text("Reorder Habits")
+                        Text("Archived")
                             .foregroundStyle(.gray)
                     } footer: {
-                        Text("Drag to reorder your habits on the home screen")
+                        Text("Archived habits keep their history. They're off the home screen, the widget and reminders until you restore them.")
                             .foregroundStyle(.gray.opacity(0.7))
                     }
                 }
@@ -266,10 +326,16 @@ struct SettingsView: View {
         try? modelContext.save()
     }
 
+    private func restore(_ habit: Habit) {
+        habit.archivedAt = nil
+        habit.order = (habits.map { $0.order ?? 0 }.max() ?? -1) + 1
+        try? modelContext.save()
+    }
+
     private func deleteAllHabits() {
         NotificationManager.shared.sync(habits: [])
-        CompletionLedger.deleteMarks(for: Set(habits.map(\.id)), in: modelContext)
-        for habit in habits {
+        CompletionLedger.deleteMarks(for: Set(allHabits.map(\.id)), in: modelContext)
+        for habit in allHabits {
             modelContext.delete(habit)
         }
         try? modelContext.save()
