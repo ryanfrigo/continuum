@@ -64,12 +64,27 @@ struct HabitCardView: View {
     @State private var rippleToken = 0
     @State private var rippleOrigin = 0
 
-    // Variable reward: ~1 in 15 completions goes golden
+    // Variable reward: ~1 in 15 completions adds sparkles and a second ripple
     @State private var isRareCompletion = false
     private let goldColor = HabitPalette.gold
 
-    private var effectColor: Color {
-        isRareCompletion ? goldColor : themeColor
+    /// Every completion lands in gold; the rare ones just get more of it.
+    private var effectColor: Color { goldColor }
+
+    /// True for the few seconds after marking today: the card shines gold,
+    /// then eases into its done look so attention moves to what's left.
+    @State private var justCompleted = false
+    /// Bumps per completion so an old fade can't cut a newer one short.
+    @State private var completionGeneration = 0
+    private let successHold: Double = 1.5
+    private let doneFade: Double = 3.0
+
+    /// Mid-celebration (an undo during it ends it on the spot).
+    private var celebrating: Bool { justCompleted && habit.isCompletedToday }
+
+    /// 0 while a habit is open or celebrating, 1 once it has settled as done.
+    private var doneAmount: Double {
+        habit.isCompletedToday && !justCompleted ? 1 : 0
     }
 
     // MARK: - Computed Properties
@@ -80,6 +95,12 @@ struct HabitCardView: View {
 
     private var themeColor: Color {
         HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+    }
+
+    /// Gold while the completion lands, a quiet line once done, faint while open.
+    private var borderColor: Color {
+        if celebrating { return goldColor.opacity(0.95) }
+        return themeColor.opacity(habit.isCompletedToday ? 0.35 : 0.16)
     }
 
     /// Days back to the first done day. Older cells aren't misses — the habit
@@ -274,23 +295,29 @@ struct HabitCardView: View {
             historyGridSection
         }
         .padding(12)
+        .overlay(alignment: .bottomTrailing) {
+            optionsMenu.padding(.trailing, 4)
+        }
+        // Done for today: fade back and hatch over, data still readable
+        .opacity(1 - 0.45 * doneAmount)
         .background(cardBackground)
+        .overlay { DoneHatch(color: themeColor).opacity(doneAmount) }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         // Border lives outside the clip so it renders at full width and the
         // completed-state glow isn't cut off. strokeBorder draws inward.
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(
-                    themeColor.opacity(habit.isCompletedToday ? 0.9 : 0.16),
-                    lineWidth: habit.isCompletedToday ? 2.5 : 1
+                    borderColor,
+                    lineWidth: celebrating ? 2.5 : (habit.isCompletedToday ? 1.5 : 1)
                 )
         )
         .shadow(
-            color: themeColor.opacity(habit.isCompletedToday ? 0.35 : 0),
+            color: goldColor.opacity(celebrating ? 0.55 : 0),
             radius: 10
         )
         .overlay {
-            if habit.isCompletedToday {
+            if celebrating {
                 TiltSheenBorder(cornerRadius: cornerRadius, lineWidth: 2.5)
                     .transition(.opacity)
             }
@@ -298,28 +325,29 @@ struct HabitCardView: View {
     }
 
     private var headerSection: some View {
-        HStack(alignment: .top, spacing: 6) {
-            // Habit name — gets all remaining space
-            Text(habit.name)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        // The name gets the full width; options sit in the bottom corner
+        Text(habit.name)
+            .strikethrough(doneAmount > 0, color: .white.opacity(0.7))
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(.white)
+            .lineLimit(2)
+            .minimumScaleFactor(0.75)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            // Options menu (was the long-press context menu — long press
-            // now completes the habit)
-            Menu {
-                contextMenuContent
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color.white.opacity(0.45))
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Options for \(habit.name)")
+    /// Options menu (was the long-press context menu — long press now
+    /// completes the habit). Sits in the card's bottom padding, under the grid.
+    private var optionsMenu: some View {
+        Menu {
+            contextMenuContent
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.45))
+                .frame(width: 34, height: 14)
+                .contentShape(Rectangle())
         }
+        .accessibilityLabel("Options for \(habit.name)")
     }
 
     private var consistencySection: some View {
@@ -729,6 +757,19 @@ struct HabitCardView: View {
             showCompletionEffect = false
         }
 
+        // Gold for a moment, then ease into the done look
+        if !isBackfill {
+            completionGeneration += 1
+            let generation = completionGeneration
+            justCompleted = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + successHold) {
+                guard generation == completionGeneration else { return }
+                withAnimation(.easeInOut(duration: doneFade)) {
+                    justCompleted = false
+                }
+            }
+        }
+
         // Update data
         let percentBefore = consistency.percent ?? 0
         let markedKey = ContinuumDay.key(for: backfillDate ?? Date())
@@ -932,5 +973,26 @@ struct InstantButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
+    }
+}
+
+
+/// Fine diagonal lines over a habit that's done for today.
+private struct DoneHatch: View {
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let step: CGFloat = 8
+            var x = -size.height
+            while x < size.width {
+                path.move(to: CGPoint(x: x, y: size.height))
+                path.addLine(to: CGPoint(x: x + size.height, y: 0))
+                x += step
+            }
+            context.stroke(path, with: .color(color.opacity(0.14)), lineWidth: 1.5)
+        }
+        .allowsHitTesting(false)
     }
 }
