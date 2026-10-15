@@ -75,24 +75,6 @@ struct SettingsView: View {
                 // Notifications Section
                 if !habits.isEmpty {
                     Section {
-                        ForEach(sortedHabits) { habit in
-                            HabitNotificationRow(
-                                habit: habit,
-                                notificationPermissionGranted: notificationPermissionGranted,
-                                onRequestPermission: { requestNotificationPermission(enabling: habit) },
-                                onSave: { saveAndSchedule(habit) }
-                            )
-                            .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
-                        }
-                    } header: {
-                        Text("Daily Reminders")
-                            .foregroundStyle(.gray)
-                    } footer: {
-                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus a nudge the evening after a miss. Never miss twice.")
-                            .foregroundStyle(.gray.opacity(0.7))
-                    }
-
-                    Section {
                         Picker(selection: $habitSort) {
                             ForEach(HabitSort.allCases) { sort in
                                 Text(sort.label).tag(sort)
@@ -114,6 +96,24 @@ struct SettingsView: View {
                         Text(habitSort == .manual
                              ? "Habits stay in the order below."
                              : "Habits re-sort as their consistency moves.")
+                            .foregroundStyle(.gray.opacity(0.7))
+                    }
+
+                    Section {
+                        ForEach(sortedHabits) { habit in
+                            HabitNotificationRow(
+                                habit: habit,
+                                notificationPermissionGranted: notificationPermissionGranted,
+                                onRequestPermission: { requestNotificationPermission(enabling: habit) },
+                                onSave: { saveAndSchedule(habit) }
+                            )
+                            .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                        }
+                    } header: {
+                        Text("Daily Reminders")
+                            .foregroundStyle(.gray)
+                    } footer: {
+                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus a nudge the evening after a miss. Never miss twice.")
                             .foregroundStyle(.gray.opacity(0.7))
                     }
 

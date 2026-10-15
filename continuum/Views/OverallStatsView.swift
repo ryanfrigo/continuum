@@ -126,7 +126,7 @@ struct OverallStatsView: View {
                     RuleMark(y: .value("Strong", HabitMath.strongPercent))
                         .foregroundStyle(.white.opacity(0.25))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                        .annotation(position: .top, alignment: .leading) {
+                        .annotation(position: .bottom, alignment: .trailing) {
                             Text("STRONG")
                                 .font(.system(size: 8, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(.white.opacity(0.4))
