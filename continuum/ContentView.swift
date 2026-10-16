@@ -89,8 +89,17 @@ struct ContentView: View {
     /// moves the % but never the cards.
     @State private var frozenOrder: [UUID] = []
 
+    /// Done today but still celebrating: holds its place until the card has
+    /// faded, then sinks below what's left.
+    @State private var settlingIDs: Set<UUID> = []
+    /// The card's gold moment plus its fade (HabitCardView successHold + doneFade).
+    private let sinkDelay: Double = 4.6
+
+    /// What's left today first, then what's done, each in the frozen order.
     private var sortedHabits: [Habit] {
-        habitSort.sorted(habits, keeping: frozenOrder)
+        let ordered = habitSort.sorted(habits, keeping: frozenOrder)
+        let sunk: (Habit) -> Bool = { $0.isCompletedToday && !settlingIDs.contains($0.id) }
+        return ordered.filter { !sunk($0) } + ordered.filter(sunk)
     }
 
     private func refreshOrder() {
@@ -240,7 +249,8 @@ struct ContentView: View {
         .sheet(isPresented: $showingAdd) {
             AddHabitSheet(
                 newHabitName: $newHabitName,
-                healthColor: HabitPalette.color(overallHealth)
+                healthColor: HabitPalette.color(overallHealth),
+                habitCount: habits.count
             ) { name in
                 addHabit(name: name)
                 showingAdd = false
@@ -343,7 +353,13 @@ struct ContentView: View {
             onboarded: onboardingCompleted,
             hasHabit: hasHabits,
             hasCompletion: habits.contains { !$0.completedDatesArray.isEmpty }
-        ))
+        ), snapshot: hasHabits ? UsageSnapshot.make(
+            active: habits.map(\.completedDayKeys),
+            archived: allHabits.count - habits.count,
+            reminders: habits.filter(\.reminderEnabled).count,
+            sort: habitSort.rawValue,
+            todayKey: ContinuumDay.todayKey()
+        ) : nil)
     }
 
     private var isPresentingSomething: Bool {
@@ -469,6 +485,7 @@ struct ContentView: View {
                         // gesture. Reordering lives in Settings → Reorder Habits.
                     }
                 }
+                .animation(.spring(response: 0.55, dampingFraction: 0.85), value: sortedHabits.map(\.id))
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
                 .padding(.bottom, 100) // Extra padding for tab bar safety
@@ -571,6 +588,17 @@ struct ContentView: View {
         // Completion silences today's nudges and disarms tomorrow's evening
         // alert; undo restores them. The planner derives both from the new state.
         syncNotifications()
+
+        // Done today: stay put through the celebration, then sink
+        let habitID = habit.id
+        if completed && dayKey == ContinuumDay.todayKey() {
+            settlingIDs.insert(habitID)
+            DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
+                settlingIDs.remove(habitID)
+            }
+        } else if !completed {
+            settlingIDs.remove(habitID)
+        }
 
         guard completed else { return }
 

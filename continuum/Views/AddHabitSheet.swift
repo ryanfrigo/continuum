@@ -3,6 +3,9 @@ import SwiftUI
 struct AddHabitSheet: View {
     @Binding var newHabitName: String
     var healthColor: Color = HabitPalette.accent
+    /// Habits already on the home screen; from 6 the sheet suggests trimming.
+    var habitCount: Int = 0
+    static let nudgeAt = 6
     var onSave: (String) -> Void
     var onCancel: () -> Void
     @FocusState private var isNameFocused: Bool
@@ -20,6 +23,24 @@ struct AddHabitSheet: View {
         "Sleep by 10 PM",
         "Real Food Only"
     ]
+
+    /// Not a gate: the save button still adds it.
+    private var tooManyNote: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "archivebox")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(healthColor)
+                .padding(.top, 1)
+            Text("You're tracking \(habitCount). Fewer habits are easier to show up for most days. Thinking of archiving one first? Tap ⋯ on its card. It keeps its history.")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12).fill(healthColor.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(healthColor.opacity(0.25), lineWidth: 1))
+    }
 
     var body: some View {
         NavigationStack {
@@ -60,6 +81,12 @@ struct AddHabitSheet: View {
                             .opacity(showContent ? 1 : 0)
                         }
                         .padding(.top, 24)
+
+                        if habitCount >= Self.nudgeAt {
+                            tooManyNote
+                                .padding(.horizontal, 24)
+                                .opacity(showContent ? 1 : 0)
+                        }
 
                         // Text field
                         VStack(alignment: .leading, spacing: 10) {

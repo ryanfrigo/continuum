@@ -3,8 +3,9 @@ import UIKit
 
 /// Anonymous usage, so we can tell whether anyone gets past setup and comes
 /// back. What leaves the phone: a random install ID made here, one of six
-/// event names, the local date and the app version. No habit names, no
-/// counts, nothing tied to a person. Settings has the off switch.
+/// event names, the local date and the app version, plus once a day the
+/// counts in `UsageSnapshot`. No habit names, nothing tied to a person.
+/// Settings has the off switch.
 enum UsageEvent: String, CaseIterable {
     case firstOpen = "first_open"
     /// Already had habits when this build arrived; kept out of the funnel.
@@ -14,6 +15,49 @@ enum UsageEvent: String, CaseIterable {
     case firstCompletion = "first_completion"
     /// At most once a local day.
     case active
+}
+
+/// Once a day: how many habits and how they're going, as plain numbers. No
+/// names, and the percentages are sorted so none can be matched to a habit.
+struct UsageSnapshot: Equatable {
+    var habits: Int
+    var archived: Int
+    var strong: Int
+    /// The home screen's pooled number; nil before anything is done.
+    var overall: Int?
+    /// Each habit's consistency, high to low; -1 for one with no number yet.
+    var percents: [Int]
+    var doneYesterday: Int
+    var reminders: Int
+    var sort: String
+
+    static func make(active: [Set<Int>], archived: Int, reminders: Int, sort: String, todayKey: Int) -> UsageSnapshot {
+        let tallies = active.map { HabitMath.consistency(completed: $0, todayKey: todayKey) }
+        let yesterday = ContinuumDay.key(byAdding: -1, to: todayKey)
+        return UsageSnapshot(
+            habits: active.count,
+            archived: archived,
+            strong: active.filter { HabitMath.isStrong(completed: $0, todayKey: todayKey) }.count,
+            overall: tallies.reduce(ConsistencyTally(), +).percent,
+            percents: tallies.map { $0.percent ?? -1 }.sorted(by: >),
+            doneYesterday: active.filter { $0.contains(yesterday) }.count,
+            reminders: reminders,
+            sort: sort
+        )
+    }
+
+    var payload: [String: String] {
+        [
+            "habits": String(habits),
+            "archived": String(archived),
+            "strong": String(strong),
+            "overall": overall.map(String.init) ?? "",
+            "percents": percents.prefix(50).map(String.init).joined(separator: ","),
+            "done_yesterday": String(doneYesterday),
+            "reminders": String(reminders),
+            "sort": sort,
+        ]
+    }
 }
 
 /// Pure: which events are still owed.
@@ -66,7 +110,10 @@ final class UsageReporter {
         #if DEBUG
         return v + "-debug"
         #else
-        return v
+        // Installed straight from Xcode (development-signed) rather than from
+        // the App Store or TestFlight: the developer's own phone, kept out of
+        // the numbers the same way as debug builds.
+        return Bundle.main.path(forResource: "embedded", ofType: "mobileprovision") != nil ? v + "-debug" : v
         #endif
     }
 
@@ -77,7 +124,7 @@ final class UsageReporter {
         return id
     }
 
-    func report(_ state: UsagePlanner.State) {
+    func report(_ state: UsagePlanner.State, snapshot: UsageSnapshot? = nil) {
         guard Self.enabled else { return }
         #if DEBUG
         // Simulator and screenshot runs stay out of the numbers unless asked for.
@@ -100,6 +147,25 @@ final class UsageReporter {
         )
         for event in due where !inFlight.contains(event) {
             send(event, today: today)
+        }
+        if let snapshot, defaults.integer(forKey: "usageLastSnapshotDay") != today, !snapshotInFlight {
+            send(snapshot, today: today)
+        }
+    }
+
+    private var snapshotInFlight = false
+
+    private func send(_ snapshot: UsageSnapshot, today: Int) {
+        snapshotInFlight = true
+        let body = snapshot.payload.merging([
+            "install": installID,
+            "day": UsagePlanner.dayString(today),
+            "version": Self.version,
+        ]) { _, new in new }
+        Task {
+            let ok = await Self.post("snapshot", body)
+            snapshotInFlight = false
+            if ok { defaults.set(today, forKey: "usageLastSnapshotDay") }
         }
     }
 

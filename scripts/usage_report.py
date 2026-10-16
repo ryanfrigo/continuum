@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Print Continuum's own usage numbers from the continuum-api Worker.
 
-    python3 scripts/usage_report.py            # funnel, actives, feedback text
+    python3 scripts/usage_report.py            # funnel, actives, habit stats, feedback text
     python3 scripts/usage_report.py --counts   # no feedback text (public CI logs)
 
 Token: $CONTINUUM_REPORT_TOKEN, else ~/.config/continuum/report_token.
@@ -39,6 +39,20 @@ def main() -> None:
               f"{c['first_completion']:>6}{back:>12}")
     if not r["cohorts"]:
         print("(none yet: only installs on 3.8.1+ count)")
+
+    h = r.get("habit_stats") or {}
+    print("\nHabits (latest daily snapshot per install, last 7 days; 3.9+ only)")
+    if not h.get("installs"):
+        print("(none yet)")
+    else:
+        c = h["habit_counts"]
+        print(f"  installs reporting: {h['installs']}   avg habits: {h['avg_habits']}")
+        print(f"  habits per install: 1-3: {c['1-3']}   4-6: {c['4-6']}   7-9: {c['7-9']}   10+: {c['10+']}")
+        p = h["per_habit"]
+        print(f"  each habit's %:     80-100: {p['80-100']}   50-79: {p['50-79']}   0-49: {p['0-49']}   new: {p['new']}")
+        print(f"  avg overall: {h['avg_overall']}%   strong: {h['strong_share']}% of habits"
+              f"   avg done yesterday: {h['avg_done_yesterday']}")
+        print(f"  archiving: {h['archived_users']}   reminders on: {h['reminder_users']}   sort: {h['sorts']}")
 
     fb = r["feedback"]
     print(f"\nFeedback in the last 7 days: {len(fb)}")

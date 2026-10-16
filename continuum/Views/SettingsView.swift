@@ -68,7 +68,7 @@ struct SettingsView: View {
                     Text("Preferences")
                         .foregroundStyle(.gray)
                 } footer: {
-                    Text("Tells us whether people get through setup and come back. A random ID, never your habits or anything about you.")
+                    Text("Tells us whether people get through setup and come back, plus a few daily counts like how many habits and how consistent. A random ID, never habit names or anything about you.")
                         .foregroundStyle(.gray.opacity(0.7))
                 }
 

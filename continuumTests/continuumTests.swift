@@ -1301,6 +1301,26 @@ struct HomeScreenTests {
         #expect(HabitSort.mostConsistent.sorted([c, b, a], keeping: frozen).map(\.name) == ["a", "b", "c"])
     }
 
+    @Test func usageSnapshotIsNumbersOnly() {
+        let today = 20260929
+        let k = { (back: Int) in ContinuumDay.key(byAdding: -back, to: today) }
+        let strong = Set((0..<28).map(k))                       // 28 of 28
+        let patchy = Set([1, 3, 5].map(k))                      // 3 of 5, today open
+        let fresh: Set<Int> = []
+        let snap = UsageSnapshot.make(active: [patchy, fresh, strong], archived: 2, reminders: 1,
+                                      sort: "manual", todayKey: today)
+        #expect(snap.habits == 3)
+        #expect(snap.archived == 2)
+        #expect(snap.strong == 1)
+        #expect(snap.percents == [100, 60, -1])                 // sorted, no order to match habits to
+        #expect(snap.doneYesterday == 2)
+        #expect(snap.overall == 31 * 100 / 33)
+        #expect(snap.payload["percents"] == "100,60,-1")
+        #expect(snap.payload["overall"] == "93")
+        #expect(Set(snap.payload.keys) == ["habits", "archived", "strong", "overall", "percents",
+                                           "done_yesterday", "reminders", "sort"])
+    }
+
     @Test func archivedHabitsGetNoReminders() {
         let h = habit("read", order: 0, doneBack: [1])
         h.reminderEnabled = true
