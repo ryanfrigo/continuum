@@ -2,3 +2,6 @@
 # Superpowers brainstorm companion (local mockups)
 .superpowers/
 __pycache__/
+
+# Personal Claude Code settings (weekly feedback hook)
+.claude/settings.local.json
