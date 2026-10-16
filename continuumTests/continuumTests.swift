@@ -1287,6 +1287,20 @@ struct HomeScreenTests {
         #expect(HabitSort.leastConsistent.sorted(all).map(\.name) == ["low", "tieA", "high", "fresh"])
     }
 
+    @Test func frozenOrderSurvivesACompletionThatWouldReSort() {
+        let a = habit("a", order: 0, doneBack: Array(1...10).filter { $0 != 5 })   // 9 of 10, today open: 90%
+        let b = habit("b", order: 1, doneBack: Array(0..<9).filter { $0 != 4 })      // 8 of 9: 88%
+        let frozen = HabitSort.mostConsistent.sorted([a, b]).map(\.id)
+        #expect(frozen == [a.id, b.id])
+        // b closes the gap and would now sort first; the frozen order holds
+        b.setCompleted(true, forDayKey: ContinuumDay.key(byAdding: -4, to: ContinuumDay.todayKey()))
+        #expect(HabitSort.mostConsistent.sorted([a, b]).map(\.name) == ["b", "a"])
+        #expect(HabitSort.mostConsistent.sorted([a, b], keeping: frozen).map(\.name) == ["a", "b"])
+        // A habit added since goes after the frozen ones
+        let c = habit("c", order: 2, doneBack: Array(0..<20))
+        #expect(HabitSort.mostConsistent.sorted([c, b, a], keeping: frozen).map(\.name) == ["a", "b", "c"])
+    }
+
     @Test func archivedHabitsGetNoReminders() {
         let h = habit("read", order: 0, doneBack: [1])
         h.reminderEnabled = true

@@ -84,8 +84,17 @@ struct ContentView: View {
 
     @AppStorage(HabitSort.storageKey) private var habitSort: HabitSort = .manual
 
+    /// The on-screen order, re-taken only at moments people expect a change
+    /// (launch, coming back, a new day, a new sort or habit). A completion
+    /// moves the % but never the cards.
+    @State private var frozenOrder: [UUID] = []
+
     private var sortedHabits: [Habit] {
-        habitSort.sorted(habits)
+        habitSort.sorted(habits, keeping: frozenOrder)
+    }
+
+    private func refreshOrder() {
+        frozenOrder = habitSort.sorted(habits).map(\.id)
     }
 
     private var hasHabits: Bool {
@@ -247,7 +256,8 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
                 .onDisappear {
-                    // Settings can restore archived habits
+                    // Settings can restore archived habits, reorder or re-sort
+                    refreshOrder()
                     syncAllHabitsToWidget()
                     syncNotifications()
                     if !walkthroughCompleted && !showWalkthrough {
@@ -279,13 +289,17 @@ struct ContentView: View {
             reconcileCompletions()      // per-day ledger → arrays (after dedupe)
             applyPendingWidgetToggles() // reconcile completions made from the widget
             initializeHabitOrders()
+            refreshOrder()
             syncAllHabitsToWidget()
             syncNotifications()
             NotificationManager.shared.clearBadge()
             refreshTrigger.toggle()
             reportUsage()
         }
+        // Added, archived or deleted habits re-sort; completions don't
+        .onChange(of: habits.map(\.id)) { refreshOrder() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            refreshOrder()
             applyPendingWidgetToggles()
             dedupeHabits()
             reconcileCompletions()
@@ -315,6 +329,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: DispatchQueue.main)) { _ in
             // App sitting open across midnight: refresh "today" everywhere
+            refreshOrder()
             refreshTrigger.toggle()
             syncNotifications()
             syncAllHabitsToWidget()
@@ -675,7 +690,7 @@ struct ContentView: View {
 
     private func initializeHabitOrders() {
         var needsSave = false
-        for (index, habit) in sortedHabits.enumerated() {
+        for (index, habit) in HabitSort.manual.sorted(habits).enumerated() {
             if habit.order == nil {
                 habit.order = index
                 needsSave = true

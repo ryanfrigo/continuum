@@ -20,6 +20,17 @@ enum HabitSort: String, CaseIterable, Identifiable {
         }
     }
 
+    /// `sorted`, but anything already in `frozen` keeps that position, so a
+    /// completion that moves the number doesn't shuffle cards mid-use.
+    /// Habits not in it (just added) follow, in sort order.
+    func sorted(_ habits: [Habit], keeping frozen: [UUID]) -> [Habit] {
+        var rank: [UUID: Int] = [:]
+        for (i, id) in frozen.enumerated() where rank[id] == nil { rank[id] = i }
+        return sorted(habits).enumerated().sorted {
+            (rank[$0.element.id] ?? Int.max, $0.offset) < (rank[$1.element.id] ?? Int.max, $1.offset)
+        }.map(\.element)
+    }
+
     func sorted(_ habits: [Habit]) -> [Habit] {
         let byOrder = habits.sorted { ($0.order ?? 0) < ($1.order ?? 0) }
         guard self != .manual else { return byOrder }
