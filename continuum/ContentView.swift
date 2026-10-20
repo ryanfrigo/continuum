@@ -93,7 +93,9 @@ struct ContentView: View {
     /// faded, then sinks below what's left.
     @State private var settlingIDs: Set<UUID> = []
     /// The card's gold moment plus its fade (HabitCardView successHold + doneFade).
-    private let sinkDelay: Double = 4.6
+    private let sinkDelay: Double = 2.8
+    /// Cards on their way down: smaller, softer, and under the others.
+    @State private var sinkingIDs: Set<UUID> = []
 
     /// What's left today first, then what's done, each in the frozen order.
     private var sortedHabits: [Habit] {
@@ -483,9 +485,13 @@ struct ContentView: View {
                         )
                         // No drag-reorder here: long press is the completion
                         // gesture. Reordering lives in Settings → Reorder Habits.
+                        .scaleEffect(sinkingIDs.contains(habit.id) ? 0.9 : 1)
+                        .blur(radius: sinkingIDs.contains(habit.id) ? 6 : 0)
+                        .opacity(sinkingIDs.contains(habit.id) ? 0.7 : 1)
+                        .zIndex(sinkingIDs.contains(habit.id) ? -1 : 0)
                     }
                 }
-                .animation(.spring(response: 0.55, dampingFraction: 0.85), value: sortedHabits.map(\.id))
+                .animation(.smooth(duration: 0.7), value: sortedHabits.map(\.id))
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
                 .padding(.bottom, 100) // Extra padding for tab bar safety
@@ -594,7 +600,16 @@ struct ContentView: View {
         if completed && dayKey == ContinuumDay.todayKey() {
             settlingIDs.insert(habitID)
             DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
-                settlingIDs.remove(habitID)
+                // Undone meanwhile: it already moved back up
+                guard settlingIDs.contains(habitID) else { return }
+                // Dip back, slide under the others, surface at the bottom
+                withAnimation(.easeIn(duration: 0.2)) { _ = sinkingIDs.insert(habitID) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    settlingIDs.remove(habitID)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    withAnimation(.smooth(duration: 0.35)) { _ = sinkingIDs.remove(habitID) }
+                }
             }
         } else if !completed {
             settlingIDs.remove(habitID)

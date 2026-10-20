@@ -85,7 +85,7 @@ struct HabitCardView: View {
     @State private var gainRise: CGFloat = 0
     @State private var gainOpacity: Double = 0
     private let successHold: Double = 1.5
-    private let doneFade: Double = 3.0
+    private let doneFade: Double = 1.2
 
     /// Mid-celebration (an undo during it ends it on the spot).
     private var celebrating: Bool { justCompleted && habit.isCompletedToday }
@@ -306,17 +306,20 @@ struct HabitCardView: View {
             // Name and options
             headerSection
 
-            // The number: consistency over the grid, and this week's change
-            consistencySection
+            // Done for today, the number and grid go out of focus; the
+            // struck-through name stays sharp
+            Group {
+                // The number: consistency over the grid, and this week's change
+                consistencySection
 
-            // Four-week grid — hero visual, gets remaining space
-            historyGridSection
+                // Four-week grid — hero visual, gets remaining space
+                historyGridSection
+            }
+            .blur(radius: 2.5 * doneAmount)
+            .opacity(1 - 0.5 * doneAmount)
         }
         .padding(12)
-        // Done for today: fade back and hatch over, data still readable
-        .opacity(1 - 0.45 * doneAmount)
         .background(cardBackground)
-        .overlay { DoneHatch(color: themeColor).opacity(doneAmount) }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         // Border lives outside the clip so it renders at full width and the
         // completed-state glow isn't cut off. strokeBorder draws inward.
@@ -792,7 +795,7 @@ struct HabitCardView: View {
         if !reduceMotion {
             burstToken += 1
             bloomProgress = 0
-            withAnimation(.easeOut(duration: 1.4)) { bloomProgress = 1 }
+            withAnimation(.easeOut(duration: 1.8)) { bloomProgress = 1 }
         }
 
         // Gold for a moment, then ease into the done look
@@ -1031,27 +1034,6 @@ struct InstantButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
-    }
-}
-
-
-/// Fine diagonal lines over a habit that's done for today.
-private struct DoneHatch: View {
-    let color: Color
-
-    var body: some View {
-        Canvas { context, size in
-            var path = Path()
-            let step: CGFloat = 8
-            var x = -size.height
-            while x < size.width {
-                path.move(to: CGPoint(x: x, y: size.height))
-                path.addLine(to: CGPoint(x: x + size.height, y: 0))
-                x += step
-            }
-            context.stroke(path, with: .color(color.opacity(0.14)), lineWidth: 1.5)
-        }
-        .allowsHitTesting(false)
     }
 }
 
