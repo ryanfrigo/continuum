@@ -110,39 +110,48 @@ struct ContentView: View {
         habits.first { $0.id == id }?.isCompletedToday ?? false
     }
 
-    /// Gravity, then balance: the card falls onto (or rises off) the done
-    /// pile in its column; then, while a done card sits above an open one
-    /// in the other column, the top of that pile moves across. Every move
-    /// is straight up, down or across.
+    /// Gravity and balance in one move: the card falls onto (or rises off)
+    /// the done pile in its column and, if a done card would then sit above
+    /// an open one in the other column, crosses over. Cards that can stay
+    /// in line slide straight up, down or across; the card itself, and any
+    /// that would have to go diagonally, break up and re-form instead.
     private func settle(_ habitID: UUID) {
         Task { @MainActor in
-            await relocate(habitID) { $0.fall(habitID, isDone: isDoneToday) }
-            while let (column, row) = grid.imbalance(isDone: isDoneToday) {
-                try? await Task.sleep(for: .milliseconds(150))
-                let mover = grid.columns[column][row]
-                await relocate(mover) { $0.rebalanceStep(isDone: isDoneToday) }
+            await relocate(habitID) { grid in
+                grid.fall(habitID, isDone: isDoneToday)
+                while grid.rebalanceStep(isDone: isDoneToday) != nil {}
             }
         }
     }
 
-    /// One move: the card breaks into squares, the others slide into their
-    /// new places, it re-forms in its own.
+    /// Undo: back to its place in the sort order, the whole grid dealt
+    /// fresh — open habits in order, then done ones.
+    private func resort(_ habitID: UUID) {
+        Task { @MainActor in
+            await relocate(habitID) { grid in
+                let ordered = habitSort.sorted(habits, keeping: frozenOrder).map(\.id)
+                grid = HabitColumns(ordered: ordered, isDone: isDoneToday)
+            }
+        }
+    }
+
     private func relocate(_ habitID: UUID, _ change: (inout HabitColumns) -> Void) async {
         var next = grid
         change(&next)
         guard next != grid else { return }
         guard !reduceMotion else {
-            withAnimation(.easeInOut(duration: 0.35)) { change(&grid) }
+            withAnimation(.easeInOut(duration: 0.35)) { grid = next }
             return
         }
+        let breaking = [habitID] + grid.diagonalMoves(to: next).filter { $0 != habitID }
         SoundManager.shared.playDissolve()
-        withAnimation(.easeIn(duration: 0.4)) { dissolve[habitID] = 1 }
+        withAnimation(.easeIn(duration: 0.4)) { for id in breaking { dissolve[id] = 1 } }
         try? await Task.sleep(for: .milliseconds(400))
+        // Re-derive from the grid as it is now, in case another move landed
         withAnimation(.smooth(duration: 0.5)) { change(&grid) }
         try? await Task.sleep(for: .milliseconds(450))
         SoundManager.shared.playReform()
-        withAnimation(.easeOut(duration: 0.45)) { dissolve[habitID] = 0 }
-        try? await Task.sleep(for: .milliseconds(450))
+        withAnimation(.easeOut(duration: 0.45)) { for id in breaking { dissolve[id] = 0 } }
     }
 
     private func refreshOrder() {
@@ -643,7 +652,7 @@ struct ContentView: View {
                 settle(habitID)
             }
         } else if !completed {
-            settle(habitID)
+            resort(habitID)
         }
 
         guard completed else { return }

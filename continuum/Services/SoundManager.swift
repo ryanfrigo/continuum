@@ -23,8 +23,6 @@ class SoundManager {
     /// beep must not cut off the previous one. A single node with
     /// `.interrupts` truncated the first tone mid-cycle — an audible click.
     private let playerNodes = (0..<16).map { _ in AVAudioPlayerNode() }
-    /// The hold's rising tone has its own voice, so letting go can stop it.
-    private let chargeNode = AVAudioPlayerNode()
     private var nextNode = 0
     /// Voices → bus → short echo → small room. A dry synthesized tone reads
     /// as a beep; a little space makes it read as an instrument.
@@ -80,8 +78,6 @@ class SoundManager {
                 engine.connect(node, to: bus, format: format)
             }
         }
-        engine.attach(chargeNode)
-        if let format = audioFormat { engine.connect(chargeNode, to: bus, format: format) }
         startEngine()
         prepareHapticEngine()
     }
@@ -103,7 +99,6 @@ class SoundManager {
     /// transients whose gaps compress as the bar fills. Accelerating intervals
     /// read as charging up; a continuous vibration for 900ms reads as mush.
     func startHoldFeedback(duration: Double) {
-        playCharge(duration: duration)
         guard hapticsAllowed else { return }
         impactRigid.prepare()
         impactLight.prepare()
@@ -160,7 +155,6 @@ class SoundManager {
     /// Call when the hold is released early: stop the ladder and land one dull
     /// thud, so "nothing happened" is legible without being punishing.
     func cancelHoldFeedback() {
-        stopCharge()
         try? holdPlayer?.stop(atTime: CHHapticTimeImmediate)
         holdPlayer = nil
         guard hapticsAllowed else { return }
@@ -323,26 +317,6 @@ class SoundManager {
         notification.notificationOccurred(.success)
     }
 
-    /// High, sparse, pentatonic, lost in the echo: the bloom's sparkle.
-    /// Quiet on purpose — the bell is the event, this is the air around it.
-    func playBloomShimmer() {
-        guard SoundManager.soundEnabled else { return }
-        let notes: [(Double, Double)] = [(2093, 0.12), (1568, 0.26), (2637, 0.42), (1760, 0.62), (3136, 0.86)]
-        for (frequency, offset) in notes {
-            playTone(frequency: frequency, duration: 0.5, startOffset: offset, gain: 0.16)
-        }
-    }
-
-    /// The % counting up: one tick per point, climbing C6–D6–E6–G6–A6, in
-    /// time with the haptic ticks.
-    func playGainTicks(_ count: Int, after delay: Double) {
-        guard SoundManager.soundEnabled, count > 0 else { return }
-        let scale = [1047.0, 1175, 1319, 1568, 1760]
-        for i in 0..<min(count, scale.count) {
-            playTone(frequency: scale[i], duration: 0.06, startOffset: delay + Double(i) * 0.07, gain: 0.3)
-        }
-    }
-
     /// A card breaking into squares: a quick fall of tiny notes over a
     /// crackle of light ticks.
     func playDissolve() {
@@ -373,42 +347,6 @@ class SoundManager {
         }
         gather.append(tick(0.26, intensity: 0.6, sharpness: 0.3))   // lands
         playPattern(gather) { impactSoft.impactOccurred(intensity: 0.6) }
-    }
-
-    // MARK: - Hold charge
-
-    /// The hold's rising tone: G3 climbing to just under G4, so the bell
-    /// lands it on the note it was reaching for.
-    private func playCharge(duration: Double) {
-        guard SoundManager.soundEnabled, canPlayAudio, let format = audioFormat else { return }
-        let samples = Int(sampleRate * duration)
-        guard samples > 0,
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples)),
-              let channel = buffer.floatChannelData?[0] else { return }
-        buffer.frameLength = AVAudioFrameCount(samples)
-        let from = 196.0, to = 370.0
-        var phase = 0.0
-        let edge = sampleRate * 0.02
-        for i in 0..<samples {
-            let x = Double(i) / Double(samples)
-            let frequency = from * pow(to / from, x)
-            phase += 2.0 * .pi * frequency / sampleRate
-            let fade = min(1.0, Double(i) / edge, Double(samples - i) / edge)
-            let level = 0.04 + 0.08 * x * x
-            channel[i] = Float((sin(phase) + 0.3 * sin(2 * phase)) * level * fade)
-        }
-        chargeNode.stop()
-        chargeNode.volume = 1
-        chargeNode.scheduleBuffer(buffer, at: nil)
-        chargeNode.play()
-    }
-
-    private func stopCharge() {
-        // Volume first: a hard stop mid-cycle clicks
-        chargeNode.volume = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
-            self?.chargeNode.stop()
-        }
     }
 
     func playSubtleClick() {

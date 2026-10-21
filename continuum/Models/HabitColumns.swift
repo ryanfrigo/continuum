@@ -70,4 +70,21 @@ struct HabitColumns: Equatable {
         fall(doneID, isDone: isDone)
         return doneID
     }
+
+    /// Cards that would change both row and column getting to `other`:
+    /// they can't slide there in a straight line.
+    func diagonalMoves(to other: HabitColumns) -> [UUID] {
+        func spots(_ grid: HabitColumns) -> [UUID: (Int, Int)] {
+            var out: [UUID: (Int, Int)] = [:]
+            for (c, column) in grid.columns.enumerated() {
+                for (r, id) in column.enumerated() { out[id] = (c, r) }
+            }
+            return out
+        }
+        let before = spots(self), after = spots(other)
+        return before.compactMap { id, from in
+            guard let to = after[id], to.0 != from.0, to.1 != from.1 else { return nil }
+            return id
+        }
+    }
 }

@@ -39,10 +39,13 @@ struct HabitCardView: View {
     @State private var isAnimatingCompletion = false
     @State private var completionProgress: CGFloat = 0
 
-    // Tap-then-hold backfills yesterday. The tap's own feedback (hint / undo)
-    // waits out the window so a second press can't land on the undo button.
+    // Tap-then-hold backfills yesterday. The tap's feedback (hint / undo)
+    // shows at once; a second press inside the window clears it, and the undo
+    // button ignores presses that soon so that press can't land on it.
     @State private var lastTapAt: Date?
-    @State private var pendingTapFeedback: UUID?
+    /// Bumped per tap so an older tap's auto-hide can't cut a newer one short.
+    @State private var tapFeedbackToken = 0
+    @State private var undoShownAt = Date.distantPast
     /// Non-nil while the current hold is filling in yesterday instead of today.
     @State private var backfillDate: Date?
     private let tapHoldWindow: Double = 0.35
@@ -190,14 +193,7 @@ struct HabitCardView: View {
                 return
             }
             lastTapAt = Date()
-            let token = UUID()
-            pendingTapFeedback = token
-            DispatchQueue.main.asyncAfter(deadline: .now() + tapHoldWindow) {
-                // A press started inside the window: it's a tap-hold, not a tap
-                guard pendingTapFeedback == token else { return }
-                pendingTapFeedback = nil
-                showTapFeedback()
-            }
+            showTapFeedback()
         }
         // Hold to complete — the fill bar tracks the press; release early to cancel.
         // Tap first, then hold, to fill in yesterday.
@@ -209,7 +205,6 @@ struct HabitCardView: View {
             if pressing {
                 let isTapHold = lastTapAt.map { Date().timeIntervalSince($0) < tapHoldWindow } ?? false
                 lastTapAt = nil
-                pendingTapFeedback = nil
                 guard !isAnimatingCompletion else { return }
                 if isTapHold, let yesterday = yesterdayIfMissed {
                     startCompletion(backfilling: yesterday)
@@ -269,22 +264,27 @@ struct HabitCardView: View {
     }
 
     private func showTapFeedback() {
+        tapFeedbackToken += 1
+        let token = tapFeedbackToken
         if habit.isCompletedToday {
             SoundManager.shared.triggerSelectionHaptic()
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            undoShownAt = Date()
+            withAnimation(.snappy(duration: 0.18)) {
                 showUndoConfirm = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                guard token == tapFeedbackToken else { return }
                 withAnimation(.easeOut(duration: 0.2)) {
                     showUndoConfirm = false
                 }
             }
-        } else if !isAnimatingCompletion && !showHoldHint {
+        } else if !isAnimatingCompletion {
             SoundManager.shared.triggerSelectionHaptic()
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(.snappy(duration: 0.18)) {
                 showHoldHint = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                guard token == tapFeedbackToken else { return }
                 withAnimation(.easeOut(duration: 0.2)) {
                     showHoldHint = false
                 }
@@ -666,6 +666,8 @@ struct HabitCardView: View {
         VStack {
             Spacer()
             Button {
+                // A tap-hold's second press, not a deliberate undo
+                if Date().timeIntervalSince(undoShownAt) < tapHoldWindow { return }
                 // Actually undo
                 SoundManager.shared.playUndo()
                 habit.toggleCompletion()
@@ -797,7 +799,6 @@ struct HabitCardView: View {
 
         if !reduceMotion {
             burstToken += 1
-            SoundManager.shared.playBloomShimmer()
             SoundManager.shared.triggerBloomSwell()
             bloomProgress = 0
             withAnimation(.easeOut(duration: 1.8)) { bloomProgress = 1 }
@@ -835,7 +836,6 @@ struct HabitCardView: View {
         // The number clicks over, one tick per point, after the hit lands
         let gain = (consistency.percent ?? 0) - percentBefore
         SoundManager.shared.triggerHealthTicks(gain, after: 0.3)
-        SoundManager.shared.playGainTicks(gain, after: 0.3)
         showGain(gain > 0 ? "+\(gain)%" : "+1 DAY")
 
         // A backfill moves the number and the days done, so it's a completion too

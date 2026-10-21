@@ -1366,6 +1366,15 @@ struct HomeScreenTests {
         #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == nil)
     }
 
+    @Test func onlyCardsChangingRowAndColumnCountAsDiagonal() {
+        let ids = (0..<4).map { _ in UUID() }
+        let before = HabitColumns(ordered: ids, isDone: { _ in false })   // 0 1 / 2 3
+        var after = before
+        after.columns = [[ids[2], ids[1]], [ids[0], ids[3]]]
+        // 2 rises and 0 crosses (straight); 1 goes across and down
+        #expect(before.diagonalMoves(to: after) == [ids[1]])
+    }
+
     @Test func undoneHabitRisesOffThePileAndTheGridRebalances() {
         let ids = (0..<5).map { _ in UUID() }
         var done: Set<UUID> = [ids[3], ids[4]]
