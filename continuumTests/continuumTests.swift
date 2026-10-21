@@ -1340,5 +1340,58 @@ struct HomeScreenTests {
         #expect(history[2].tally == ConsistencyTally(done: 3, counted: 3))
         #expect(history[3].tally == ConsistencyTally(done: 3, counted: 3))    // today open: not counted yet
     }
+
+    @Test func doneHabitFallsInItsColumnThenMovesAcross() {
+        let ids = (0..<6).map { _ in UUID() }
+        var done: Set<UUID> = []
+        var grid = HabitColumns(ordered: ids, isDone: { done.contains($0) })
+        #expect(grid.rows == ids)
+
+        // Top-left done: it falls to the bottom of the left column, the
+        // left column rises, the right column doesn't move
+        done.insert(ids[0])
+        grid.fall(ids[0], isDone: { done.contains($0) })
+        #expect(grid.columns[0] == [ids[2], ids[4], ids[0]])
+        #expect(grid.columns[1] == [ids[1], ids[3], ids[5]])
+        #expect(grid.imbalance(isDone: { done.contains($0) }) == nil)   // a part-done bottom row is fine
+
+        // Second done in the same column: it lands on the pile, above the
+        // right column's open bottom card, so it moves across
+        done.insert(ids[2])
+        grid.fall(ids[2], isDone: { done.contains($0) })
+        #expect(grid.columns[0] == [ids[4], ids[2], ids[0]])
+        #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == ids[2])
+        #expect(grid.columns[0] == [ids[4], ids[3], ids[0]])
+        #expect(grid.columns[1] == [ids[1], ids[5], ids[2]])
+        #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == nil)
+    }
+
+    @Test func undoneHabitRisesOffThePileAndTheGridRebalances() {
+        let ids = (0..<5).map { _ in UUID() }
+        var done: Set<UUID> = [ids[3], ids[4]]
+        var grid = HabitColumns(ordered: ids, isDone: { done.contains($0) })
+        // Open first, then done, dealt left-right: 0 1 / 2 3 / 4
+        #expect(grid.columns[0] == [ids[0], ids[2], ids[4]])
+        #expect(grid.columns[1] == [ids[1], ids[3]])
+
+        // Undo the right column's done one: already just above nothing, stays
+        done.remove(ids[3])
+        grid.fall(ids[3], isDone: { done.contains($0) })
+        #expect(grid.columns[1] == [ids[1], ids[3]])
+        #expect(grid.imbalance(isDone: { done.contains($0) }) == nil)
+
+        // A done card can't sit above an open one in the other column
+        done.insert(ids[1])
+        grid.fall(ids[1], isDone: { done.contains($0) })
+        #expect(grid.columns[1] == [ids[3], ids[1]])
+        #expect(grid.imbalance(isDone: { done.contains($0) }) == nil)
+        done.insert(ids[3])
+        grid.fall(ids[3], isDone: { done.contains($0) })
+        #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == ids[3])
+        #expect(grid.columns[0] == [ids[2], ids[3], ids[4]])
+        #expect(grid.columns[1] == [ids[0], ids[1]])
+        #expect(grid.rows == [ids[2], ids[0], ids[3], ids[1], ids[4]])
+        #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == nil)
+    }
 }
 }

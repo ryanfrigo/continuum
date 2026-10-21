@@ -667,7 +667,7 @@ struct HabitCardView: View {
             Spacer()
             Button {
                 // Actually undo
-                SoundManager.shared.triggerSelectionHaptic()
+                SoundManager.shared.playUndo()
                 habit.toggleCompletion()
                 let habitData = HabitData(from: habit)
                 Task.detached(priority: .background) {
@@ -797,6 +797,8 @@ struct HabitCardView: View {
 
         if !reduceMotion {
             burstToken += 1
+            SoundManager.shared.playBloomShimmer()
+            SoundManager.shared.triggerBloomSwell()
             bloomProgress = 0
             withAnimation(.easeOut(duration: 1.8)) { bloomProgress = 1 }
         }
@@ -833,6 +835,7 @@ struct HabitCardView: View {
         // The number clicks over, one tick per point, after the hit lands
         let gain = (consistency.percent ?? 0) - percentBefore
         SoundManager.shared.triggerHealthTicks(gain, after: 0.3)
+        SoundManager.shared.playGainTicks(gain, after: 0.3)
         showGain(gain > 0 ? "+\(gain)%" : "+1 DAY")
 
         // A backfill moves the number and the days done, so it's a completion too

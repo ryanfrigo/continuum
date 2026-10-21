@@ -89,56 +89,65 @@ struct ContentView: View {
     /// moves the % but never the cards.
     @State private var frozenOrder: [UUID] = []
 
-    /// Done today and moved to the bottom of its column. Set explicitly, not
-    /// read off the habit, so every move goes through `move(_:sunk:)`.
-    @State private var sunkIDs: Set<UUID> = []
+    /// Where each card sits: two columns, done habits under open ones.
+    /// Changed only through `settle(_:)` and `refreshOrder()`.
+    @State private var grid = HabitColumns(ordered: [], isDone: { _ in false })
     /// The card's gold moment plus its fade (HabitCardView successHold + doneFade).
     private let sinkDelay: Double = 2.8
     /// Per card, 0 → 1 while it breaks up to change slot.
     @State private var dissolve: [UUID: Double] = [:]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var sortedHabits: [Habit] { order(sunk: sunkIDs) }
-
-    /// Two columns that keep their habits: a done one falls to the bottom of
-    /// its own column, so every move is straight up or down. Returned row by
-    /// row, for the grid.
-    private func order(sunk: Set<UUID>) -> [Habit] {
-        let base = habitSort.sorted(habits, keeping: frozenOrder)
-        let stacks = (0..<2).map { c in
-            let column = base.indices.filter { $0 % 2 == c }.map { base[$0] }
-            return column.filter { !sunk.contains($0.id) } + column.filter { sunk.contains($0.id) }
-        }
-        var rows: [Habit] = []
-        for (i, habit) in stacks[0].enumerated() {
-            rows.append(habit)
-            if i < stacks[1].count { rows.append(stacks[1][i]) }
-        }
-        return rows
+    private var sortedHabits: [Habit] {
+        let byID = Dictionary(habits.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let placed = grid.rows.compactMap { byID[$0] }
+        // Anything not placed yet (it arrived between refreshes) goes last
+        let rest = habitSort.sorted(habits, keeping: frozenOrder).filter { !grid.contains($0.id) }
+        return placed + rest
     }
 
-    /// Gravity: the card breaks into squares, the cards below it in its
-    /// column rise into the gap, and it re-forms in its new slot.
-    private func move(_ habitID: UUID, sunk: Bool) {
-        guard sunkIDs.contains(habitID) != sunk else { return }
-        let apply = {
-            if sunk { sunkIDs.insert(habitID) } else { sunkIDs.remove(habitID) }
-        }
-        var next = sunkIDs
-        if sunk { next.insert(habitID) } else { next.remove(habitID) }
-        guard order(sunk: next).map(\.id) != sortedHabits.map(\.id) else { return apply() }
+    private func isDoneToday(_ id: UUID) -> Bool {
+        habits.first { $0.id == id }?.isCompletedToday ?? false
+    }
 
+    /// Gravity, then balance: the card falls onto (or rises off) the done
+    /// pile in its column; then, while a done card sits above an open one
+    /// in the other column, the top of that pile moves across. Every move
+    /// is straight up, down or across.
+    private func settle(_ habitID: UUID) {
+        Task { @MainActor in
+            await relocate(habitID) { $0.fall(habitID, isDone: isDoneToday) }
+            while let (column, row) = grid.imbalance(isDone: isDoneToday) {
+                try? await Task.sleep(for: .milliseconds(150))
+                let mover = grid.columns[column][row]
+                await relocate(mover) { $0.rebalanceStep(isDone: isDoneToday) }
+            }
+        }
+    }
+
+    /// One move: the card breaks into squares, the others slide into their
+    /// new places, it re-forms in its own.
+    private func relocate(_ habitID: UUID, _ change: (inout HabitColumns) -> Void) async {
+        var next = grid
+        change(&next)
+        guard next != grid else { return }
+        guard !reduceMotion else {
+            withAnimation(.easeInOut(duration: 0.35)) { change(&grid) }
+            return
+        }
+        SoundManager.shared.playDissolve()
         withAnimation(.easeIn(duration: 0.4)) { dissolve[habitID] = 1 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.smooth(duration: 0.5)) { apply() }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.easeOut(duration: 0.45)) { dissolve[habitID] = 0 }
-        }
+        try? await Task.sleep(for: .milliseconds(400))
+        withAnimation(.smooth(duration: 0.5)) { change(&grid) }
+        try? await Task.sleep(for: .milliseconds(450))
+        SoundManager.shared.playReform()
+        withAnimation(.easeOut(duration: 0.45)) { dissolve[habitID] = 0 }
+        try? await Task.sleep(for: .milliseconds(450))
     }
 
     private func refreshOrder() {
         frozenOrder = habitSort.sorted(habits).map(\.id)
-        sunkIDs = Set(habits.filter(\.isCompletedToday).map(\.id))
+        grid = HabitColumns(ordered: frozenOrder, isDone: isDoneToday)
     }
 
     private var hasHabits: Bool {
@@ -617,6 +626,7 @@ struct ContentView: View {
         modelContext.insert(habit)
         try? modelContext.save()
         syncHabitToWidget(habit)
+        SoundManager.shared.playAddHabit()
     }
 
     private func checkForMilestones(habit: Habit, completed: Bool, dayKey: Int) {
@@ -630,10 +640,10 @@ struct ContentView: View {
         if completed && dayKey == ContinuumDay.todayKey() {
             DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
                 guard habit.isCompletedToday else { return }
-                move(habitID, sunk: true)
+                settle(habitID)
             }
         } else if !completed {
-            move(habitID, sunk: false)
+            settle(habitID)
         }
 
         guard completed else { return }
