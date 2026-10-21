@@ -94,14 +94,35 @@ struct ContentView: View {
     @State private var settlingIDs: Set<UUID> = []
     /// The card's gold moment plus its fade (HabitCardView successHold + doneFade).
     private let sinkDelay: Double = 2.8
-    /// Cards on their way down: smaller, softer, and under the others.
-    @State private var sinkingIDs: Set<UUID> = []
+    /// Cards changing slot as one sinks: faded out while they swap, so
+    /// nothing zig-zags across the two columns.
+    @State private var reflowingIDs: Set<UUID> = []
 
     /// What's left today first, then what's done, each in the frozen order.
-    private var sortedHabits: [Habit] {
+    private var sortedHabits: [Habit] { order(settling: settlingIDs) }
+
+    private func order(settling: Set<UUID>) -> [Habit] {
         let ordered = habitSort.sorted(habits, keeping: frozenOrder)
-        let sunk: (Habit) -> Bool = { $0.isCompletedToday && !settlingIDs.contains($0.id) }
+        let sunk: (Habit) -> Bool = { $0.isCompletedToday && !settling.contains($0.id) }
         return ordered.filter { !sunk($0) } + ordered.filter(sunk)
+    }
+
+    /// Lets a settled card sink: the cards whose slot changes fade out,
+    /// swap without travelling, and fade back in. The rest stay still.
+    private func sink(_ habitID: UUID) {
+        var settled = settlingIDs
+        guard settled.remove(habitID) != nil else { return }
+        let before = order(settling: settlingIDs).map(\.id)
+        let after = order(settling: settled).map(\.id)
+        let moving = Set(zip(before, after).filter { $0 != $1 }.flatMap { [$0.0, $0.1] })
+        guard !moving.isEmpty else { settlingIDs = settled; return }
+        withAnimation(.easeIn(duration: 0.25)) { reflowingIDs.formUnion(moving) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            var swap = Transaction()
+            swap.disablesAnimations = true
+            withTransaction(swap) { settlingIDs.remove(habitID) }
+            withAnimation(.easeOut(duration: 0.35)) { reflowingIDs.subtract(moving) }
+        }
     }
 
     private func refreshOrder() {
@@ -485,10 +506,8 @@ struct ContentView: View {
                         )
                         // No drag-reorder here: long press is the completion
                         // gesture. Reordering lives in Settings → Reorder Habits.
-                        .scaleEffect(sinkingIDs.contains(habit.id) ? 0.9 : 1)
-                        .blur(radius: sinkingIDs.contains(habit.id) ? 6 : 0)
-                        .opacity(sinkingIDs.contains(habit.id) ? 0.7 : 1)
-                        .zIndex(sinkingIDs.contains(habit.id) ? -1 : 0)
+                        .scaleEffect(reflowingIDs.contains(habit.id) ? 0.96 : 1)
+                        .opacity(reflowingIDs.contains(habit.id) ? 0 : 1)
                     }
                 }
                 .animation(.smooth(duration: 0.7), value: sortedHabits.map(\.id))
@@ -600,16 +619,7 @@ struct ContentView: View {
         if completed && dayKey == ContinuumDay.todayKey() {
             settlingIDs.insert(habitID)
             DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
-                // Undone meanwhile: it already moved back up
-                guard settlingIDs.contains(habitID) else { return }
-                // Dip back, slide under the others, surface at the bottom
-                withAnimation(.easeIn(duration: 0.2)) { _ = sinkingIDs.insert(habitID) }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    settlingIDs.remove(habitID)
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    withAnimation(.smooth(duration: 0.35)) { _ = sinkingIDs.remove(habitID) }
-                }
+                sink(habitID)
             }
         } else if !completed {
             settlingIDs.remove(habitID)

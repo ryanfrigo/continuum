@@ -108,7 +108,7 @@ struct HabitCardView: View {
     /// Gold while the completion lands, a quiet line once done, faint while open.
     private var borderColor: Color {
         if celebrating { return goldColor.opacity(0.95) }
-        return themeColor.opacity(habit.isCompletedToday ? 0.35 : 0.16)
+        return themeColor.opacity(habit.isCompletedToday ? 0.9 : 0.2)
     }
 
     /// Days back to the first done day. Older cells aren't misses — the habit
@@ -306,8 +306,8 @@ struct HabitCardView: View {
             // Name and options
             headerSection
 
-            // Done for today, the number and grid go out of focus; the
-            // struck-through name stays sharp
+            // Done for today, the number and grid step back; the name stays
+            // bright, struck through
             Group {
                 // The number: consistency over the grid, and this week's change
                 consistencySection
@@ -315,8 +315,7 @@ struct HabitCardView: View {
                 // Four-week grid — hero visual, gets remaining space
                 historyGridSection
             }
-            .blur(radius: 2.5 * doneAmount)
-            .opacity(1 - 0.5 * doneAmount)
+            .opacity(1 - 0.4 * doneAmount)
         }
         .padding(12)
         .background(cardBackground)
@@ -327,16 +326,16 @@ struct HabitCardView: View {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .strokeBorder(
                     borderColor,
-                    lineWidth: celebrating ? 2.5 : (habit.isCompletedToday ? 1.5 : 1)
+                    lineWidth: habit.isCompletedToday ? 3 : 1.5
                 )
         )
         .shadow(
-            color: goldColor.opacity(celebrating ? 0.55 : 0),
+            color: celebrating ? goldColor.opacity(0.55) : themeColor.opacity(habit.isCompletedToday ? 0.35 : 0),
             radius: 10
         )
         .overlay {
-            if celebrating {
-                TiltSheenBorder(cornerRadius: cornerRadius, lineWidth: 2.5)
+            if habit.isCompletedToday {
+                TiltSheenBorder(cornerRadius: cornerRadius, lineWidth: 3)
                     .transition(.opacity)
             }
         }
