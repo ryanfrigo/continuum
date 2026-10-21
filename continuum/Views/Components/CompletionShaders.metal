@@ -77,3 +77,25 @@ static float mandalaField(float r, float a, float n, float spin, float t, float 
     // Additive: alpha only needs to cover the brightest channel
     return half4(half3(col), half(max(col.r, max(col.g, col.b))));
 }
+
+// A done card leaving its slot: it breaks into squares like its own grid,
+// each shrinking away on its own beat, from the top down. Run `t` 1 → 0 to
+// put it back together.
+[[ stitchable ]] half4 pixelDissolve(float2 position, SwiftUI::Layer layer, float2 size, float t) {
+    float block = 6.0;
+    float2 cell = floor(position / block);
+    float2 centre = (cell + 0.5) * block;
+    float h = fract(sin(dot(cell, float2(12.9898, 78.233))) * 43758.5453);
+    // When this square goes: mostly chance, a little top-down
+    float start = h * 0.55 + (centre.y / max(size.y, 1.0)) * 0.2;
+    float local = clamp((t - start) / 0.25, 0.0, 1.0);
+
+    // Breaks into squares as soon as it starts
+    half4 c = t > 0.02 ? layer.sample(centre) : layer.sample(position);
+    float2 f = abs(position - centre) / (block * 0.5);
+    float edge = 1.0 - local;
+    half keep = (max(f.x, f.y) < edge * 0.92) ? 1.0 : 0.0;
+    // A brief flare as each square goes
+    c.rgb += c.a * half(local * (1.0 - local) * 1.6);
+    return c * keep;
+}

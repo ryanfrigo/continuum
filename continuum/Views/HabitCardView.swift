@@ -9,6 +9,8 @@ struct HabitCardView: View {
     var habitCount: Int = 1
     /// Bumped by ContentView when the day's last habit is done.
     var perfectDaySweep: Int = 0
+    /// 0 → 1 breaks the card into squares and away, as it moves slot.
+    var dissolve: Double = 0
     var onAction: ((HabitAction) -> Void)? = nil
     /// (completed, day key marked) — the day is today, or yesterday on a backfill.
     var onCompletion: ((Bool, Int) -> Void)? = nil
@@ -135,10 +137,12 @@ struct HabitCardView: View {
             // Main card
             cardContent
                 .modifier(CompletionBloomEffect(progress: bloomProgress, cornerRadius: cornerRadius))
+                .modifier(PixelDissolveEffect(progress: dissolve))
                 // Outside the shader: a system menu can't be drawn through one.
                 // Tucked into the corner, centred on the title's first line.
                 .overlay(alignment: .topTrailing) {
                     optionsMenu.padding(.top, 10).padding(.trailing, 2)
+                        .opacity(1 - dissolve)
                 }
                 .scaleEffect(cardScale)
                 .overlay {
@@ -1036,6 +1040,26 @@ struct InstantButtonStyle: ButtonStyle {
     }
 }
 
+
+/// Breaks the card into squares (CompletionShaders.metal pixelDissolve).
+private struct PixelDissolveEffect: ViewModifier, Animatable {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.visualEffect { view, proxy in
+            view.layerEffect(
+                ShaderLibrary.pixelDissolve(.float2(proxy.size), .float(Float(progress))),
+                maxSampleOffset: CGSize(width: 6, height: 6),
+                isEnabled: progress > 0
+            )
+        }
+    }
+}
 
 /// The completion's shockwave and fractal bloom (CompletionShaders.metal).
 /// Animatable, so a single withAnimation drives the shaders frame by frame

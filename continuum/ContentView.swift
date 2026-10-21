@@ -89,44 +89,56 @@ struct ContentView: View {
     /// moves the % but never the cards.
     @State private var frozenOrder: [UUID] = []
 
-    /// Done today but still celebrating: holds its place until the card has
-    /// faded, then sinks below what's left.
-    @State private var settlingIDs: Set<UUID> = []
+    /// Done today and moved to the bottom of its column. Set explicitly, not
+    /// read off the habit, so every move goes through `move(_:sunk:)`.
+    @State private var sunkIDs: Set<UUID> = []
     /// The card's gold moment plus its fade (HabitCardView successHold + doneFade).
     private let sinkDelay: Double = 2.8
-    /// Cards changing slot as one sinks: faded out while they swap, so
-    /// nothing zig-zags across the two columns.
-    @State private var reflowingIDs: Set<UUID> = []
+    /// Per card, 0 → 1 while it breaks up to change slot.
+    @State private var dissolve: [UUID: Double] = [:]
 
-    /// What's left today first, then what's done, each in the frozen order.
-    private var sortedHabits: [Habit] { order(settling: settlingIDs) }
+    private var sortedHabits: [Habit] { order(sunk: sunkIDs) }
 
-    private func order(settling: Set<UUID>) -> [Habit] {
-        let ordered = habitSort.sorted(habits, keeping: frozenOrder)
-        let sunk: (Habit) -> Bool = { $0.isCompletedToday && !settling.contains($0.id) }
-        return ordered.filter { !sunk($0) } + ordered.filter(sunk)
+    /// Two columns that keep their habits: a done one falls to the bottom of
+    /// its own column, so every move is straight up or down. Returned row by
+    /// row, for the grid.
+    private func order(sunk: Set<UUID>) -> [Habit] {
+        let base = habitSort.sorted(habits, keeping: frozenOrder)
+        let stacks = (0..<2).map { c in
+            let column = base.indices.filter { $0 % 2 == c }.map { base[$0] }
+            return column.filter { !sunk.contains($0.id) } + column.filter { sunk.contains($0.id) }
+        }
+        var rows: [Habit] = []
+        for (i, habit) in stacks[0].enumerated() {
+            rows.append(habit)
+            if i < stacks[1].count { rows.append(stacks[1][i]) }
+        }
+        return rows
     }
 
-    /// Lets a settled card sink: the cards whose slot changes fade out,
-    /// swap without travelling, and fade back in. The rest stay still.
-    private func sink(_ habitID: UUID) {
-        var settled = settlingIDs
-        guard settled.remove(habitID) != nil else { return }
-        let before = order(settling: settlingIDs).map(\.id)
-        let after = order(settling: settled).map(\.id)
-        let moving = Set(zip(before, after).filter { $0 != $1 }.flatMap { [$0.0, $0.1] })
-        guard !moving.isEmpty else { settlingIDs = settled; return }
-        withAnimation(.easeIn(duration: 0.25)) { reflowingIDs.formUnion(moving) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            var swap = Transaction()
-            swap.disablesAnimations = true
-            withTransaction(swap) { settlingIDs.remove(habitID) }
-            withAnimation(.easeOut(duration: 0.35)) { reflowingIDs.subtract(moving) }
+    /// Gravity: the card breaks into squares, the cards below it in its
+    /// column rise into the gap, and it re-forms in its new slot.
+    private func move(_ habitID: UUID, sunk: Bool) {
+        guard sunkIDs.contains(habitID) != sunk else { return }
+        let apply = {
+            if sunk { sunkIDs.insert(habitID) } else { sunkIDs.remove(habitID) }
+        }
+        var next = sunkIDs
+        if sunk { next.insert(habitID) } else { next.remove(habitID) }
+        guard order(sunk: next).map(\.id) != sortedHabits.map(\.id) else { return apply() }
+
+        withAnimation(.easeIn(duration: 0.4)) { dissolve[habitID] = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.smooth(duration: 0.5)) { apply() }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            withAnimation(.easeOut(duration: 0.45)) { dissolve[habitID] = 0 }
         }
     }
 
     private func refreshOrder() {
         frozenOrder = habitSort.sorted(habits).map(\.id)
+        sunkIDs = Set(habits.filter(\.isCompletedToday).map(\.id))
     }
 
     private var hasHabits: Bool {
@@ -491,6 +503,7 @@ struct ContentView: View {
                             completedTodayCount: completedTodayCount,
                             habitCount: habits.count,
                             perfectDaySweep: perfectDaySweep,
+                            dissolve: dissolve[habit.id] ?? 0,
                             onAction: { action in
                                 handleHabitAction(action, for: habit)
                             },
@@ -506,11 +519,8 @@ struct ContentView: View {
                         )
                         // No drag-reorder here: long press is the completion
                         // gesture. Reordering lives in Settings → Reorder Habits.
-                        .scaleEffect(reflowingIDs.contains(habit.id) ? 0.96 : 1)
-                        .opacity(reflowingIDs.contains(habit.id) ? 0 : 1)
                     }
                 }
-                .animation(.smooth(duration: 0.7), value: sortedHabits.map(\.id))
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
                 .padding(.bottom, 100) // Extra padding for tab bar safety
@@ -614,15 +624,16 @@ struct ContentView: View {
         // alert; undo restores them. The planner derives both from the new state.
         syncNotifications()
 
-        // Done today: stay put through the celebration, then sink
+        // Done today: stay put through the celebration, then sink.
+        // Undone: back up to its place.
         let habitID = habit.id
         if completed && dayKey == ContinuumDay.todayKey() {
-            settlingIDs.insert(habitID)
             DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
-                sink(habitID)
+                guard habit.isCompletedToday else { return }
+                move(habitID, sunk: true)
             }
         } else if !completed {
-            settlingIDs.remove(habitID)
+            move(habitID, sunk: false)
         }
 
         guard completed else { return }
