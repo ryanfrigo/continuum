@@ -1,5 +1,13 @@
-The old icon is back. It's the one with the missing square in the second row, which I swapped out for 3.8 thinking the bottom corner read cleaner, and then missed within a week.
+The grid is four weeks now, not 66 days. I took 66 from Lally's 2010 study, and it was the wrong window for a daily number — a bad week took a month to show, and so did a good one. 28 days, seven to a row. The % and the colour use the same four weeks.
 
-Settings has a Send Feedback row now. Two weeks after your first habit, the app also asks once how it's going. I read every reply. Honestly, I don't know what most of you think of Continuum — that's the gap this closes.
+"Formed" is gone. A habit is strong at 80% over four weeks, and it gets a star. Drop under 80 and the star goes, until you're back over it.
 
-The app now sends a few anonymous signals too: whether setup got finished, and whether you come back. A random ID. Never your habits (the privacy policy lists every signal). Turn it off in Settings → Share Anonymous Usage.
+Done habits sink to the bottom, so what's left for today sits on top. Hold to mark one; the card breaks into squares and re-forms underneath.
+
+Also new:
+– Archive a habit from its menu. The history stays, and Settings brings it back.
+– Sort by most or least consistent, in Settings.
+– Tap the % at the top to see every habit on one chart, from 1 month to a year.
+– New colours, dark red to blue as a grid fills.
+
+One correction. Last update I wrote that the anonymous signals never include your habits. From 3.9 they include a few numbers once a day — your habit count, how many are strong, yesterday's total, each habit's % with no name attached, and a couple more. Habit names and the days you marked never leave your phone (the privacy policy lists every number). Settings → Share Anonymous Usage turns it off.
