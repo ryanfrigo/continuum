@@ -26,10 +26,6 @@ struct HabitCardView: View {
     private let gridDays: Int = HabitMath.gridDays
 
     // Sheet states
-    @State private var showingSetStreak = false
-    @State private var showingRename = false
-    @State private var newHabitName: String = ""
-    @State private var showingDeleteConfirmation = false
 
     // Animation states
     @State private var lastRefreshDate = Date()
@@ -54,8 +50,6 @@ struct HabitCardView: View {
     @State private var showHoldHint = false
     @State private var showUndoConfirm = false
 
-    // Reset confirmation
-    @State private var showingResetConfirmation = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Completion animation states
@@ -215,24 +209,12 @@ struct HabitCardView: View {
                 cancelCompletion()
             }
         }
+        // Broken up and moving: nothing there to tap or hold
+        .allowsHitTesting(dissolve == 0)
         .onAppear {
             lastRefreshDate = Date()
         }
         .onChange(of: refreshTrigger) { lastRefreshDate = Date() }
-        .sheet(isPresented: $showingSetStreak) { historyEditSheet }
-        .sheet(isPresented: $showingRename) { renameSheet }
-        .confirmationDialog("Delete Habit", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) { onAction?(.delete) }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Delete \"\(habit.name)\" and its history? This can't be undone.")
-        }
-        .confirmationDialog("Erase History", isPresented: $showingResetConfirmation, titleVisibility: .visible) {
-            Button("Erase", role: .destructive) { onAction?(.reset) }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Erase all history for \"\(habit.name)\"? This cannot be undone.")
-        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityAddTraits(.isButton)
@@ -873,13 +855,12 @@ struct HabitCardView: View {
         }
         Divider()
         Button {
-            newHabitName = habit.name
-            showingRename = true
+            onAction?(.editName)
         } label: {
             Label("Edit Name", systemImage: "pencil")
         }
         Button {
-            showingSetStreak = true
+            onAction?(.editHistory)
         } label: {
             Label("Edit History", systemImage: "calendar")
         }
@@ -890,47 +871,15 @@ struct HabitCardView: View {
         }
         Divider()
         Button(role: .destructive) {
-            showingResetConfirmation = true
+            onAction?(.confirmErase)
         } label: {
             Label("Erase History", systemImage: "eraser")
         }
         Button(role: .destructive) {
-            showingDeleteConfirmation = true
+            onAction?(.confirmDelete)
         } label: {
             Label("Delete Habit", systemImage: "trash")
         }
-    }
-
-    // MARK: - Sheets
-
-    private var historyEditSheet: some View {
-        HabitHistoryEditView(habit: habit) {
-            showingSetStreak = false
-        } onSave: {
-            let habitData = HabitData(from: habit)
-            HabitDataManager.shared.saveHabitData(habitData)
-            HabitDataManager.shared.updateWidgetTimeline()
-            // Marking today in history must silence today's reminder too
-            if let context = habit.modelContext,
-               let allHabits = try? context.fetch(FetchDescriptor<Habit>()) {
-                NotificationManager.shared.sync(habits: allHabits)
-            }
-            showingSetStreak = false
-        }
-        // Edits apply to the model live — swipe-dismiss would silently keep
-        // them while skipping both CANCEL's restore and SAVE's widget sync
-        .interactiveDismissDisabled()
-    }
-
-    private var renameSheet: some View {
-        RenameHabitSheet(habitName: $newHabitName, accent: themeColor) { newName in
-            onAction?(.rename(newName))
-            showingRename = false
-        } onCancel: {
-            showingRename = false
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
     }
 }
 
@@ -1015,6 +964,12 @@ private struct PerfectDaySweep: View {
 enum HabitAction {
     case reset
     case setStreak(Int)
+    // These open a sheet or confirmation, which ContentView presents: one on
+    // a cell of the lazy grid could stall until that card next changed.
+    case editName
+    case editHistory
+    case confirmDelete
+    case confirmErase
     case rename(String)
     case delete
     case archive

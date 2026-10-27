@@ -53,7 +53,13 @@ struct HabitColumns: Equatable {
         for heavy in 0..<2 where columns[heavy].count > open[heavy] {
             // Its top done card is at row open[heavy]; the other column's
             // lowest open card is at row open[other] - 1
-            if open[heavy] < open[1 - heavy] - 1 { return (heavy, open[heavy]) }
+            // Only a done card swapping with an open one: a card marked done
+            // but not settled yet leaves a column out of order, and swapping
+            // two open cards would never close the gap
+            let row = open[heavy], light = 1 - heavy
+            if row < open[light] - 1, isDone(columns[heavy][row]), !isDone(columns[light][row]) {
+                return (heavy, row)
+            }
         }
         return nil
     }

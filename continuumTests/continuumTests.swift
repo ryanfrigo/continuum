@@ -1366,6 +1366,23 @@ struct HomeScreenTests {
         #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == nil)
     }
 
+    @Test func aDoneCardStillCelebratingCantStallTheRebalance() {
+        let ids = (0..<6).map { _ in UUID() }
+        var done: Set<UUID> = []
+        var grid = HabitColumns(ordered: ids, isDone: { done.contains($0) })   // 0 1 / 2 3 / 4 5
+        // Bottom-left done, then top-left before the first one settles
+        done = [ids[4], ids[0]]
+        grid.fall(ids[4], isDone: { done.contains($0) })
+        // Left column is out of order (0 done above 2 open): no open-for-open swap
+        #expect(grid.rebalanceStep(isDone: { done.contains($0) }) == nil)
+
+        // Then top-left settles, and the grid balances
+        grid.fall(ids[0], isDone: { done.contains($0) })
+        while grid.rebalanceStep(isDone: { done.contains($0) }) != nil {}
+        #expect(grid.columns[0] == [ids[2], ids[3], ids[4]])
+        #expect(grid.columns[1] == [ids[1], ids[5], ids[0]])
+    }
+
     @Test func onlyCardsChangingRowAndColumnCountAsDiagonal() {
         let ids = (0..<4).map { _ in UUID() }
         let before = HabitColumns(ordered: ids, isDone: { _ in false })   // 0 1 / 2 3

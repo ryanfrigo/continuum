@@ -271,8 +271,10 @@ xcrun cktool import-schema   ... --environment development --file new.ckdb
 `import-schema` **refuses Production** ("endpoint not applicable in the
 environment 'production'") and cktool has **no deploy/promote command** — the
 Development → Production step is console-only, by Apple's design: CloudKit
-Console → container → Development → *Deploy Schema Changes…*. A human has to
-click it. Verify afterwards with `export-schema --environment production` and
+Console → container → Development → *Deploy Schema Changes…*. Since 2026-10-27
+Claude can click it through claude-in-chrome in Ryan's signed-in Chrome
+(confirm with him first: Production is permanent); without a connected
+browser, Ryan clicks it. Verify afterwards with `export-schema --environment production` and
 diff it against development.
 
 Production schema changes are **permanent and additive**: you can add a record

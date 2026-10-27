@@ -51,6 +51,11 @@ struct ContentView: View {
 
     // Stats state
     @State private var statsHabit: Habit? = nil
+    @State private var renamingHabit: Habit? = nil
+    @State private var renameText = ""
+    @State private var historyHabit: Habit? = nil
+    @State private var deletingHabit: Habit? = nil
+    @State private var erasingHabit: Habit? = nil
     @State private var showOverallStats = false
 
     // Perfect day / perfect week state
@@ -299,6 +304,48 @@ struct ContentView: View {
         .sheet(item: $statsHabit) { habit in
             HabitStatsView(habit: habit)
         }
+        .sheet(item: $renamingHabit) { habit in
+            RenameHabitSheet(
+                habitName: $renameText,
+                accent: HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+            ) { newName in
+                handleHabitAction(.rename(newName), for: habit)
+                renamingHabit = nil
+            } onCancel: {
+                renamingHabit = nil
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $historyHabit) { habit in
+            HabitHistoryEditView(habit: habit) {
+                historyHabit = nil
+            } onSave: {
+                syncHabitToWidget(habit)
+                // Marking today in history must silence today's reminder too
+                syncNotifications()
+                // and move the card if today's done state changed
+                refreshOrder()
+                historyHabit = nil
+            }
+            // Edits apply to the model live — swipe-dismiss would silently keep
+            // them while skipping both CANCEL's restore and SAVE's widget sync
+            .interactiveDismissDisabled()
+        }
+        .confirmationDialog("Delete Habit", isPresented: isPresent($deletingHabit),
+                            titleVisibility: .visible, presenting: deletingHabit) { habit in
+            Button("Delete", role: .destructive) { handleHabitAction(.delete, for: habit) }
+            Button("Cancel", role: .cancel) { }
+        } message: { habit in
+            Text("Delete \"\(habit.name)\" and its history? This can't be undone.")
+        }
+        .confirmationDialog("Erase History", isPresented: isPresent($erasingHabit),
+                            titleVisibility: .visible, presenting: erasingHabit) { habit in
+            Button("Erase", role: .destructive) { handleHabitAction(.reset, for: habit) }
+            Button("Cancel", role: .cancel) { }
+        } message: { habit in
+            Text("Erase all history for \"\(habit.name)\"? This cannot be undone.")
+        }
         .sheet(isPresented: $showingAdd) {
             AddHabitSheet(
                 newHabitName: $newHabitName,
@@ -362,10 +409,11 @@ struct ContentView: View {
         // Added, archived or deleted habits re-sort; completions don't
         .onChange(of: habits.map(\.id)) { refreshOrder() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            refreshOrder()
+            // Merge widget taps and synced changes first, so the order sees them
             applyPendingWidgetToggles()
             dedupeHabits()
             reconcileCompletions()
+            refreshOrder()
             syncAllHabitsToWidget()
             refreshTrigger.toggle()
             syncNotifications()
@@ -418,7 +466,7 @@ struct ContentView: View {
     private var isPresentingSomething: Bool {
         showingAdd || showingSettings || showingOnboarding || showWalkthrough
             || showPerfectDay || showPerfectWeek || showReminderPrompt || showGraduation
-            || showShareSheet || statsHabit != nil || showOverallStats || pendingReviewRequest
+            || showShareSheet || statsHabit != nil || renamingHabit != nil || historyHabit != nil || showOverallStats || pendingReviewRequest
     }
 
     /// Asked once, two weeks after the first habit, while people still care.
@@ -593,12 +641,22 @@ struct ContentView: View {
         switch action {
         case .reset:
             habit.resetProgress()
+            resort(habit.id)
             syncHabitToWidget(habit)
             syncNotifications()
         case .setStreak(let n):
             habit.setCurrentStreak(n)
             syncHabitToWidget(habit)
             syncNotifications()
+        case .editName:
+            renameText = habit.name
+            renamingHabit = habit
+        case .editHistory:
+            historyHabit = habit
+        case .confirmDelete:
+            deletingHabit = habit
+        case .confirmErase:
+            erasingHabit = habit
         case .rename(let newName):
             habit.name = newName
             syncHabitToWidget(habit)
@@ -629,6 +687,10 @@ struct ContentView: View {
         }
     }
 
+    private func isPresent(_ item: Binding<Habit?>) -> Binding<Bool> {
+        Binding(get: { item.wrappedValue != nil }, set: { if !$0 { item.wrappedValue = nil } })
+    }
+
     private func addHabit(name: String) {
         let habit = Habit(name: name)
         habit.order = (allHabits.map { $0.order ?? 0 }.max() ?? -1) + 1
@@ -648,7 +710,8 @@ struct ContentView: View {
         let habitID = habit.id
         if completed && dayKey == ContinuumDay.todayKey() {
             DispatchQueue.main.asyncAfter(deadline: .now() + sinkDelay) {
-                guard habit.isCompletedToday else { return }
+                // By id: the habit may have been deleted in the meantime
+                guard isDoneToday(habitID) else { return }
                 settle(habitID)
             }
         } else if !completed {
@@ -954,7 +1017,7 @@ struct ContentView: View {
         for toggle in pending {
             // A very old toggle must not override edits the user made since.
             guard Date().timeIntervalSince(toggle.timestamp) < 48 * 3600 else { continue }
-            guard let habit = habits.first(where: { $0.id == toggle.habitId }) else {
+            guard let habit = allHabits.first(where: { $0.id == toggle.habitId }) else {
                 // On a cold launch the CloudKit-backed @Query can still be
                 // empty — keep the toggle for the next activation instead of
                 // silently discarding the user's completion.

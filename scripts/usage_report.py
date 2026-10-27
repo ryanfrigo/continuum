@@ -44,6 +44,9 @@ def main() -> None:
     print("\nHabits (latest daily snapshot per install, last 7 days; 3.9+ only)")
     if not h.get("installs"):
         print("(none yet)")
+    elif counts_only:
+        # Public CI summary: with a handful of installs the breakdown is one person's habits
+        print(f"  installs reporting: {h['installs']}")
     else:
         c = h["habit_counts"]
         print(f"  installs reporting: {h['installs']}   avg habits: {h['avg_habits']}")
