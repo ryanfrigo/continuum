@@ -147,7 +147,12 @@ if (!wants('submit')) {
   process.exit(0)
 }
 
-const submission = (
+// Reuse an open draft: a failed run leaves one behind, and Apple won't
+// cancel an empty one (409)
+const drafts = (
+  await api('GET', `/v1/reviewSubmissions?filter[app]=${app.id}&filter[state]=READY_FOR_REVIEW`)
+).data
+const submission = drafts[0] ?? (
   await api('POST', '/v1/reviewSubmissions', {
     data: {
       type: 'reviewSubmissions',
