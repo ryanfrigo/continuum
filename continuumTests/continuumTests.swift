@@ -315,17 +315,21 @@ struct ConsistencyTests {
     }
 
     @Test func colourNeedsTimeAndConsistencyTogether() {
-        // Three days in at 100%: still at the coral end
-        let fresh = HabitMath.consistency(completed: keys([2, 1, 0]), todayKey: today)
-        #expect(fresh.percent == 100)
-        #expect(HabitMath.colorProgress(fresh) == 3.0 / 28)
-        // A full grid is the blue end
-        let full = HabitMath.consistency(completed: keys(Array(0..<28)), todayKey: today)
-        #expect(HabitMath.colorProgress(full) == 1)
-        // Past the window it's the consistency: every other day is half way
-        let half = HabitMath.consistency(completed: keys(Array(stride(from: 0, to: 100, by: 2))), todayKey: today)
-        #expect(half == ConsistencyTally(done: 14, counted: 28))
-        #expect(HabitMath.colorProgress(half) == 0.5)
+        // Three days in at 100%: still at the red end
+        #expect(HabitMath.colorProgress(completed: keys([2, 1, 0]), todayKey: today) == 3.0 / 56)
+        // A perfect first four weeks is the middle (green)
+        #expect(HabitMath.colorProgress(completed: keys(Array(0..<28)), todayKey: today) == 0.5)
+        // Kept up for six months, it's the top (pink)
+        #expect(HabitMath.colorProgress(completed: keys(Array(0..<180)), todayKey: today) == 1)
+        // 66 days of it sits between: blue
+        let sixtySix = HabitMath.colorProgress(completed: keys(Array(0..<66)), todayKey: today)
+        #expect(sixtySix > 0.6 && sixtySix < 0.7)
+        // Old but slipping: every other day lately pulls it back to half
+        // of what it can reach
+        let slipping = keys(Array(28..<300) + Array(stride(from: 0, to: 28, by: 2)))
+        #expect(HabitMath.colorProgress(completed: slipping, todayKey: today) == 0.5)
+        // Future days don't count toward kept up
+        #expect(HabitMath.colorProgress(completed: keys(Array(-200..<28)), todayKey: today) == 0.5)
     }
 
     @Test func strongCountsTodayOnlyOnceDone() {
@@ -343,10 +347,10 @@ struct ConsistencyTests {
         #expect(!HabitMath.isStrong(completed: done, todayKey: today))
     }
 
-    @Test func pooledColourIsTheShareOfEveryGridLit() {
-        let pooled = ConsistencyTally(done: 28, counted: 28) + ConsistencyTally()
-        #expect(HabitMath.colorProgress(pooled, habits: 2) == 0.5)
-        #expect(HabitMath.colorProgress(ConsistencyTally(), habits: 0) == 0)
+    @Test func pooledColourIsTheAverageOfEachHabit() {
+        let pooled = HabitMath.colorProgress([keys(Array(0..<180)), keys(Array(0..<28))], todayKey: today)
+        #expect(pooled == 0.75)
+        #expect(HabitMath.colorProgress([], todayKey: today) == 0)
     }
 }
 }

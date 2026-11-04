@@ -1,21 +1,24 @@
 import SwiftUI
 
 /// A habit's colour on every screen and in the widget: dark red, orange,
-/// gold, green and blue, evenly spaced from 0 to 100%. Where a habit
-/// sits on the ramp is `HabitMath.colorProgress`. The app icon is a grid lit
-/// along this ramp, with one missed day.
+/// yellow, green, then blue, purple and pink. Where a habit sits on the ramp
+/// is `HabitMath.colorProgress`: a perfect first four weeks reaches green,
+/// the rest takes months. The app icon is a grid lit along this ramp, with
+/// one missed day.
 enum HabitPalette {
     /// Ramp stops as (position, hue in degrees, saturation, brightness).
     private static let stops: [(at: Double, hue: Double, saturation: Double, brightness: Double)] = [
         (0.000, -6, 0.80, 0.72),    // dark red (hue below 0 so it turns toward orange)
-        (0.250, 22, 0.84, 0.95),    // orange
-        (0.500, 43, 0.80, 0.97),    // gold
-        // Softer in-betweens, so gold-to-green and green-to-blue don't
+        (0.140, 22, 0.84, 0.95),    // orange
+        (0.280, 45, 0.80, 0.97),    // yellow
+        // Softer in-betweens, so yellow-to-green and green-to-blue don't
         // flash a neon stripe
-        (0.625, 78, 0.60, 0.84),    // lime
-        (0.750, 140, 0.56, 0.78),   // green
-        (0.875, 184, 0.62, 0.78),   // teal
-        (1.000, 222, 0.84, 0.82),   // deep blue
+        (0.390, 82, 0.60, 0.86),    // lime
+        (0.500, 140, 0.56, 0.80),   // green: a perfect first four weeks
+        (0.590, 186, 0.60, 0.80),   // teal
+        (0.680, 218, 0.74, 0.90),   // blue
+        (0.840, 272, 0.58, 0.90),   // purple
+        (1.000, 326, 0.52, 0.97),   // pink: months of it
     ]
 
     static func color(_ progress: Double) -> Color {

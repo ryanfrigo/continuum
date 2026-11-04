@@ -181,6 +181,11 @@ final class Habit {
         HabitMath.consistency(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
     }
 
+    /// Where the habit sits on the colour ramp (see HabitMath.colorProgress).
+    var colorProgress: Double {
+        HabitMath.colorProgress(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())
+    }
+
     /// 80% or more over a full four weeks, right now.
     var isStrong: Bool {
         HabitMath.isStrong(completed: completedDayKeys, todayKey: ContinuumDay.todayKey())

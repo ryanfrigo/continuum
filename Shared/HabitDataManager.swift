@@ -180,12 +180,27 @@ enum HabitMath {
         return a - b
     }
 
-    /// Where a habit sits on the colour ramp, 0...1: the share of its grid
-    /// that's lit. Once a habit is four weeks old that's its consistency;
-    /// before then a new habit starts red even at 100%. `habits` is how many habits a pooled tally covers.
-    static func colorProgress(_ tally: ConsistencyTally, habits: Int = 1) -> Double {
-        guard habits > 0 else { return 0 }
-        return min(1, Double(tally.done) / Double(gridDays * habits))
+    /// Days done, all time, at which a habit can reach the top of the ramp
+    /// (pink): about six months of showing up.
+    static let colorTopDays = 180
+
+    /// Where a habit sits on the colour ramp, 0...1. Two things go in:
+    /// the share of its 28-day grid that's lit (lately), times how far that
+    /// can carry it given the days done all time (kept up). A perfect first
+    /// four weeks reaches the middle (green); only months of it reach the
+    /// top (pink). Slip, and the grid pulls it back down at any age.
+    static func colorProgress(completed: Set<Int>, todayKey: Int) -> Double {
+        let lit = min(1, Double(consistency(completed: completed, todayKey: todayKey).done) / Double(gridDays))
+        let doneAllTime = completed.filter { $0 <= todayKey }.count
+        let kept = max(0, min(1, Double(doneAllTime - gridDays) / Double(colorTopDays - gridDays)))
+        return lit * (0.5 + 0.5 * kept)
+    }
+
+    /// Several habits together (home header, medium widget): the average of
+    /// where each one sits, so the pooled colour is a habit-like colour.
+    static func colorProgress(_ habits: [Set<Int>], todayKey: Int) -> Double {
+        guard !habits.isEmpty else { return 0 }
+        return habits.reduce(0) { $0 + colorProgress(completed: $1, todayKey: todayKey) } / Double(habits.count)
     }
 
     /// Strong: a full four weeks since the first one done, and at least 80%
@@ -534,6 +549,10 @@ struct HabitData: Codable {
         HabitMath.consistency(completed: completedKeys, todayKey: ContinuumDay.todayKey())
     }
 
+    /// Same place on the colour ramp as Habit.colorProgress in the app.
+    var colorProgress: Double {
+        HabitMath.colorProgress(completed: completedKeys, todayKey: ContinuumDay.todayKey())
+    }
 
     var consistencyWeekAgo: ConsistencyTally {
         HabitMath.consistencyWeekAgo(completed: completedKeys, todayKey: ContinuumDay.todayKey())

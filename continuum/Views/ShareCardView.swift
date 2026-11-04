@@ -35,7 +35,7 @@ struct ShareCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+        HabitPalette.color(habit.colorProgress)
     }
 
     private var gridFlags: [Bool] {

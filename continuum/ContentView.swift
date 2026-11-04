@@ -187,9 +187,9 @@ struct ContentView: View {
         }
     }
 
-    /// How much of every habit's grid is lit, pooled: the home screen's colour.
+    /// Where the habits sit on the ramp, averaged: the home screen's colour.
     private var overallHealth: Double {
-        HabitMath.colorProgress(overall.now, habits: habits.count)
+        HabitMath.colorProgress(habits.map(\.completedDayKeys), todayKey: ContinuumDay.todayKey())
     }
 
     var body: some View {
@@ -307,7 +307,7 @@ struct ContentView: View {
         .sheet(item: $renamingHabit) { habit in
             RenameHabitSheet(
                 habitName: $renameText,
-                accent: HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+                accent: HabitPalette.color(habit.colorProgress)
             ) { newName in
                 handleHabitAction(.rename(newName), for: habit)
                 renamingHabit = nil

@@ -41,7 +41,7 @@ struct OverallStatsView: View {
     }
 
     private var accent: Color {
-        HabitPalette.color(HabitMath.colorProgress(now, habits: habits.count))
+        HabitPalette.color(HabitMath.colorProgress(habits.map(\.completedDayKeys), todayKey: ContinuumDay.todayKey()))
     }
 
     var body: some View {
@@ -169,7 +169,7 @@ struct OverallStatsView: View {
                     Spacer()
                     Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
+                        .foregroundStyle(HabitPalette.color(habit.colorProgress))
                 }
             }
         }

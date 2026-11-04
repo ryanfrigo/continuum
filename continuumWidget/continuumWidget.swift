@@ -118,7 +118,7 @@ struct SmallWidgetView: View {
     let habit: HabitData?
 
     private var consistency: ConsistencyTally { habit?.consistency ?? ConsistencyTally() }
-    private var color: Color { HabitPalette.color(HabitMath.colorProgress(consistency)) }
+    private var color: Color { HabitPalette.color(habit?.colorProgress ?? 0) }
     /// Days back to the first one done; squares older than that weren't misses
     private var startIndex: Int? {
         habit?.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
@@ -193,7 +193,7 @@ struct MediumWidgetView: View {
         habits.reduce(ConsistencyTally()) { $0 + $1.consistency }
     }
     private var overallColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(overall, habits: habits.count))
+        HabitPalette.color(HabitMath.colorProgress(habits.map(\.completedKeys), todayKey: ContinuumDay.todayKey()))
     }
 
     var body: some View {
@@ -260,7 +260,7 @@ private struct MediumHabitCard: View {
     let habit: HabitData
 
     private var consistency: ConsistencyTally { habit.consistency }
-    private var color: Color { HabitPalette.color(HabitMath.colorProgress(habit.consistency)) }
+    private var color: Color { HabitPalette.color(habit.colorProgress) }
     private var startIndex: Int? {
         habit.completedKeys.min().map { ContinuumDay.daysBetween($0, ContinuumDay.todayKey()) }
     }

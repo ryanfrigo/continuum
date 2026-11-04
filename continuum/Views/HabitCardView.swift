@@ -101,7 +101,7 @@ struct HabitCardView: View {
     }
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+        HabitPalette.color(habit.colorProgress)
     }
 
     /// Gold while the completion lands, a quiet line once done, faint while open.

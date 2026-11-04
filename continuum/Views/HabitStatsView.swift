@@ -21,7 +21,7 @@ struct HabitStatsView: View {
     private let chartWeeks = 12
 
     private var themeColor: Color {
-        HabitPalette.color(HabitMath.colorProgress(habit.consistency))
+        HabitPalette.color(habit.colorProgress)
     }
 
     private static let startedFormatter: DateFormatter = {

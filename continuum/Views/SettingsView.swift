@@ -129,7 +129,7 @@ struct SettingsView: View {
                                     Spacer()
                                     Text(habit.consistency.percent.map { "\($0)%" } ?? "new")
                                         .font(.caption)
-                                        .foregroundStyle(HabitPalette.color(HabitMath.colorProgress(habit.consistency)))
+                                        .foregroundStyle(HabitPalette.color(habit.colorProgress))
                                 }
                                 .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                             }
