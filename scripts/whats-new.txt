@@ -1,13 +1,3 @@
-The grid is four weeks now, not 66 days. I took 66 from Lally's 2010 study, and it was the wrong window for a daily number — a bad week took a month to show, and so did a good one. 28 days, seven to a row. The % uses the same four weeks.
+New colours. A habit used to top out at blue after one perfect month, and then it stopped changing. Now it keeps going: dark red, orange, yellow, green, then blue, purple and pink.
 
-"Formed" is gone. A habit is strong at 80% over four weeks, and it gets a star. Drop under 80 and the star goes, until you're back over it.
-
-Done habits sink to the bottom, so what's left for today sits on top. Hold to mark one; the card breaks into squares and re-forms underneath.
-
-Also new:
-– Archive a habit from its menu. The history stays, and Settings brings it back.
-– Sort by most or least consistent, in Settings.
-– Tap the % at the top to see every habit on one chart, from 1 month to a year.
-– New colours: dark red, yellow, green, then blue, purple and pink. A full month gets you to green. Pink takes about six months, and slipping pulls it back.
-
-One correction. Last update I wrote that the anonymous signals never include your habits. From 3.9 they include a few numbers once a day — your habit count, how many are strong, yesterday's total, each habit's % with no name attached, and a couple more. Habit names and the days you marked never leave your phone (the privacy policy lists every number). Settings → Share Anonymous Usage turns it off.
+Two things set the colour: the last four weeks, and how long you've kept the habit up. A perfect first month gets you to green. Blue comes around day 66; pink takes about six months. Miss a stretch and it slides back down — at any age.

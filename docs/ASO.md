@@ -17,7 +17,7 @@ name was arguing with the app all along.
 app are searching for streak trackers after one of them reset on them.
 "Consistency" left the keyword field because it's in the name now.
 
-Screenshots for 3.9 (`AppStoreScreenshots/3.9/`, four, 1320x2868, 2026-11-04):
+Screenshots for 3.10 (`AppStoreScreenshots/3.10/`, four, 1320x2868, 2026-11-04):
 the same first three retaken in the 28-day look and new colours, and
 `04_colours.png` ("Show up. / Earn the colours.", seed
 `seedForColourScreenshot`) replacing the 66-day graduation shot. Description
