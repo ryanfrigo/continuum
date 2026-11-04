@@ -29,7 +29,7 @@ SHOTS = [
     ("home.png", "01_consistency.png", "Miss a day.", "Nothing resets.", "consistency, not perfection", None),
     ("comeback.png", "02_never_miss_twice.png", "Missed yesterday?", "Don't miss twice.", None, None),
     ("stats.png", "03_week_by_week.png", "12 weeks.", "Watch it climb.", None, None),
-    ("colours.png", "04_colours.png", "Week one: orange.", "Month six: pink.", None, None),
+    ("colours.png", "04_colours.png", "Show up.", "Earn the colours.", None, None),
 ]
 
 

@@ -19,7 +19,7 @@ app are searching for streak trackers after one of them reset on them.
 
 Screenshots for 3.9 (`AppStoreScreenshots/3.9/`, four, 1320x2868, 2026-11-04):
 the same first three retaken in the 28-day look and new colours, and
-`04_colours.png` ("Week one: orange. / Month six: pink.", seed
+`04_colours.png` ("Show up. / Earn the colours.", seed
 `seedForColourScreenshot`) replacing the 66-day graduation shot. Description
 and keywords dropped 66 for 3.9 (keyword "66" and "dot" out, "color" in).
 Seeds set their defaults in the test process, which may not reach disk; write
