@@ -13,7 +13,8 @@ private enum ScreenshotSeed {
     /// Misses thin out over time and cluster 66–72 days back, the stretch
     /// that just left the window, so the trends point up.
     static let habits: [(name: String, start: Int, missed: [Int], doneToday: Bool)] = [
-        ("Meditate", 140, [12, 31, 49, 67, 68, 70, 72, 81, 95, 110, 126], true),
+        // Months of it: the pink end
+        ("Meditate", 200, [12, 31, 49, 67, 68, 70, 72, 81, 95, 110, 126, 150, 171], true),
         ("Read 30 Pages", 100, [9, 20, 27, 38, 46, 55, 61, 66, 67, 69, 70, 71, 72, 84, 91], true),
         // Its stats bars climb week by week, 42% to 100%; formed at 81%
         ("Lift Heavy", 120, [17, 24, 29, 33, 38, 43, 47, 50, 54, 57, 61, 64, 67, 69, 71, 74, 76, 78, 80,
@@ -30,7 +31,18 @@ private enum ScreenshotSeed {
 
     /// Habits that qualify (66 days in, 80% done) are marked formed, except
     /// `unformed` — which then graduates on its next hold, for the graduation shot.
-    static func seed(unformed: Set<String> = []) throws {
+    /// One habit at each step of the colour ramp, none done yet today so
+    /// every card shows its full colour: week one red to month six pink.
+    static let colourJourney: [(name: String, start: Int, missed: [Int], doneToday: Bool)] = [
+        ("Stretch", 7, [], false),
+        ("Floss", 15, [13], false),
+        ("Walk 8k Steps", 30, [11, 23], false),
+        ("Read 30 Pages", 70, [9, 33, 52], false),
+        ("Journal", 105, [16, 44, 61, 90], false),
+        ("Meditate", 200, [12, 31, 49, 67, 95, 126, 150, 171], false),
+    ]
+
+    static func seed(unformed: Set<String> = [], habits: [(name: String, start: Int, missed: [Int], doneToday: Bool)] = ScreenshotSeed.habits) throws {
         let ctx = continuumApp.sharedModelContainer.mainContext
         for habit in try ctx.fetch(FetchDescriptor<Habit>()) { ctx.delete(habit) }
         for mark in try ctx.fetch(FetchDescriptor<CompletionMark>()) { ctx.delete(mark) }
@@ -71,6 +83,12 @@ private let skipSeeds = ProcessInfo.processInfo.environment["SKIP_SEEDS"] != nil
 @Test(.disabled(if: skipSeeds, "CI: wipes the live app's store mid-render and traps"))
 func seedForScreenshots() throws {
     try ScreenshotSeed.seed()
+}
+
+@MainActor
+@Test(.disabled(if: skipSeeds, "CI: wipes the live app's store mid-render and traps"))
+func seedForColourScreenshot() throws {
+    try ScreenshotSeed.seed(habits: ScreenshotSeed.colourJourney)
 }
 
 @MainActor

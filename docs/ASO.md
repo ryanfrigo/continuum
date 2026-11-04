@@ -17,6 +17,15 @@ name was arguing with the app all along.
 app are searching for streak trackers after one of them reset on them.
 "Consistency" left the keyword field because it's in the name now.
 
+Screenshots for 3.9 (`AppStoreScreenshots/3.9/`, four, 1320x2868, 2026-11-04):
+the same first three retaken in the 28-day look and new colours, and
+`04_colours.png` ("Week one: orange. / Month six: pink.", seed
+`seedForColourScreenshot`) replacing the 66-day graduation shot. Description
+and keywords dropped 66 for 3.9 (keyword "66" and "dot" out, "color" in).
+Seeds set their defaults in the test process, which may not reach disk; write
+`hasCompletedOnboarding` etc. with `simctl spawn … defaults write` if the app
+opens on onboarding. Captured on the "StoreShots 16 Pro Max" sim.
+
 Screenshots (`AppStoreScreenshots/3.8/`, four, 1320x2868):
 
 1. `01_consistency.png`: home, pooled 85%, cards running coral (a week old) to blue. "Miss a day. / Nothing resets."
