@@ -1387,6 +1387,32 @@ struct HomeScreenTests {
         #expect(grid.columns[1] == [ids[1], ids[5], ids[0]])
     }
 
+    /// Three completions in close succession froze the app until iOS killed it
+    /// (0x8BADF00D, Nov 2026): each settle ran while later cards were done but
+    /// unsettled. Every sequence on an 11-card grid has to finish; the bound
+    /// makes a regression fail here instead of hanging the test run.
+    @Test func threeQuickCompletionsAlwaysSettle() {
+        let ids = (0..<11).map { _ in UUID() }
+        for a in ids.indices {
+            for b in ids.indices where b != a {
+                for c in ids.indices where c != a && c != b {
+                    let marks = [ids[a], ids[b], ids[c]]
+                    let done = Set(marks)
+                    var grid = HabitColumns(ordered: ids, isDone: { _ in false })
+                    for id in marks {
+                        grid.fall(id, isDone: done.contains)
+                        var steps = 0
+                        while steps <= ids.count, grid.rebalanceStep(isDone: done.contains) != nil {
+                            steps += 1
+                        }
+                        #expect(steps <= ids.count, "stuck after \(a), \(b), \(c)")
+                    }
+                    #expect(Set(grid.rows) == Set(ids) && grid.rows.count == ids.count)
+                }
+            }
+        }
+    }
+
     @Test func onlyCardsChangingRowAndColumnCountAsDiagonal() {
         let ids = (0..<4).map { _ in UUID() }
         let before = HabitColumns(ordered: ids, isDone: { _ in false })   // 0 1 / 2 3
