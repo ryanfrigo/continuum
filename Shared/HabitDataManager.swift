@@ -181,14 +181,14 @@ enum HabitMath {
     }
 
     /// Days done, all time, at which a habit can reach the top of the ramp
-    /// (pink): about six months of showing up.
+    /// (deep blue): about six months of showing up.
     static let colorTopDays = 180
 
     /// Where a habit sits on the colour ramp, 0...1. Two things go in:
     /// the share of its 28-day grid that's lit (lately), times how far that
     /// can carry it given the days done all time (kept up). A perfect first
     /// four weeks reaches the middle (green); only months of it reach the
-    /// top (pink). Slip, and the grid pulls it back down at any age.
+    /// top (deep blue). Slip, and the grid pulls it back down at any age.
     static func colorProgress(completed: Set<Int>, todayKey: Int) -> Double {
         let lit = min(1, Double(consistency(completed: completed, todayKey: todayKey).done) / Double(gridDays))
         let doneAllTime = completed.filter { $0 <= todayKey }.count

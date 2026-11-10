@@ -319,9 +319,9 @@ struct ConsistencyTests {
         #expect(HabitMath.colorProgress(completed: keys([2, 1, 0]), todayKey: today) == 3.0 / 56)
         // A perfect first four weeks is the middle (green)
         #expect(HabitMath.colorProgress(completed: keys(Array(0..<28)), todayKey: today) == 0.5)
-        // Kept up for six months, it's the top (pink)
+        // Kept up for six months, it's the top (deep blue)
         #expect(HabitMath.colorProgress(completed: keys(Array(0..<180)), todayKey: today) == 1)
-        // 66 days of it sits between: blue
+        // 66 days of it sits between green and blue
         let sixtySix = HabitMath.colorProgress(completed: keys(Array(0..<66)), todayKey: today)
         #expect(sixtySix > 0.6 && sixtySix < 0.7)
         // Old but slipping: every other day lately pulls it back to half
@@ -957,14 +957,37 @@ struct MilestoneDetectorTests {
         #expect(!events([5, 4, 3], mark: 1).contains(where: isComeback))
     }
 
+    private func tile(_ event: CelebrationEvent, _ days: [Int]) -> TileCelebration? {
+        TileCelebration(event, completed: keys(days), todayKey: today)
+    }
+
     @Test func tileCopy() {
-        #expect(TileCelebration(.graduation) == nil)
-        #expect(TileCelebration(.milestone(.seven))?.value == "7")
-        #expect(TileCelebration(.milestone(.seven))?.isShareable == true)
-        #expect(TileCelebration(.milestone(.one))?.isShareable == false)
-        #expect(TileCelebration(.level(90))?.value == "90%")
-        #expect(TileCelebration(.comeback(gap: 1))?.caption == "didn't miss twice")
-        #expect(TileCelebration(.comeback(gap: 4))?.caption == "picked it back up")
+        let week = Array(0..<7)
+        #expect(tile(.graduation, week) == nil)
+        #expect(tile(.milestone(.seven), week)?.value == "7")
+        #expect(tile(.milestone(.seven), week)?.isShareable == true)
+        #expect(tile(.milestone(.one), [0])?.isShareable == false)
+        #expect(tile(.milestone(.one), [0])?.caption == "first mark")
+        #expect(tile(.comeback(gap: 1), [0, 2])?.caption == "didn't miss twice")
+        #expect(tile(.comeback(gap: 4), [0, 5])?.caption == "picked it back up")
+    }
+
+    @Test func daysDoneCopyOnlyClaimsARunWhenThereWasOne() {
+        // Seven in a row
+        #expect(tile(.milestone(.seven), Array(0..<7))?.caption == "every day so far")
+        // Seven scattered over 19 days: a count, not a week
+        #expect(tile(.milestone(.seven), [18, 15, 12, 9, 6, 3, 0])?.caption == "in 19 days")
+        #expect(tile(.milestone(.hundred), Array(0..<100) + [139])?.caption == "in 140 days")
+    }
+
+    @Test func levelTileShowsTheRealNumber() {
+        // 14 of 15 days: 93%, which reached the 90 level
+        let days = Array(0..<15).filter { $0 != 7 }
+        #expect(tile(.level(90), days)?.value == "93%")
+        #expect(tile(.level(90), days)?.caption == "nine days in ten")
+        // Every other day: 14 of 27, shown as 51%, not the 50 it reached
+        #expect(tile(.level(50), Array(stride(from: 0, to: 28, by: 2)))?.value == "51%")
+        #expect(tile(.level(100), Array(0..<20))?.caption == "every single day")
     }
 }
 }

@@ -22,6 +22,10 @@ the same first three retaken in the 28-day look and new colours, and
 `04_colours.png` ("Show up. / Earn the colours.", seed
 `seedForColourScreenshot`) replacing the 66-day graduation shot. Description
 and keywords dropped 66 for 3.9 (keyword "66" and "dot" out, "color" in).
+3.11 (`AppStoreScreenshots/3.11/`, 2026-11-08): all four retaken in the
+five-colour ramp (ember to deep blue). The comeback and stats shots used the
+`HARNESS_COMPLETE` / `HARNESS_STATS` launch switches, reverted after. The
+icon is drawn by `scripts/make-icon.py` from the same ramp stops.
 Seeds set their defaults in the test process, which may not reach disk; write
 `hasCompletedOnboarding` etc. with `simctl spawn … defaults write` if the app
 opens on onboarding. Captured on the "StoreShots 16 Pro Max" sim.

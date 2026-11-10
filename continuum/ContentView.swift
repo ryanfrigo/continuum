@@ -759,7 +759,7 @@ struct ContentView: View {
         }
 
         // One tile moment per completion; the detector lists them highest first
-        let tileEvent = events.first { TileCelebration($0) != nil }
+        let tileEvent = events.first { TileCelebration($0, completed: after, todayKey: todayKey) != nil }
         if let tileEvent {
             if tileEvent.isSmallMoment { lastSmallMomentKey = todayKey }
             showTileCelebration(tileEvent, for: habit)
@@ -925,7 +925,7 @@ struct ContentView: View {
     /// keeps its own, so two habits finishing together both celebrate instead
     /// of queueing behind one full-screen card.
     private func showTileCelebration(_ event: CelebrationEvent, for habit: Habit) {
-        guard let celebration = TileCelebration(event) else { return }
+        guard let celebration = TileCelebration(event, completed: habit.completedDayKeys, todayKey: ContinuumDay.todayKey()) else { return }
         let habitId = habit.id
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             // Full-screen cards get this via CelebrationCard.start(); without

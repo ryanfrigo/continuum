@@ -115,21 +115,28 @@ struct TileCelebration: Equatable, Identifiable {
     /// Seconds on screen before it clears itself.
     static let duration: Double = 2.4
 
-    init?(_ event: CelebrationEvent) {
+    /// `completed` and `todayKey` are the habit just after the mark, so the
+    /// words can say what actually happened: days done is a count in any
+    /// order, not a run, and a level shows the real number.
+    init?(_ event: CelebrationEvent, completed: Set<Int>, todayKey: Int) {
         switch event {
         case .graduation:
             return nil   // full-screen, not a tile card
         case .milestone(let milestone):
+            // Days from the first one done to today, so 7 done reads
+            // "every day so far" only when it was
+            let span = completed.min().map { ContinuumDay.daysBetween($0, todayKey) + 1 } ?? milestone.rawValue
             self.init(
                 id: UUID(),
                 value: "\(milestone.rawValue)",
                 unit: milestone == .one ? "day done" : "days done",
-                caption: Self.caption(for: milestone),
+                caption: Self.caption(for: milestone, overDays: span),
                 isShareable: !milestone.isMinor
             )
-        case .level(let percent):
-            self.init(id: UUID(), value: "\(percent)%", unit: "consistent",
-                      caption: Self.caption(forLevel: percent), isShareable: percent >= 90)
+        case .level(let level):
+            let percent = HabitMath.consistency(completed: completed, todayKey: todayKey).percent ?? level
+            self.init(id: UUID(), value: "\(max(percent, level))%", unit: "last 4 weeks",
+                      caption: Self.caption(forLevel: level), isShareable: level >= 90)
         case .comeback(let gap):
             self.init(id: UUID(), value: "BACK", unit: "on it",
                       caption: gap == 1 ? "didn't miss twice" : "picked it back up", isShareable: false)
@@ -144,26 +151,21 @@ struct TileCelebration: Equatable, Identifiable {
         self.isShareable = isShareable
     }
 
-    /// Short enough for a 170pt tile.
-    private static func caption(for milestone: DaysMilestone) -> String {
-        switch milestone {
-        case .one: return "first mark"
-        case .three: return "it's real now"
-        case .five: return "momentum"
-        case .seven: return "a week's worth"
-        case .twentyOne: return "three weeks' worth"
-        case .hundred: return "triple digits"
-        case .year: return "a year of days"
-        }
+    /// Short enough for a 170pt tile. Days done are counted in any order, so
+    /// only a run with no gaps gets called one.
+    static func caption(for milestone: DaysMilestone, overDays span: Int) -> String {
+        if milestone == .one { return "first mark" }
+        if span <= milestone.rawValue { return "every day so far" }
+        return "in \(span) days"
     }
 
-    /// What the percentage means in days.
-    private static func caption(forLevel percent: Int) -> String {
-        switch percent {
+    /// What the level means in days. The tile shows the real number, which
+    /// can be above the level it just reached.
+    static func caption(forLevel level: Int) -> String {
+        switch level {
         case 100: return "every single day"
         case 90...: return "nine days in ten"
-        case 75...: return "three days in four"
-        default: return "half your days"
+        default: return "at least half your days"
         }
     }
 }

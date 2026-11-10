@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "7C1E6B52-3F0A-4F8E-9B1D-2A6C0E9F4D11",
+      "name" : "First run",
+      "options" : {}
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:continuum.xcodeproj",
+      "identifier" : "DA112F332E9464AB004FF4C9",
+      "name" : "continuum"
+    }
+  },
+  "testTargets" : [
+    {
+      "selectedTests" : [
+        "FirstRunUITests"
+      ],
+      "target" : {
+        "containerPath" : "container:continuum.xcodeproj",
+        "identifier" : "DA112F4B2E9464AC004FF4C9",
+        "name" : "continuumUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -4,7 +4,7 @@ import SwiftUI
 //
 // Every celebration is the SAME card: dark fill, 1px accent border with a
 // soft glow, identical typography scale and spacing. Only the accent color
-// and content change. The accent follows the habit's colour (red → pink,
+// and content change. The accent follows the habit's colour (ember → deep blue,
 // HabitPalette) for everyday moments; gold is kept for the rare ones, a
 // habit strong and a full week.
 
