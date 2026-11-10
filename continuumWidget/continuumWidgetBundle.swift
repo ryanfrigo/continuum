@@ -5,5 +5,6 @@ import SwiftUI
 struct ContinuumWidgetBundle: WidgetBundle {
     var body: some Widget {
         ContinuumWidget()
+        EveningLiveActivity()
     }
 }

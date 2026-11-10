@@ -8,6 +8,9 @@
 	     upload sitting in "Missing Compliance" until it's patched by hand. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- The evening Live Activity (3.11, opt-in in Settings) -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

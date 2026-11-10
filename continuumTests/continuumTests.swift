@@ -754,6 +754,30 @@ struct NotificationPlannerTests {
         #expect(keys == [20260930, 20261001, 20261002])
     }
 
+    @Test func remindersOnlyOnChosenDays() {
+        // Wed 30 Sep, Thu 1 Oct, Fri 2 Oct; reminders on Wednesday and Friday
+        let h = Habit(name: "Cardio", reminderEnabled: true)
+        let items = NotificationPlanner.plan(for: h, todayKey: 20260930, hour: 7, minute: 0, days: [4, 6])
+        #expect(items.map(\.dayKey) == [20260930, 20261002])
+        // A day off sends nothing, the never-miss-twice alert included
+        let missed = Habit(name: "Cardio", reminderEnabled: true)
+        missed.setCompleted(true, forDayKey: 20260928)
+        let offToday = NotificationPlanner.plan(for: missed, todayKey: 20260930, hour: 7, minute: 0, days: [5, 6])
+        #expect(!offToday.contains { $0.dayKey == 20260930 })
+    }
+
+    @Test func reminderDaysRoundTrip() {
+        let defaults = UserDefaults(suiteName: "reminderDaysTest")!
+        defer { defaults.removePersistentDomain(forName: "reminderDaysTest") }
+        let id = UUID()
+        #expect(ReminderDays.days(for: id, in: defaults) == ReminderDays.everyDay)
+        ReminderDays.set([2, 4, 6], for: id, in: defaults)
+        #expect(ReminderDays.days(for: id, in: defaults) == [2, 4, 6])
+        // Every day, or none, is stored as nothing
+        ReminderDays.set([], for: id, in: defaults)
+        #expect(ReminderDays.days(for: id, in: defaults) == ReminderDays.everyDay)
+    }
+
     @Test func manyHabitsCapAtSystemLimitKeepingSoonest() {
         let habits = (0..<20).map { _ in habit(done: [5, 4, 3, 2]) }
         let items = NotificationPlanner.plan(for: habits, todayKey: today, hour: 7, minute: 0)
@@ -1284,6 +1308,42 @@ struct UsagePlannerTests {
 
     @Test func dayStringIsISO() {
         #expect(UsagePlanner.dayString(20260105) == "2026-01-05")
+    }
+}
+
+struct EveningActivityPlanTests {
+    private let today = 20261110
+
+    private func keys(_ backs: [Int]) -> Set<Int> {
+        Set(backs.map { ContinuumDay.key(byAdding: -$0, to: today) })
+    }
+
+    @Test func listsOnlyOpenHabitsWithWhatTodayDoes() {
+        let plan = EveningActivityPlan.rows([
+            ("Read", keys([0, 1, 2])),          // done today: left out
+            ("Cardio", keys([1, 3])),           // 2 of 3 so far; today open isn't counted yet
+            ("New", []),                        // no number yet
+        ], todayKey: today)
+        #expect(plan.open == 2)
+        #expect(plan.rows.map(\.name) == ["Cardio", "New"])
+        #expect(plan.rows[0].percent == 66 && plan.rows[0].ifDone == 75)
+        #expect(plan.rows[1].percent == nil)
+    }
+
+    @Test func showsThreeNamesAndCountsTheRest() {
+        let plan = EveningActivityPlan.rows((0..<5).map { ("H\($0)", Set<Int>()) }, todayKey: today)
+        #expect(plan.rows.count == EveningActivityPlan.maxRows && plan.open == 5)
+    }
+
+    @Test func startsAtNineOrNowAndGoesStaleAtMidnight() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Chicago")!
+        let morning = calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 9))!
+        let late = calendar.date(from: DateComponents(year: 2026, month: 11, day: 10, hour: 22, minute: 30))!
+        #expect(calendar.component(.hour, from: EveningActivityPlan.start(now: morning, calendar: calendar)) == 21)
+        #expect(EveningActivityPlan.start(now: late, calendar: calendar) == late)
+        #expect(EveningActivityPlan.midnight(after: late, calendar: calendar)
+                == calendar.date(from: DateComponents(year: 2026, month: 11, day: 11))!)
     }
 }
 

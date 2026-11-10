@@ -79,6 +79,7 @@ struct HabitStatsView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            UsageReporter.shared.note(.statsOpened)
             withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                 showContent = true
             }

@@ -261,6 +261,7 @@ struct HabitCardView: View {
                 }
             }
         } else if !isAnimatingCompletion {
+            UsageReporter.shared.note(.tapHint)
             SoundManager.shared.triggerSelectionHaptic()
             withAnimation(.snappy(duration: 0.18)) {
                 showHoldHint = true
@@ -371,9 +372,12 @@ struct HabitCardView: View {
                     TrendLabel(trend: trend, size: 10)
                 }
             } else {
-                Text("Hold to start")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                // Never done yet: say exactly what to do, in the habit's own
+                // colour. Only 5 of 15 new 3.10 installs ever marked a day
+                // (usage, Nov 2026).
+                Text("Hold to mark done")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(themeColor.opacity(0.9))
             }
 
             Spacer(minLength: 0)
@@ -689,6 +693,7 @@ struct HabitCardView: View {
         isAnimatingCompletion = true
         backfillDate = date
         completionProgress = 0
+        UsageReporter.shared.note(.holdStarted)
         showHoldHint = false
         showUndoConfirm = false
 
@@ -710,6 +715,7 @@ struct HabitCardView: View {
 
     /// Finger lifted before the hold completed — settle back to rest.
     private func cancelCompletion() {
+        UsageReporter.shared.note(.holdCancelled)
         isAnimatingCompletion = false
         backfillDate = nil
         // Rewind roughly 3x faster than it filled: the asymmetry is what makes

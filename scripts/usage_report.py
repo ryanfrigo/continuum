@@ -15,6 +15,8 @@ import sys
 import urllib.request
 
 URL = "https://continuum-api.orion-labs.workers.dev/report"
+ACTIONS = ["hold_started", "hold_cancelled", "tap_hint", "walkthrough_skipped", "walkthrough_done",
+           "reminders_on", "reminders_declined", "stats_opened", "widget_marked"]
 
 
 def token() -> str:
@@ -56,6 +58,19 @@ def main() -> None:
         print(f"  avg overall: {h['avg_overall']}%   strong: {h['strong_share']}% of habits"
               f"   avg done yesterday: {h['avg_done_yesterday']}")
         print(f"  archiving: {h['archived_users']}   reminders on: {h['reminder_users']}   sort: {h['sorts']}")
+
+    acts = r.get("actions")
+    if acts:
+        n = acts["new_installs"]
+        print(f"\nWhat new installs did (last 14 days, 3.11+ sends these): {n['installs']} installs, "
+              f"{n['completed'] or 0} marked a habit done")
+        rows = {a["event"]: a for a in acts["new"]}
+        print(f"  {'':<22}{'marked one':>11}{'never did':>11}")
+        for name in ACTIONS:
+            a = rows.get(name, {"completed": 0, "never_completed": 0})
+            print(f"  {name:<22}{a['completed']:>11}{a['never_completed']:>11}")
+        everyone = {a["event"]: a["installs"] for a in acts["all_7d"]}
+        print("Everyone, last 7 days (installs): " + ", ".join(f"{k} {everyone.get(k, 0)}" for k in ACTIONS))
 
     fb = r["feedback"]
     print(f"\nFeedback in the last 7 days: {len(fb)}")

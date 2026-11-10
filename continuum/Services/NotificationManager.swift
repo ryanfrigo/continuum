@@ -18,6 +18,30 @@ struct PlannedNotification: Equatable {
     var fireOrder: Int { dayKey * 10_000 + hour * 100 + minute }
 }
 
+/// Which weekdays a habit's reminder fires on (1 = Sunday ... 7 = Saturday,
+/// Gregorian). Kept on this device, like the notifications themselves, so
+/// the synced model and its CloudKit schema don't change. Unset = every day.
+enum ReminderDays {
+    static let everyDay: Set<Int> = Set(1...7)
+
+    private static func key(_ id: UUID) -> String { "reminderDays.\(id.uuidString)" }
+
+    static func days(for id: UUID, in defaults: UserDefaults = .standard) -> Set<Int> {
+        guard let stored = defaults.array(forKey: key(id)) as? [Int] else { return everyDay }
+        let days = Set(stored).intersection(everyDay)
+        return days.isEmpty ? everyDay : days
+    }
+
+    static func set(_ days: Set<Int>, for id: UUID, in defaults: UserDefaults = .standard) {
+        let days = days.intersection(everyDay)
+        if days.isEmpty || days == everyDay {
+            defaults.removeObject(forKey: key(id))
+        } else {
+            defaults.set(days.sorted(), forKey: key(id))
+        }
+    }
+}
+
 enum NotificationPlanner {
     /// Short horizon: content is computed now, and only the next day or two can
     /// be worded truthfully. The app re-plans on every activation and day change.
@@ -30,11 +54,16 @@ enum NotificationPlanner {
     /// Every notification for every habit, soonest first, capped at the system limit
     /// so it's the far-future ones that go missing, not tomorrow's.
     static func plan(for habits: [Habit], todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
-        let all = habits.flatMap { plan(for: $0, todayKey: todayKey, hour: hour, minute: minute) }
+        let all = habits.flatMap {
+            plan(for: $0, todayKey: todayKey, hour: hour, minute: minute, days: ReminderDays.days(for: $0.id))
+        }
         return Array(all.sorted { $0.fireOrder < $1.fireOrder }.prefix(systemPendingLimit))
     }
 
-    static func plan(for habit: Habit, todayKey: Int, hour: Int, minute: Int) -> [PlannedNotification] {
+    /// `days`: the weekdays this habit's reminder is on. On the others it
+    /// sends nothing, the evening alert included.
+    static func plan(for habit: Habit, todayKey: Int, hour: Int, minute: Int,
+                     days: Set<Int> = ReminderDays.everyDay) -> [PlannedNotification] {
         // The per-habit reminder toggle is the one switch for everything this
         // habit sends, the evening alert included.
         guard habit.reminderEnabled, !habit.isArchived else { return [] }
@@ -52,6 +81,7 @@ enum NotificationPlanner {
         for offset in 0..<daysAhead {
             if offset == 0 && doneToday { continue }
             let dayKey = ContinuumDay.key(byAdding: offset, to: todayKey)
+            guard days.contains(ContinuumDay.weekday(of: dayKey)) else { continue }
 
             // A day's numbers are only known once every day before it is
             // settled: today always, tomorrow only if today is already done.
@@ -210,6 +240,8 @@ final class NotificationManager {
             await previous?.value
             await Self.apply(plan)
         }
+        // The evening Live Activity follows the same changes
+        EveningActivityManager.shared.sync(habits: habits, now: now)
     }
 
     private nonisolated static func apply(_ plan: [PlannedNotification]) async {

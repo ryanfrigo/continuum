@@ -120,6 +120,7 @@ struct WalkthroughOverlay: View {
                     // Skip
                     if currentStep < steps.count - 1 {
                         Button {
+                            UsageReporter.shared.note(.walkthroughSkipped)
                             dismiss()
                         } label: {
                             Text("Skip")
@@ -152,6 +153,7 @@ struct WalkthroughOverlay: View {
                 }
             }
         } else {
+            UsageReporter.shared.note(.walkthroughDone)
             dismiss()
         }
     }

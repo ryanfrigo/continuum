@@ -244,8 +244,14 @@ struct ContentView: View {
                     if showReminderPrompt {
                         ReminderPromptView(
                             accent: HabitPalette.color(overallHealth),
-                            onEnable: { time in enableRemindersForAll(at: time) },
+                            onEnable: { time in
+                                UsageReporter.shared.note(.remindersOn)
+                                enableRemindersForAll(at: time)
+                            },
                             onDismiss: {
+                                if !habits.contains(where: \.reminderEnabled) {
+                                    UsageReporter.shared.note(.remindersDeclined)
+                                }
                                 hasAskedForReminders = true
                                 withAnimation(.easeOut(duration: 0.25)) { showReminderPrompt = false }
                             }
@@ -1029,6 +1035,7 @@ struct ContentView: View {
 
             habit.setCompleted(toggle.completed, forDayKey: toggle.dayKey)
             touched = true
+            if toggle.completed { UsageReporter.shared.note(.widgetMarked) }
 
             // Surface celebrations/graduation for today's completions
             if toggle.completed && toggle.dayKey == ContinuumDay.todayKey() {

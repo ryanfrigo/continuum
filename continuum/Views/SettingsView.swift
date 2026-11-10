@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var showingAbout = false
     @State private var showingFeedback = false
     @State private var shareUsage = UsageReporter.enabled
+    @State private var eveningActivity = EveningActivityManager.enabled
     @State private var notificationPermissionGranted = false
     @State private var showingPermissionAlert = false
 
@@ -110,11 +111,29 @@ struct SettingsView: View {
                             .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
                         }
                     } header: {
-                        Text("Daily Reminders")
+                        Text("Reminders")
                             .foregroundStyle(.gray)
                     } footer: {
-                        Text("Set a daily reminder time for each habit. You'll only get it if the habit isn't done yet, plus a nudge the evening after a miss. Never miss twice.")
+                        Text("Set a time and the days for each habit. You'll only get it if the habit isn't done yet, plus a nudge the evening after a miss. Never miss twice.")
                             .foregroundStyle(.gray.opacity(0.7))
+                    }
+
+                    if #available(iOS 26.0, *) {
+                        Section {
+                            Toggle("Open habits after 9 pm", isOn: $eveningActivity)
+                                .tint(HabitPalette.accent)
+                                .onChange(of: eveningActivity) { _, on in
+                                    EveningActivityManager.enabled = on
+                                    EveningActivityManager.shared.sync(habits: habits)
+                                }
+                                .listRowBackground(Color(red: 0.1, green: 0.1, blue: 0.11))
+                        } header: {
+                            Text("Lock Screen")
+                                .foregroundStyle(.gray)
+                        } footer: {
+                            Text("From 9 pm, a Live Activity lists the habits not done yet today and stays until they are or the day ends. Habits marked from the widget clear it the next time you open the app.")
+                                .foregroundStyle(.gray.opacity(0.7))
+                        }
                     }
 
                     // Reorder Habits Section
@@ -386,6 +405,13 @@ struct HabitNotificationRow: View {
     let onSave: () -> Void
 
     @State private var showTimePicker = false
+    @State private var days: Set<Int> = ReminderDays.everyDay
+
+    /// Weekdays in the user's order (Monday first where that's the custom).
+    private var weekdayOrder: [Int] {
+        let first = Calendar.current.firstWeekday
+        return (0..<7).map { (first - 1 + $0) % 7 + 1 }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -397,7 +423,7 @@ struct HabitNotificationRow: View {
                         .foregroundStyle(.white)
 
                     if habit.reminderEnabled {
-                        Text(formattedTime)
+                        Text(days == ReminderDays.everyDay ? formattedTime : "\(formattedTime) · \(daysSummary)")
                             .font(.caption)
                             .foregroundStyle(HabitPalette.accent)
                     }
@@ -449,9 +475,43 @@ struct HabitNotificationRow: View {
                     .colorScheme(.dark)
                 }
                 .padding(.top, 4)
+
+                // Which days it fires. At least one stays on.
+                HStack(spacing: 6) {
+                    ForEach(weekdayOrder, id: \.self) { day in
+                        let on = days.contains(day)
+                        Button {
+                            var next = days
+                            if on { next.remove(day) } else { next.insert(day) }
+                            guard !next.isEmpty else { return }
+                            days = next
+                            ReminderDays.set(next, for: habit.id)
+                            onSave()
+                        } label: {
+                            Text(Calendar.current.veryShortWeekdaySymbols[day - 1])
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(on ? Color.black : Color.white.opacity(0.5))
+                                .frame(maxWidth: .infinity, minHeight: 30)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 7)
+                                        .fill(on ? HabitPalette.accent : Color.white.opacity(0.08))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Calendar.current.weekdaySymbols[day - 1])
+                        .accessibilityValue(on ? "Reminder on" : "Reminder off")
+                    }
+                }
             }
         }
         .padding(.vertical, 4)
+        .onAppear { days = ReminderDays.days(for: habit.id) }
+    }
+
+    private var daysSummary: String {
+        weekdayOrder.filter(days.contains)
+            .map { Calendar.current.shortWeekdaySymbols[$0 - 1] }
+            .joined(separator: " ")
     }
 
     private var formattedTime: String {

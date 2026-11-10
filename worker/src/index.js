@@ -12,7 +12,14 @@
 import { EmailMessage } from "cloudflare:email";
 
 const FROM = "continuum@windowsticker.org"; // a zone with Email Routing on
-const EVENTS = new Set(["first_open", "upgrade", "onboarded", "first_habit", "first_completion", "active"]);
+const EVENTS = new Set([
+  "first_open", "upgrade", "onboarded", "first_habit", "first_completion", "active",
+  // 3.11+: what people do, at most once a day each
+  "hold_started", "hold_cancelled", "tap_hint", "walkthrough_skipped", "walkthrough_done",
+  "reminders_on", "reminders_declined", "stats_opened", "widget_marked",
+]);
+const ACTIONS = ["hold_started", "hold_cancelled", "tap_hint", "walkthrough_skipped", "walkthrough_done",
+  "reminders_on", "reminders_declined", "stats_opened", "widget_marked"];
 const KINDS = new Set(["settings", "checkin"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -165,12 +172,37 @@ const COHORTS = `
   FROM events f WHERE f.event = 'first_open'
   GROUP BY week ORDER BY week DESC LIMIT 12`;
 
+// New installs in the last 14 days: how many did each thing, split by whether
+// they ever marked a habit done. Shows where the ones who never mark one stop.
+const ACTIONS_NEW = `
+  SELECT a.event AS event,
+    count(DISTINCT CASE WHEN c.install IS NOT NULL THEN a.install END) AS completed,
+    count(DISTINCT CASE WHEN c.install IS NULL THEN a.install END) AS never_completed
+  FROM events f
+  JOIN events a ON a.install = f.install
+  LEFT JOIN events c ON c.install = f.install AND c.event = 'first_completion'
+  WHERE f.event = 'first_open' AND julianday('now') - julianday(f.day) <= 14
+    AND a.event IN (${ACTIONS.map((e) => `'${e}'`).join(", ")})
+  GROUP BY a.event`;
+
+// Everyone on 3.11+, last 7 days: installs that did each thing at least once.
+const ACTIONS_ALL = `
+  SELECT event, count(DISTINCT install) AS installs FROM events
+  WHERE ts >= unixepoch() - 7 * 86400 AND version NOT LIKE '%-debug'
+    AND event IN (${ACTIONS.map((e) => `'${e}'`).join(", ")})
+  GROUP BY event`;
+
+const NEW_SPLIT = `
+  SELECT count(*) AS installs,
+    sum(EXISTS (SELECT 1 FROM events c WHERE c.install = f.install AND c.event = 'first_completion')) AS completed
+  FROM events f WHERE f.event = 'first_open' AND julianday('now') - julianday(f.day) <= 14`;
+
 async function report(request, env) {
   if (!env.REPORT_TOKEN || request.headers.get("authorization") !== `Bearer ${env.REPORT_TOKEN}`) {
     return json({ error: "unauthorized" }, 401);
   }
   const since = Number(new URL(request.url).searchParams.get("since")) || now() - 7 * 86400;
-  const [cohorts, active, feedbackRows, snaps] = await env.DB.batch([
+  const [cohorts, active, feedbackRows, snaps, actionsNew, actionsAll, newSplit] = await env.DB.batch([
     env.DB.prepare(COHORTS),
     env.DB.prepare(
       `SELECT
@@ -186,12 +218,16 @@ async function report(request, env) {
              GROUP BY install) latest
        ON s.install = latest.install AND s.day = latest.day`
     ),
+    env.DB.prepare(ACTIONS_NEW),
+    env.DB.prepare(ACTIONS_ALL),
+    env.DB.prepare(NEW_SPLIT),
   ]);
   return json({
     active_installs: active.results[0],
     cohorts: cohorts.results,
     feedback: feedbackRows.results,
     habit_stats: habitStats(snaps.results),
+    actions: { new_installs: newSplit.results[0], new: actionsNew.results, all_7d: actionsAll.results },
   });
 }
 

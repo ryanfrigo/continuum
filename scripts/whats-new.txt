@@ -1,3 +1,7 @@
-Fewer colours. 3.10 ran a habit through seven of them, dark red to pink, and a full home screen looked like a pack of highlighters. Now there are five: ember, amber, green, blue, deep blue. A perfect first month is still green; the deepest blue still takes about six months.
+Reminders on the days you pick. Cardio Monday, Wednesday and Friday; weights the other days. Someone asked for it on November 5.
 
-The icon matches.
+Fewer colours. 3.10 ran a habit through seven of them, dark red to pink, and a full home screen looked like a pack of highlighters. Now there are five: ember, amber, green, blue, deep blue. The icon matches.
+
+The celebrations stopped overselling. Seven days done spread over three weeks used to say "a week's worth". Now it says "in 19 days", and "every day so far" only when it was. A level shows your real number, not the line you crossed.
+
+On iOS 26, an optional Live Activity lists what's still open after 9 pm (Settings → Lock Screen).

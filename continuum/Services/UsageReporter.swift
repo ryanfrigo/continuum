@@ -2,8 +2,8 @@ import Foundation
 import UIKit
 
 /// Anonymous usage, so we can tell whether anyone gets past setup and comes
-/// back. What leaves the phone: a random install ID made here, one of six
-/// event names, the local date and the app version, plus once a day the
+/// back. What leaves the phone: a random install ID made here, one of the
+/// event names below, the local date and the app version, plus once a day the
 /// counts in `UsageSnapshot`. No habit names, nothing tied to a person.
 /// Settings has the off switch.
 enum UsageEvent: String, CaseIterable {
@@ -15,6 +15,19 @@ enum UsageEvent: String, CaseIterable {
     case firstCompletion = "first_completion"
     /// At most once a local day.
     case active
+
+    // What people do, each at most once a local day (`note`), so the funnel
+    // can show where a new user stops: pressed but let go early, tapped
+    // instead of holding, skipped the walkthrough.
+    case holdStarted = "hold_started"
+    case holdCancelled = "hold_cancelled"
+    case tapHint = "tap_hint"
+    case walkthroughSkipped = "walkthrough_skipped"
+    case walkthroughDone = "walkthrough_done"
+    case remindersOn = "reminders_on"
+    case remindersDeclined = "reminders_declined"
+    case statsOpened = "stats_opened"
+    case widgetMarked = "widget_marked"
 }
 
 /// Once a day: how many habits and how they're going, as plain numbers. No
@@ -186,6 +199,29 @@ final class UsageReporter {
             } else {
                 defaults.set((defaults.stringArray(forKey: "usageSent") ?? []) + [event.rawValue], forKey: "usageSent")
             }
+        }
+    }
+
+    /// Something the user did, sent at most once a local day per event.
+    func note(_ event: UsageEvent) {
+        guard Self.enabled else { return }
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["CONTINUUM_USAGE_DEBUG"] != nil else { return }
+        #endif
+        let today = ContinuumDay.todayKey()
+        let key = "usageNoted.\(event.rawValue)"
+        guard defaults.integer(forKey: key) != today, !inFlight.contains(event) else { return }
+        inFlight.insert(event)
+        let body: [String: String] = [
+            "install": installID,
+            "event": event.rawValue,
+            "day": UsagePlanner.dayString(today),
+            "version": Self.version,
+        ]
+        Task {
+            let ok = await Self.post("event", body)
+            inFlight.remove(event)
+            if ok { defaults.set(today, forKey: key) }
         }
     }
 
